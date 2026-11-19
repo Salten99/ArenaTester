@@ -54,7 +54,7 @@ func _ready() -> void:
 		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_mount", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_main_weapon_and_sidearm", "test_spyglass_bestiary_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throwing_knife", "test_myths", "test_pin_to_wall", "test_aiming", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_mount_stats", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_mount", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_main_weapon_and_sidearm", "test_spyglass_bestiary_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throwing_knife", "test_myths", "test_pin_to_wall", "test_aiming", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_mount_stats", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -3176,3 +3176,24 @@ func test_arena_textures() -> void:
 		and mat.get_shader_parameter("stone").resource_path == "res://textures/stone_masonry.png"
 		and mat.get_shader_parameter("grass_gain") != Vector3.ONE,
 		"the arena model wears the grass and stone pictures, each shading its own color")
+
+
+## The fantasy pivot (2026-11-19): full-resolution rendering, a golden-hour sky with haze and glow,
+## and motes of magic drifting over the floor.
+func test_arena_look() -> void:
+	check(not Engine.has_singleton("RetroLook") and get_tree().root.get_node_or_null("RetroLook") == null, "no retro pixel filter over the world")
+	var env: Environment = (_arena.find_children("*", "WorldEnvironment", true, false)[0] as WorldEnvironment).environment
+	check(env.fog_enabled and env.glow_enabled and env.ssao_enabled and env.tonemap_mode != Environment.TONE_MAPPER_LINEAR,
+		"the arena has haze, glow, ambient occlusion and a filmic tone map")
+	var motes: GPUParticles3D = _arena.get_node_or_null("Motes")
+	check(motes != null and motes.amount == GameData.tuning.arena_motes, "motes of magic drift over the arena (%d)" % (motes.amount if motes != null else 0))
+	var kept := GameData.tuning.arena_motes
+	GameData.tuning.arena_motes = 0
+	var bare := ARENA.instantiate()
+	bare.auto_start = false
+	add_child(bare)
+	await _frames(1)
+	check(bare.get_node_or_null("Motes") == null, "arena_motes 0 turns them off")
+	bare.queue_free()
+	GameData.tuning.arena_motes = kept
+	await _frames(1)

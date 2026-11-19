@@ -113,10 +113,62 @@ func _build_level() -> void:
 			(m as MeshInstance3D).material_override = ground
 	else:
 		_build_world()
+	_add_motes()
 	# Things to throw in the practice arena (combat feel plan, 2026-11-18).
 	for i in 8:
 		var a := TAU * i / 8.0
 		Throwable.make(Throwable.KINDS[i % 4], self, Vector3(cos(a), 0.0, sin(a)) * 9.0, a)
+
+
+## Glowing motes of magic drifting slowly up over the arena floor (arena_motes, arena_mote_color).
+func _add_motes() -> void:
+	var t: CombatTuning = GameData.tuning
+	if t.arena_motes <= 0:
+		return
+	var motes := GPUParticles3D.new()
+	motes.name = "Motes"
+	motes.amount = t.arena_motes
+	motes.lifetime = 9.0
+	motes.preprocess = 9.0  # already drifting when the fight opens
+	motes.visibility_aabb = AABB(Vector3(-40, -2, -40), Vector3(80, 16, 80))
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(32, 3, 32)
+	pm.direction = Vector3.UP
+	pm.spread = 60.0
+	pm.initial_velocity_min = 0.1
+	pm.initial_velocity_max = 0.5
+	pm.gravity = Vector3(0, 0.08, 0)
+	pm.turbulence_enabled = true
+	pm.turbulence_noise_strength = 0.6
+	pm.turbulence_noise_scale = 6.0
+	pm.scale_min = 0.5
+	pm.scale_max = 1.4
+	var fade := Gradient.new()  # fade in and out, so none pops
+	fade.set_color(0, Color(1, 1, 1, 0))
+	fade.add_point(0.2, Color(1, 1, 1, 1))
+	fade.add_point(0.8, Color(1, 1, 1, 1))
+	fade.set_color(fade.get_point_count() - 1, Color(1, 1, 1, 0))
+	var ramp := GradientTexture1D.new()
+	ramp.gradient = fade
+	pm.color_ramp = ramp
+	motes.process_material = pm
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.09, 0.09)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.vertex_color_use_as_albedo = true
+	mat.albedo_color = t.arena_mote_color
+	mat.emission_enabled = true
+	mat.emission = t.arena_mote_color
+	mat.emission_energy_multiplier = 4.0  # bright enough to bloom
+	quad.material = mat
+	motes.draw_pass_1 = quad
+	add_child(motes)
+	motes.position = Vector3(0, 3.5, 0)
 
 
 ## Starts play once everything exists.

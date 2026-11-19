@@ -324,7 +324,7 @@ extends Resource
 ## Trampled enemies are thrown only after this many seconds at a full gallop (user, 2026-11-05).
 @export_range(0.0, 10.0, 0.1) var mount_throw_after := 2.0
 
-@export_group("Battles")
+@export_group("Allies and mini bosses")
 ## Warriors fighting beside you are this much tougher than their sheet health (so they last the fight).
 @export_range(0.5, 10.0, 0.1) var ally_health_mult := 3.0
 ## ...and take only this fraction of damage (0.12 = 12%), so they last a whole fight.
@@ -449,3 +449,9 @@ extends Resource
 ## In a crowd bigger than this, only this many nearest you fight at full rate; the rest take turns
 ## (combat feel plan, 2026-11-18: 150 crushable minions at 60 fps).
 @export_range(10, 300) var crowd_full_fighters := 80
+
+@export_group("Arena look")
+## Glowing motes of magic drifting over the arena floor (fantasy pivot, 2026-11-19): how many are
+## in the air at once (0 = none), and their color.
+@export_range(0, 1000, 10) var arena_motes := 240
+@export var arena_mote_color := Color(1.0, 0.78, 0.4)
