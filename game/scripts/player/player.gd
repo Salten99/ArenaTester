@@ -440,7 +440,7 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 	if swimming:
 		_swim(delta, intent, move_dir)
 		return
-	if abilities.levitating():  # the Fire ultimate's column holds you up, eased toward its top
+	if abilities.levitating():  # the Fire ultimate's boot jets hold you up, eased toward its top
 		velocity = Vector3(0.0, (abilities.hover_y - global_position.y) * 10.0, 0.0)
 		_finish_move(delta)
 		velocity.y = 0.0  # you drop from rest when it lets go
@@ -659,11 +659,6 @@ func throw_off(impulse: Vector3) -> void:
 ## Where a shot from `from` should head to land on the crosshair (user, 2026-11-05: you aim,
 ## nothing aims for you). A shot that drops (`drop` m/s², arrows) at `speed` m/s is aimed that
 ## much higher, so it falls onto the point you picked.
-## What the crosshair is on (INF: nothing).
-func aim_point() -> Vector3:
-	return _crosshair
-
-
 func aim_direction(from: Vector3, speed := 0.0, drop := 0.0) -> Vector3:
 	if _crosshair == Vector3.INF or (_crosshair - from).length() < 0.5:
 		return facing
@@ -673,6 +668,11 @@ func aim_direction(from: Vector3, speed := 0.0, drop := 0.0) -> Vector3:
 		at += Vector3.UP * 0.5 * drop * t * t
 	var to := (at - from).normalized()
 	return to if to.dot(facing) > 0.1 else facing
+
+
+## What the crosshair is on (INF: nothing).
+func aim_point() -> Vector3:
+	return _crosshair
 
 
 ## How far the bow's shots are sure to hit what the crosshair is on (30 m).
