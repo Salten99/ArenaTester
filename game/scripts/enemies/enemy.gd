@@ -104,7 +104,7 @@ var model: CharacterModel
 # ---------------------------------------------------------------- arena tactics (user, 2026-11-19)
 # The endless arena turns these on (WaveDirector.tactics): a posture meter that breaks into a
 # grab finisher, shields, shooters that keep their distance, witches' ground circles and elements,
-# and the berserker's charge. Off everywhere else, so the valley's units fight as before.
+# and the charger's charge.
 var tactics := false
 var shielded := false  ## blocks light and heavy hits from the front; grab, chain, throws and hits from behind get through
 var element_status := ""  ## a witch's element: her circles carry it, and it bursts onto those near her when she dies
@@ -122,7 +122,7 @@ const POISE_RECOVERY := 25.0  ## per second, after POISE_REST
 const BREAK_TIME := 2.5
 const SHIELD_ARC := 0.35  ## a hit is "from the front" when the attacker is within this dot of where it faces
 const KITE_NEAR := 7.0  ## shooters back off when you come closer than this
-const CHARGER := "barb_berserker"
+const CHARGER := WaveDirector.TOUGH_UNIT  ## the minotaur
 const CHARGE_WIND := 0.8
 const CHARGE_SPEED := 17.0
 const CHARGE_TIME := 1.1

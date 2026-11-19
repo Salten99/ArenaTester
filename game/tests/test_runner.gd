@@ -54,7 +54,7 @@ func _ready() -> void:
 		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_mount", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_main_weapon_and_sidearm", "test_spyglass_bestiary_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throwing_knife", "test_myths", "test_pin_to_wall", "test_aiming", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_mount_stats", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_mount", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_main_weapon_and_sidearm", "test_spyglass_bestiary_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throwing_knife", "test_myths", "test_pin_to_wall", "test_aiming", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_mount_stats", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -667,6 +667,9 @@ func test_wave_and_godly_gift_flow() -> void:
 	for e in get_tree().get_nodes_in_group("enemies"):
 		Combat.deal(e, DamageInfo.make(9999.0, "Physical", DamageInfo.Kind.GODLY_GIFT, _arena.player))
 	await _frames(40)
+	while hud.is_choosing() and hud._offer_kind == "level":  # the wave's XP can bring a level-up first (it pauses the waves)
+		hud._pick(0)
+		await _frames(40)
 	check(hud.is_choosing(), "clearing the wave offers another godly_gift")
 	check(GameData.text(GameData.god("storm_god"), "display_name") in hud._choice_title.text, "second offer comes from the Storm Caller (Storm)")
 	hud._pick(0)
@@ -3196,4 +3199,21 @@ func test_arena_look() -> void:
 	check(bare.get_node_or_null("Motes") == null, "arena_motes 0 turns them off")
 	bare.queue_free()
 	GameData.tuning.arena_motes = kept
+	await _frames(1)
+
+
+## The fantasy pivot (2026-11-19): the endless arena fights mythical foes, each with a model.
+func test_mythical_roster() -> void:
+	var seen := {}
+	for w in 12:
+		for token in EndlessArena.wave_units(w):
+			seen[str(token).trim_suffix(WaveDirector.SHIELD_TAG)] = true
+	check(seen.keys().all(func(id): return not str(id).begins_with("barb_")), "no barbarians left in the waves (%s)" % ", ".join(seen.keys()))
+	for id in [WaveDirector.BASIC_UNIT, EndlessArena.SHOOTER, EndlessArena.CASTER, WaveDirector.TOUGH_UNIT, WaveDirector.LARGE_UNIT]:
+		check(seen.has(id) and not GameData.unit(id).is_empty() and EndlessArena.HITS_TO_KILL.has(id), "%s fights in the waves and has a row" % id)
+		var e: Enemy = _arena.waves.spawn(id, _arena.player.global_position + Vector3(0, 0, -10))
+		await _frames(1)
+		check(e.model != null, "%s has a model" % id)
+		e.queue_free()
+	check(Enemy.CHARGER == WaveDirector.TOUGH_UNIT and GameData.text(GameData.unit(EndlessArena.CASTER), "role") == "Magic", "the minotaur charges and the gorgon casts")
 	await _frames(1)

@@ -201,10 +201,11 @@ func crush() -> void:
 		head = e.model.head_position(head)
 	Combat.deal(e, info)
 	player.screen_flash(Color(0.75, 0.0, 0.0, 0.45))  # one red frame over the screen, then the burst
+	# The head goes (user, 2026-11-19), a skeleton's skull too.
+	if e.get("model") != null and e.model.has_method("pop_head"):
+		e.model.pop_head()
 	if e.bleeds():
-		# The head goes (user, 2026-11-19): a fountain from the neck, a red cloud, the ground soaked all round.
-		if e.get("model") != null and e.model.has_method("pop_head"):
-			e.model.pop_head()
+		# A fountain from the neck, a red cloud, the ground soaked all round.
 		Vfx.blood(head, Vector3.UP, t.blood_kill_drops * CRUSH_BLOOD)
 		Vfx.blood(head, player.facing + Vector3.UP, t.blood_kill_drops * 2)
 		Vfx.burst(head, 1.1, Color(0.6, 0.0, 0.0, 0.85), 0.2)

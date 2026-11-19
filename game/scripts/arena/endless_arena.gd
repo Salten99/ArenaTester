@@ -1,7 +1,7 @@
 class_name EndlessArena
 extends Arena
-## Endless survival, as a combat test ground: small waves of fighters, shooters and casters,
-## each wave a little bigger, until you fall. Your score is the wave and the kills. No godly
+## Endless survival against mythical foes: skeleton warriors and archers, gorgons, minotaurs and
+## cyclopes, each wave a little bigger, until you fall. Your score is the wave and the kills. No godly
 ## gifts and no level-ups: you fight with your weapon and element as they are.
 ## Everything else (the player, combat, the gladiator arena, the things to throw) is Arena's.
 
@@ -9,23 +9,23 @@ extends Arena
 const START_SIZE := 4
 const GROWTH := 1
 const MAX_SIZE := 12
-## Every third enemy shoots (a slinger); from the third wave one of them casts instead (a witch).
-const SHOOTER := "barb_slinger"
-const CASTER := "barb_hedge_witch"
+## Every third enemy shoots (a skeleton archer); from the third wave one of them casts instead (a gorgon).
+const SHOOTER := "horde_skeleton_archer"
+const CASTER := "monster_gorgon"
 const CASTER_FROM := 2
-## From this wave on, every fifth enemy is a tough one.
+## From this wave on, every fifth enemy is a tough one (a minotaur, who charges).
 const TOUGH_FROM := 3
-## Every this many waves, a large one joins.
+## Every this many waves, a large one joins (a cyclops).
 const LARGE_EVERY := 4
 ## Your light hits it takes to kill each kind (user, 2026-11-19: 3-4 hits for the common ones).
 ## Health comes from your light hit at the start, so every weapon needs about the same count.
-const HITS_TO_KILL := {"barb_raider": 3.5, SHOOTER: 3.0, CASTER: 3.0, "barb_berserker": 6.0, "barb_warlord": 18.0}
+const HITS_TO_KILL := {WaveDirector.BASIC_UNIT: 3.5, SHOOTER: 3.0, CASTER: 3.0, WaveDirector.TOUGH_UNIT: 6.0, WaveDirector.LARGE_UNIT: 18.0}
 ## Fighters that may close in on you at once (the tuning's max_attackers is 3); the rest circle and
 ## wait their turn (user, 2026-11-19: FightQuest's pacing, one foe at a time). Shooters take turns apart.
 const ATTACKERS := 1
 ## Enemies on the field at once: a wave walks in this many at a time, the rest as they fall.
 const ON_FIELD := 4
-## From the second wave, the second raider of every four carries a shield.
+## From the second wave, the second skeleton warrior of every four carries a shield.
 const SHIELD_FROM := 1
 ## The arena's pace (user, 2026-11-19: "a little faster combat"): quicker swings and feet, stamina back sooner.
 const PACE := {"attack_speed_pct": 20.0, "move_speed_pct": 10.0, "stamina_regen_pct": 25.0}
@@ -50,7 +50,7 @@ static func wave_units(index: int) -> Array:
 	for i in count:
 		if i % 3 == 2:
 			units.append(CASTER if cast else SHOOTER)
-			cast = false  # one caster a wave; the other ranged slots stay slingers
+			cast = false  # one caster a wave; the other ranged slots stay archers
 		elif index >= TOUGH_FROM and i % 5 == 4:
 			units.append(WaveDirector.TOUGH_UNIT)
 		elif index >= SHIELD_FROM and i % 4 == 1:

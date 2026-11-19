@@ -53,7 +53,7 @@ LMB light combo  ·  RMB heavy slam
 Q special  ·  E movement  ·  R ultimate  ·  V race skill  ·  G throwing knife  ·  C or wheel: sidearm  ·  Z spyglass  ·  T first person
 P god mode  ·  X ride your mount  ·  1/2/3 pick a godly gift  ·  Esc menu
 
-Debug:  F1 this help  ·  F2 spawn 10 raiders  ·  F3 spawn a warlord  ·  F4 random godly gift
+Debug:  F1 this help  ·  F2 spawn 10 skeletons  ·  F3 spawn a cyclops  ·  F4 random godly gift
 F5 combo kit (Fire and Lightning godly gifts and their duo godly gift)
 F6 god mode (fly: Space / Ctrl)  ·  F7 kill all  ·  F8 skip to next wave  ·  F9 restart
 F11 playtest numbers (deaths, kills, frame time; deaths also logged to playtest_log.txt)"""

@@ -7,10 +7,10 @@ signal wave_started(index: int, total: int)
 signal wave_cleared(index: int)
 signal all_waves_cleared
 
-## Unit ids from the sheets.
-const BASIC_UNIT := "barb_raider"
-const TOUGH_UNIT := "barb_berserker"
-const LARGE_UNIT := "barb_warlord"
+## Unit ids from the sheets: the arena's mythical roster (fantasy pivot, 2026-11-19).
+const BASIC_UNIT := "horde_skeleton_warrior"
+const TOUGH_UNIT := "minotaur_labrys_warrior"
+const LARGE_UNIT := "monster_cyclops"
 ## At most this many reinforcements join every quarter second, so they come in a stream, not a heap.
 const REINFORCE_PER_CHECK := 3
 
@@ -36,7 +36,7 @@ var reserve: Array = []
 ## Reinforcements wait while this many fight (0 = the tuning's battle_size).
 var battle_size := 0
 ## Arena tactics (the endless arena): hostile units get Enemy.tactics, a "#shield" token a shield,
-## and a witch one of WITCH_ELEMENTS.
+## and a caster (role Magic) one of WITCH_ELEMENTS.
 var tactics := false
 const SHIELD_TAG := "#shield"
 const WITCH_ELEMENTS := ["fire", "ice", "poison", "water"]
@@ -81,7 +81,7 @@ func next_wave() -> void:
 
 ## `token` is a unit id.
 func spawn(token: String, near: Vector3 = Vector3.INF, team := Enemy.Team.HOSTILE) -> Enemy:
-	var shield := token.ends_with(SHIELD_TAG)  # "barb_raider#shield": a raider with a shield (arena tactics)
+	var shield := token.ends_with(SHIELD_TAG)  # "horde_skeleton_warrior#shield": one with a shield (arena tactics)
 	token = token.trim_suffix(SHIELD_TAG)
 	var e := Enemy.new()
 	e.setup(token, player, director, team)
@@ -98,7 +98,7 @@ func spawn(token: String, near: Vector3 = Vector3.INF, team := Enemy.Team.HOSTIL
 			e.health.setup(hit_damage * float(hits_to_kill[token]))
 		if e.shielded and e.model != null:
 			e.model.set_offhand(ModelRegistry.own(Player.SHIELD))
-		if e.element_status != "":  # a witch wears her element
+		if e.element_status != "":  # a caster wears her element
 			var aura := ElementFx.aura(GameData.text(GameData.status(e.element_status), "damage_type", "Physical"), 0.7)
 			if aura != null:
 				e.add_child(aura)
