@@ -86,6 +86,9 @@ func _cast_now(slot: String, a: Dictionary, player: Node, dir: Vector3, at: Vect
 		var spot: Vector3 = at
 		if spot == Vector3.INF:  # not aimed: ahead (ranged ones) or where you stand
 			spot = player.global_position + dir * reach if reach > 0.0 and radius > 0.0 else player.global_position
+		if GameData.text(a, "damage_type") == "Fire" and radius > 0.0:
+			_twin_meteors(a, player, spot, radius)
+			return true
 		var yours := ElementFx.own_scene(GameData.text(a, "ability_id")) != null  # your scene plays the strike
 		UltimateFx.play(GameData.text(a, "damage_type", "Physical"), spot, ultimate_radius(), not yours)
 		var land := get_tree().create_timer(UltimateFx.impact_time(), false).timeout
@@ -107,6 +110,24 @@ func _cast_now(slot: String, a: Dictionary, player: Node, dir: Vector3, at: Vect
 	else:
 		_multi_hit(a, player, dir)
 	return true
+
+
+## The Fire ultimate (user, 2026-11-19): a magic circle opens diagonally above each shoulder, and a
+## fast meteor shoots from each toward the aimed spot; each bursts where it lands, side by side.
+func _twin_meteors(a: Dictionary, player: Node, spot: Vector3, radius: float) -> void:
+	var t: CombatTuning = GameData.tuning
+	var from: Vector3 = player.global_position
+	var flat := Vector3(spot.x - from.x, 0.0, spot.z - from.z)
+	var ahead: Vector3 = flat.normalized() if flat.length() > 0.5 else player.facing
+	var right := ahead.cross(Vector3.UP).normalized()
+	var each := a.duplicate()
+	each["base_damage"] = GameData.num(a, "base_damage") * t.ult_meteor_share
+	for s in [-1.0, 1.0]:
+		var circle_at: Vector3 = from + Vector3.UP * t.ult_shoulder_height + right * s * t.ult_shoulder_out
+		var land: Vector3 = spot + right * s * t.ult_meteor_spread
+		var fly := circle_at.distance_to(land) / t.ult_meteor_speed
+		UltimateFx.shoulder_meteor(circle_at, land, t.ult_meteor_delay, fly)
+		get_tree().create_timer(t.ult_meteor_delay + fly, false).timeout.connect(_blast.bind(each, player, land, radius * t.ult_meteor_radius))
 
 
 func _leap(a: Dictionary, player: Node, dir: Vector3, reach: float, radius: float) -> void:

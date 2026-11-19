@@ -182,6 +182,20 @@ extends Resource
 @export_range(1, 30) var ult_storm_strikes := 7
 ## Stone: how many rock shards rain down.
 @export_range(1, 80) var ult_shard_count := 26
+## Fire (user, 2026-11-19): instead of one circle in the sky, a circle opens diagonally above each
+## shoulder, this high over you (m), this far out to the side (m) and this big (radius, m); after
+## this long (s) a meteor shoots from each at this speed (m/s) toward where you aimed, landing this
+## far apart to each side (m). Each meteor deals this much of the ultimate's damage, over this much
+## of its blast radius.
+@export_range(1.0, 5.0, 0.1) var ult_shoulder_height := 2.4
+@export_range(0.3, 3.0, 0.05) var ult_shoulder_out := 1.1
+@export_range(0.2, 3.0, 0.05) var ult_shoulder_circle := 0.8
+@export_range(0.0, 2.0, 0.05) var ult_meteor_delay := 0.35
+@export_range(5.0, 150.0, 1.0) var ult_meteor_speed := 45.0
+@export_range(0.0, 6.0, 0.1) var ult_meteor_spread := 1.5
+@export_range(0.1, 1.0, 0.05) var ult_meteor_share := 0.6
+@export_range(0.1, 1.5, 0.05) var ult_meteor_radius := 0.6
+
 
 @export_group("Stone eruption")
 ## The Stone special (user, 2026-11-16): a magic circle on the aimed ground, then spikes erupt from it.
