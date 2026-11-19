@@ -53,7 +53,7 @@ func _ready() -> void:
 		"test_data_loads", "test_data_is_consistent", "test_rng_is_deterministic", "test_damage_pipeline",
 		"test_fire_ticks", "test_godly_gift_offer_and_duo", "test_unbuilt_content_is_hidden", "test_first_fight_and_playtest_numbers", "test_god_pick_and_class_sidearm", "test_run_opens_with_camp_raid", "test_dodge_iframes", "test_guardian_parry",
 		"test_searing_strikes_ignites_slam", "test_thunderforged_combo", "test_attack_tokens",
-		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_wall_occluders", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_twin_meteors", "test_stone_eruption", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
+		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_wall_occluders", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_valley_generation", "test_evil_tribe_clock", "test_diplomacy", "test_encounters",
 		"test_level_ups", "test_one_god_per_race", "test_save_round_trip", "test_meta_unlocks",
@@ -515,7 +515,7 @@ func test_aimed_ultimate() -> void:
 func test_ultimate_circles() -> void:
 	var p: Player = _arena.player
 	var kept: Dictionary = p.abilities.defs
-	for god in ["storm_god", "snow_god", "animal_god", "sun_god"]:  # Fire has its own: test_fire_twin_meteors
+	for god in ["storm_god", "snow_god", "animal_god", "sun_god"]:  # Fire has its own: test_fire_ultimate
 		p.abilities.load_for(god)
 		if god == "sun_god":  # shelved (GameData.SHELVED_GODS): its sheet row by hand
 			p.abilities.defs = {"Ultimate": {"ability_id": "sun_high_noon", "slot": "Ultimate", "damage_type": "Light", "base_damage": 120, "radius_m": 8, "status_effect": "light"}}
@@ -541,10 +541,10 @@ func test_ultimate_circles() -> void:
 	check(get_tree().get_nodes_in_group("magic_circle").is_empty(), "the circles close afterwards")
 
 
-## The Fire ultimate (user, 2026-11-19): a fire column lifts you ult_lift_height up, three magic
-## circles open around you (each shoulder, over your head) and a fast meteor shoots from each toward
-## the aimed spot, hurting what's there when they land; then you come back down.
-func test_fire_twin_meteors() -> void:
+## The Fire ultimate (user, 2026-11-19): boot jets lift you ult_lift_height up, three magic circles
+## open around your head and each fires a giant Fire Lance beam at the aimed spot, hurting what's
+## there; then you come back down.
+func test_fire_ultimate() -> void:
 	var p: Player = _arena.player
 	var kept: Dictionary = p.abilities.defs
 	p.abilities.load_for("forge_god")

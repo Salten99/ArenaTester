@@ -104,7 +104,7 @@ func _cast_now(slot: String, a: Dictionary, player: Node, dir: Vector3, at: Vect
 		if spot == Vector3.INF:  # not aimed: ahead (ranged ones) or where you stand
 			spot = player.global_position + dir * reach if reach > 0.0 and radius > 0.0 else player.global_position
 		if GameData.text(a, "damage_type") == "Fire" and radius > 0.0:
-			_twin_meteors(a, player, spot, radius)
+			_fire_ultimate(a, player, spot, radius)
 			return true
 		var yours := ElementFx.own_scene(GameData.text(a, "ability_id")) != null  # your scene plays the strike
 		UltimateFx.play(GameData.text(a, "damage_type", "Physical"), spot, ultimate_radius(), not yours)
@@ -132,7 +132,7 @@ func _cast_now(slot: String, a: Dictionary, player: Node, dir: Vector3, at: Vect
 ## The Fire ultimate (user, 2026-11-19): Fire Lance jets blast down from your boots and lift you
 ## ult_lift_height up; there three magic circles open around your head, facing the aimed spot, and
 ## each fires a gigantic Fire Lance beam at it for ult_beam_time. You drop when they end.
-func _twin_meteors(a: Dictionary, player: Node, spot: Vector3, radius: float) -> void:
+func _fire_ultimate(a: Dictionary, player: Node, spot: Vector3, radius: float) -> void:
 	var t: CombatTuning = GameData.tuning
 	var feet: Vector3 = player.global_position
 	hover_y = feet.y + t.ult_lift_height
@@ -162,7 +162,7 @@ func _circles_from_above(a: Dictionary, player: Node, spot: Vector3, radius: flo
 		var circle_at: Vector3 = head + (right * s if s != 0.0 else Vector3.UP) * t.ult_circle_around
 		var side: Vector3 = right * s * t.ult_beam_spread
 		var wait := t.ult_beam_delay + t.ult_beam_gap * i
-		var circle := UltimateFx.circle("Fire", circle_at, (spot + side - circle_at).normalized(), t.ult_shoulder_circle, wait + t.ult_beam_time)
+		var circle := UltimateFx.circle("Fire", circle_at, (spot + side - circle_at).normalized(), t.ult_circle_size, wait + t.ult_beam_time)
 		get_tree().create_timer(wait, false).timeout.connect(_ult_beam.bind(each, player, circle_at, spot, side, radius, circle))
 
 
@@ -299,7 +299,7 @@ func _lance(a: Dictionary, player: Node, dir: Vector3, reach: float, half_width:
 	var circle := UltimateFx.circle(GameData.text(a, "damage_type", "Fire"), _brow(player, dir), dir,
 		t.lance_circle_diameter * 0.5, LUNGE_TIME + t.lance_beam_time)
 	_beam = {"a": a, "player": player, "reach": reach, "width": maxf(half_width, 0.5), "circle": circle,
-		"fx": null, "on": false, "left": t.lance_beam_time, "hit": {}}
+		"fx": null, "on": false, "left": t.lance_beam_time, "hit": {}, "spin": 0.0}
 	var tw := create_tween()
 	tw.tween_method(_leap_step.bind(player, start, start + dir * lunge, 0.0), 0.0, 1.0, LUNGE_TIME)
 	tw.tween_callback(_start_beam)
@@ -320,14 +320,13 @@ func _start_beam() -> void:
 	invulnerable = false
 	if _beam.is_empty() or not is_instance_valid(_beam.player):
 		return
+	var t: CombatTuning = GameData.tuning
 	var b := _beam
 	b.on = true
 	var player: Node = b.player
 	var dir: Vector3 = player.facing
-	var from := _brow(player, dir)
-	b.fx = _lance_fx(GameData.text(b.a, "ability_id"), from, dir, b.reach, b.width, GameData.tuning.lance_beam_time)
+	b.fx = _lance_fx(GameData.text(b.a, "ability_id"), _brow(player, dir), dir, b.reach, b.width, t.lance_beam_time)
 	_update_beam(0.0)
-	var t: CombatTuning = GameData.tuning
 	Combat.shake(t.shake_explosion)
 	HitStop.trigger(t.hitstop_light)
 
@@ -340,7 +339,7 @@ func _update_beam(delta: float) -> void:
 	var circle: Node3D = b.circle if is_instance_valid(b.circle) else null
 	if b.on:
 		b.left -= delta
-		b.spin = float(b.get("spin", 0.0)) + deg_to_rad(GameData.tuning.lance_circle_beam_spin) * delta  # it whirls while firing
+		b.spin += deg_to_rad(GameData.tuning.lance_circle_beam_spin) * delta  # it whirls while firing
 	if b.left <= 0.0 or not is_instance_valid(player) or player.is_dead():
 		for n in [fx, circle]:
 			if n != null:
@@ -351,7 +350,7 @@ func _update_beam(delta: float) -> void:
 	var from := _brow(player, dir)
 	if circle != null:
 		circle.global_position = from
-		circle.quaternion = Quaternion(Vector3.UP, dir) * Quaternion(Vector3.UP, float(b.get("spin", 0.0)))
+		circle.quaternion = Quaternion(Vector3.UP, dir) * Quaternion(Vector3.UP, b.spin)
 	if not b.on:
 		return
 	if fx != null and absf(dir.y) < 0.99:
@@ -407,13 +406,13 @@ func _tip(player: Node, dir: Vector3) -> Vector3:
 	return tip.global_position if tip != null else player.global_position + Vector3.UP * 1.2 + dir * 0.6
 
 
-func _cone(a: Dictionary, player: Node, dir: Vector3, reach: float, half_width: float, flame_shown := false) -> void:
+func _cone(a: Dictionary, player: Node, dir: Vector3, reach: float, half_width: float) -> void:
 	invulnerable = false
 	if not is_instance_valid(player) or player.is_dead():
 		return
 	var from: Vector3 = player.global_position
 	var tip := _tip(player, dir)
-	if not flame_shown and ElementFx.play_own(GameData.text(a, "ability_id"), tip, reach / LANCE_FX_LENGTH, dir) == null:
+	if ElementFx.play_own(GameData.text(a, "ability_id"), tip, reach / LANCE_FX_LENGTH, dir) == null:
 		ElementFx.beam(GameData.text(a, "damage_type", "Physical"), tip, tip + dir * reach)
 	var cos_max := cos(atan2(maxf(half_width, 0.5), reach))
 	Breakable.smash_line(get_tree(), from, dir, reach, maxf(half_width, 0.5) * 0.6)

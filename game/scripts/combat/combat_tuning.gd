@@ -195,7 +195,7 @@ extends Resource
 ## long (s), is this wide each side (m) and deals this much of the ultimate's damage to each enemy it
 ## touches.
 @export_range(0.5, 5.0, 0.1) var ult_circle_around := 2.0
-@export_range(0.2, 4.0, 0.05) var ult_shoulder_circle := 1.6
+@export_range(0.2, 4.0, 0.05) var ult_circle_size := 1.6
 @export_range(0.0, 2.0, 0.05) var ult_beam_delay := 0.35
 @export_range(0.0, 1.0, 0.05) var ult_beam_gap := 0.15
 @export_range(0.0, 6.0, 0.1) var ult_beam_spread := 1.5

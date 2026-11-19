@@ -9,11 +9,11 @@ extends RefCounted
 ##   - right click: rip it to you into a kick (a heavy hit that launches it);
 ##   - flick the mouse down: yank it up and slam it down, a burst where it lands;
 ##   - sweep the mouse sideways: swing it around you, hitting all it sweeps; let go to fling it;
-##   - let go without swinging: the chain lets go and it drops.
+##   - let go without swinging: the chain lets go and it drops;
+##   - walk away from it: the chain goes taut and drags it limp along the ground, hurting it as it goes.
+## What you pull in knocks enemies in its path aside (chain_plow_knockback).
 ## On a Large unit or boss the chain holds fast; right click (or the wheel) pulls you to it for a drop kick (a heavy):
 ## it's launched only if the kick kills it, else it slides back on its feet (chain_kick_push).
-
-##   - walk away from it: the chain goes taut and drags it limp along the ground, hurting it as it goes.
 enum Mode { OFF, FLYING, HOOKED, REEL, SLAM, SWING, PULL, KICK, YANK, DRAG, ANCHOR }
 const YANK_TIME := 0.22  ## s for a yanked minion to fly into your blow
 const WALL_SLAM_DAMAGE := 1.4  ## swinging it into a wall: x a heavy hit

@@ -867,6 +867,8 @@ func _punch_apart(e: Enemy) -> void:
 	if e.bleeds():
 		Vfx.blood(at, facing, t.blood_kill_drops * 3)
 		Vfx.blood_stains(e.global_position, facing, t.blood_stains_per_hit * 2, 1.6)
+
+
 var _light_hold := -1.0  ## seconds light attack has been held since its press (a grab?), -1 = not waiting
 
 
@@ -980,7 +982,7 @@ func hit_targets(targets: Array, base: float, kind: DamageInfo.Kind, knockback: 
 		hitstop: float, shake: float, events: Array, impact: Vector3, damage_type := "Physical", explosive := false, god_blast := true, launch := true) -> void:
 	if kind == DamageInfo.Kind.HEAVY:  # a charged heavy hits harder and knocks farther (user, 2026-11-05)
 		knockback *= 1.0 + heavy_charge * GameData.tuning.heavy_charge_knockback
-		if damage_type == "Physical" and god_blast:  # not for thrown bodies and items (user, 2026-11-19)  # your god's explosion where a weapon heavy lands, hit or miss (user, 2026-11-08); a spell's has its own
+		if damage_type == "Physical" and god_blast:  # your god's explosion where a weapon heavy lands, hit or miss (user, 2026-11-08); not for spells, thrown bodies or items (2026-11-19)
 			ElementFx.area(element(), impact, 2.0)  # yours (fire_explosion.tscn ...) as built, else a burst in its color
 	var landed: Array = []
 	for e in targets:
