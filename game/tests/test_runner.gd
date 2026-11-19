@@ -866,12 +866,12 @@ func test_fire_lance() -> void:
 	check(GameData.text(p.abilities.defs.Movement, "ability_id") == "forge_fire_lance", "the forge god's Movement is Fire Lance")
 	var start := p.global_position
 	var ahead: Array = []
-	for z in [-6.0, -9.0, -12.0]:  # in a line, within the 10 m beam (user, 2026-11-19)
+	for z in [-6.0, -20.0, -45.0]:  # in a line, within the 50 m beam (user, 2026-11-19)
 		var e: Enemy = _arena.waves.spawn("barb_warlord")
 		e.global_position = start + Vector3(0, 0, z)
 		ahead.append(e)
 	var far: Enemy = _arena.waves.spawn("barb_warlord")
-	far.global_position = start + Vector3(0, 0, -17.0)
+	far.global_position = start + Vector3(0, 0, -60.0)
 	var behind: Enemy = _arena.waves.spawn("barb_warlord")
 	behind.global_position = start + Vector3(0, 0, 3.0)
 	var beside: Enemy = _arena.waves.spawn("barb_warlord")
@@ -885,12 +885,13 @@ func test_fire_lance() -> void:
 	check(hurt == 3, "the lance hits all 3 enemies ahead hard (got %d)" % hurt)
 	check(ahead.filter(func(e): return e.statuses.has("fire")).size() == 3, "and sets them on Fire")
 	check(behind.health.hp == behind.health.max_hp and beside.health.hp == beside.health.max_hp, "enemies behind and beside you are untouched")
-	check(far.health.hp == far.health.max_hp, "nor one past the beam's 10 m")
+	check(far.health.hp == far.health.max_hp, "nor one past the beam's 50 m")
 	var head: Vector3 = p.visual.head_position(Vector3.INF)
 	var circles := get_tree().get_nodes_in_group("magic_circle").filter(func(c): return c.global_position.distance_to(head) < 0.8)
 	check(circles.size() == 1 and absf(circles[0].scale.x - 0.5) < 0.05, "the beam fires from a 1 m magic circle before your brow (user, 2026-11-19)")
 	# The beam stays on and follows your aim (user, 2026-11-19): turn right and it sweeps onto the one beside.
 	check(p.abilities.beaming() and p.state == Player.State.CAST, "the beam stays on a moment, and you keep casting")
+	check(float(p.abilities._beam.get("spin", 0.0)) > 0.5, "the circle whirls faster while the beam fires (user, 2026-11-19)")
 	s.aim_yaw = -PI / 2.0
 	await _frames(20)
 	check(p.facing.x > 0.9, "your body turns with your aim while it's on")

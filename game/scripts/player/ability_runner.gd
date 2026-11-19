@@ -280,6 +280,7 @@ func _update_beam(delta: float) -> void:
 	var circle: Node3D = b.circle if is_instance_valid(b.circle) else null
 	if b.on:
 		b.left -= delta
+		b.spin = float(b.get("spin", 0.0)) + deg_to_rad(GameData.tuning.lance_circle_beam_spin) * delta  # it whirls while firing
 	if b.left <= 0.0 or not is_instance_valid(player) or player.is_dead():
 		for n in [fx, circle]:
 			if n != null:
@@ -290,7 +291,7 @@ func _update_beam(delta: float) -> void:
 	var from := _brow(player, dir)
 	if circle != null:
 		circle.global_position = from
-		circle.quaternion = Quaternion(Vector3.UP, dir)
+		circle.quaternion = Quaternion(Vector3.UP, dir) * Quaternion(Vector3.UP, float(b.get("spin", 0.0)))
 	if not b.on:
 		return
 	if fx != null and absf(dir.y) < 0.99:

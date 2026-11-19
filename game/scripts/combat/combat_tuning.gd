@@ -158,6 +158,8 @@ extends Resource
 @export_range(0.1, 3.0, 0.05) var lance_beam_time := 0.8
 @export_range(0.2, 3.0, 0.05) var lance_circle_diameter := 1.0
 @export_range(0.0, 1.5, 0.05) var lance_circle_ahead := 0.4
+## How much faster the circle spins while the beam fires (degrees a second, on top of its own turn; user, 2026-11-19).
+@export_range(0.0, 2000.0, 10.0) var lance_circle_beam_spin := 540.0
 
 @export_group("Ultimate magic circle")
 ## Every Ultimate (user, 2026-11-10): you raise your weapon, a magic circle opens in the sky over
