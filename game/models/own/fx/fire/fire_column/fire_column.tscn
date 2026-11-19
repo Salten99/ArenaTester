@@ -1,0 +1,142 @@
+[gd_scene format=3]
+
+[ext_resource type="Texture2D" path="res://models/own/fx/fire/fire_column/fire_column_atlas.png" id="atlas"]
+
+[sub_resource type="AtlasTexture" id="col_0"]
+atlas = ExtResource("atlas")
+region = Rect2(0, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_1"]
+atlas = ExtResource("atlas")
+region = Rect2(33, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_2"]
+atlas = ExtResource("atlas")
+region = Rect2(66, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_3"]
+atlas = ExtResource("atlas")
+region = Rect2(99, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_4"]
+atlas = ExtResource("atlas")
+region = Rect2(132, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_5"]
+atlas = ExtResource("atlas")
+region = Rect2(165, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_6"]
+atlas = ExtResource("atlas")
+region = Rect2(198, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_7"]
+atlas = ExtResource("atlas")
+region = Rect2(231, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_8"]
+atlas = ExtResource("atlas")
+region = Rect2(264, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_9"]
+atlas = ExtResource("atlas")
+region = Rect2(297, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_10"]
+atlas = ExtResource("atlas")
+region = Rect2(330, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_11"]
+atlas = ExtResource("atlas")
+region = Rect2(363, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_12"]
+atlas = ExtResource("atlas")
+region = Rect2(396, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_13"]
+atlas = ExtResource("atlas")
+region = Rect2(429, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_14"]
+atlas = ExtResource("atlas")
+region = Rect2(462, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_15"]
+atlas = ExtResource("atlas")
+region = Rect2(495, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_16"]
+atlas = ExtResource("atlas")
+region = Rect2(528, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_17"]
+atlas = ExtResource("atlas")
+region = Rect2(561, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_18"]
+atlas = ExtResource("atlas")
+region = Rect2(594, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_19"]
+atlas = ExtResource("atlas")
+region = Rect2(627, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_20"]
+atlas = ExtResource("atlas")
+region = Rect2(660, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_21"]
+atlas = ExtResource("atlas")
+region = Rect2(693, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_22"]
+atlas = ExtResource("atlas")
+region = Rect2(726, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_23"]
+atlas = ExtResource("atlas")
+region = Rect2(759, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_24"]
+atlas = ExtResource("atlas")
+region = Rect2(792, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_25"]
+atlas = ExtResource("atlas")
+region = Rect2(825, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_26"]
+atlas = ExtResource("atlas")
+region = Rect2(858, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_27"]
+atlas = ExtResource("atlas")
+region = Rect2(891, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_28"]
+atlas = ExtResource("atlas")
+region = Rect2(924, 0, 33, 63)
+
+[sub_resource type="AtlasTexture" id="col_29"]
+atlas = ExtResource("atlas")
+region = Rect2(957, 0, 33, 63)
+
+[sub_resource type="SpriteFrames" id="frames"]
+animations = [{
+"frames": [{"duration": 1.0, "texture": SubResource("col_0")}, {"duration": 1.0, "texture": SubResource("col_1")}, {"duration": 1.0, "texture": SubResource("col_2")}, {"duration": 1.0, "texture": SubResource("col_3")}, {"duration": 1.0, "texture": SubResource("col_4")}, {"duration": 1.0, "texture": SubResource("col_5")}, {"duration": 1.0, "texture": SubResource("col_6")}, {"duration": 1.0, "texture": SubResource("col_7")}, {"duration": 1.0, "texture": SubResource("col_8")}, {"duration": 1.0, "texture": SubResource("col_9")}, {"duration": 1.0, "texture": SubResource("col_10")}, {"duration": 1.0, "texture": SubResource("col_11")}, {"duration": 1.0, "texture": SubResource("col_12")}, {"duration": 1.0, "texture": SubResource("col_13")}, {"duration": 1.0, "texture": SubResource("col_14")}, {"duration": 1.0, "texture": SubResource("col_15")}, {"duration": 1.0, "texture": SubResource("col_16")}, {"duration": 1.0, "texture": SubResource("col_17")}, {"duration": 1.0, "texture": SubResource("col_18")}, {"duration": 1.0, "texture": SubResource("col_19")}, {"duration": 1.0, "texture": SubResource("col_20")}, {"duration": 1.0, "texture": SubResource("col_21")}, {"duration": 1.0, "texture": SubResource("col_22")}, {"duration": 1.0, "texture": SubResource("col_23")}, {"duration": 1.0, "texture": SubResource("col_24")}, {"duration": 1.0, "texture": SubResource("col_25")}, {"duration": 1.0, "texture": SubResource("col_26")}, {"duration": 1.0, "texture": SubResource("col_27")}, {"duration": 1.0, "texture": SubResource("col_28")}, {"duration": 1.0, "texture": SubResource("col_29")}],
+"loop": true,
+"name": &"default",
+"speed": 30.0
+}]
+
+[node name="fire_column" type="Node3D"]
+
+[node name="Flame" type="AnimatedSprite3D" parent="."]
+centered = false
+offset = Vector2(-16.5, 0)
+pixel_size = 0.05
+billboard = 2
+texture_filter = 0
+sprite_frames = SubResource("frames")
+autoplay = "default"

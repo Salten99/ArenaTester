@@ -1,0 +1,37 @@
+[gd_scene format=3 uid="uid://c8gladarena01"]
+
+[ext_resource type="PackedScene" path="res://models/gen/world/arena.glb" id="1_arena"]
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_oein3"]
+sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
+ground_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
+
+[sub_resource type="Sky" id="Sky_u3p1o"]
+sky_material = SubResource("ProceduralSkyMaterial_oein3")
+
+[sub_resource type="Environment" id="Environment_s6hhk"]
+background_mode = 2
+sky = SubResource("Sky_u3p1o")
+glow_enabled = true
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dhub7"]
+albedo_color = Color(0.6, 0.52, 0.4, 1)
+roughness = 0.95
+metallic_specular = 0.2
+
+[node name="GladiatorArena" type="Node3D" unique_id=692694396]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=622041368]
+transform = Transform3D(-0.8660254, -0.43301278, 0.25, 0, 0.49999997, 0.86602545, -0.50000006, 0.75, -0.43301266, 0, 0, 0)
+shadow_enabled = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1254067165]
+environment = SubResource("Environment_s6hhk")
+
+[node name="arena" parent="." instance=ExtResource("1_arena")]
+[node name="CSGCylinder3D" type="CSGCylinder3D" parent="." unique_id=489975737]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.730216, 0)
+use_collision = true
+radius = 79.91455
+height = 0.001
+smooth_faces = false
+material = SubResource("StandardMaterial3D_dhub7")

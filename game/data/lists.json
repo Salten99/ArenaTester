@@ -1,0 +1,130 @@
+{
+ "damage_types": [
+  "Physical",
+  "Fire",
+  "Thorns",
+  "Blood",
+  "Poison",
+  "Death",
+  "Turn",
+  "Sand",
+  "Light",
+  "Dark",
+  "Ice",
+  "Drain",
+  "Water",
+  "Lightning",
+  "Air",
+  "Stone",
+  "Void"
+ ],
+ "weapon_classes": [
+  "Heavy",
+  "Blade",
+  "Twin",
+  "Polearm",
+  "Ranged",
+  "Caster"
+ ],
+ "attack_category": [
+  "Melee",
+  "Missile",
+  "Magic"
+ ],
+ "ability_slots": [
+  "Signature",
+  "Movement",
+  "Ultimate"
+ ],
+ "trigger_events": [
+  "passive_always",
+  "on_light_hit",
+  "on_heavy_hit",
+  "on_combo_finisher",
+  "on_crit",
+  "on_kill",
+  "on_multi_kill",
+  "on_dodge",
+  "on_parry",
+  "on_block",
+  "on_signature_cast",
+  "on_movement_cast",
+  "on_ultimate_cast",
+  "on_take_damage",
+  "on_low_health",
+  "on_status_applied"
+ ],
+ "effect_types": [
+  "Bonus Damage",
+  "Apply Status",
+  "Projectile",
+  "Area Blast",
+  "Chain/Bounce",
+  "Summon",
+  "Heal",
+  "Shield",
+  "Stat Buff",
+  "Cooldown Reduction",
+  "Lifesteal",
+  "Knockback/Pull",
+  "Other"
+ ],
+ "rarity": [
+  "Common",
+  "Rare",
+  "Epic",
+  "Legendary"
+ ],
+ "yes_no": [
+  "Yes",
+  "No"
+ ],
+ "army_roles": [
+  "Melee",
+  "Ranged",
+  "Magic",
+  "Large",
+  "Cavalry",
+  "Miniboss",
+  "Boss"
+ ],
+ "archetypes": [
+  "Elder",
+  "Artisan",
+  "Laborer",
+  "Mystic"
+ ],
+ "encounter_types": [
+  "Tribe Mission",
+  "Champion Trial",
+  "Wild God",
+  "Border Defense",
+  "Barbarian",
+  "Evil Tribe"
+ ],
+ "option_types": [
+  "Starting Godly Gift",
+  "Home Building",
+  "Mount"
+ ],
+ "stats": [
+  "Max Health",
+  "Damage",
+  "Melee Damage",
+  "Missile Damage",
+  "Magic Damage",
+  "Attack Speed",
+  "Move Speed",
+  "Stamina",
+  "Stamina Regen",
+  "Crit Chance",
+  "Crit Damage",
+  "Armor",
+  "Cooldown Reduction",
+  "Status Chance",
+  "XP Gain",
+  "Lifesteal",
+  "Dodge Distance",
+  "Pickup Radius"
+ ]
+}

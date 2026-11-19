@@ -1,0 +1,107 @@
+[
+ {
+  "setting_id": "dark_god_name",
+  "value": "Count Fuckula",
+  "description": "The dark god behind the evil tribe. Not part of the pantheon and never pledgeable."
+ },
+ {
+  "setting_id": "dark_god_nickname",
+  "value": "Count Fuckula",
+  "description": "Same as the name (the user's name for the dark god)."
+ },
+ {
+  "setting_id": "dark_god_epithet",
+  "value": "Dark God",
+  "description": "Title shown under the name."
+ },
+ {
+  "setting_id": "dark_god_element",
+  "value": "Void",
+  "description": "The dark god's own element, used only by the evil tribe."
+ },
+ {
+  "setting_id": "dark_god_lore",
+  "value": "A god from beyond the valley who feeds on other gods. Every god it devours makes its chosen people stronger, and it has come for this valley's pantheon.",
+  "description": "Background for the story and codex."
+ },
+ {
+  "setting_id": "dark_god_color_hex",
+  "value": "#3B1F4F",
+  "description": "Main color for the evil tribe's UI and VFX (void purple-black)."
+ },
+ {
+  "setting_id": "evil_tribe_selection",
+  "value": "Each run, one race other than the player's is corrupted and becomes the evil tribe.",
+  "description": "Which race it is changes every run."
+ },
+ {
+  "setting_id": "corruption_look",
+  "value": "The race's normal models with a corruption set: black-violet cracks, glowing void eyes, torn dark banners, plus a corruption shader.",
+  "description": "Reuses race models, so no new characters are needed."
+ },
+ {
+  "setting_id": "corruption_hp_bonus_pct",
+  "value": 20,
+  "description": "Extra health for corrupted versions of that race's units."
+ },
+ {
+  "setting_id": "corruption_damage_bonus_pct",
+  "value": 15,
+  "description": "Extra damage for corrupted versions of that race's units."
+ },
+ {
+  "setting_id": "magic_unit_element",
+  "value": "Void",
+  "description": "Corrupted magic units use Void instead of their patron god's element."
+ },
+ {
+  "setting_id": "captive_god",
+  "value": "The corrupted race's patron god is imprisoned by the dark god. It can't be met during the run; defeating the evil tribe frees it and unlocks it for future runs.",
+  "description": "The freed god thanks you in the run's ending."
+ },
+ {
+  "setting_id": "advance_interval_min",
+  "value": 12,
+  "description": "Real minutes between the evil tribe's pushes into a new territory (10-15 decided)."
+ },
+ {
+  "setting_id": "starting_territory",
+  "value": "Its home region plus a stronghold in the valley's far end.",
+  "description": "Where the evil tribe begins each run."
+ },
+ {
+  "setting_id": "final_battle_phase_1",
+  "value": "The corrupted race's champion, empowered with Void attacks.",
+  "description": "First phase of the final battle."
+ },
+ {
+  "setting_id": "void_rule",
+  "value": "Void is a counterable threat: it fills a mark on the player, and a full mark switches godly gifts off for 3 s. Dodging and Light/Stone hits clear it.",
+  "description": "Numbers are on the Status Effects sheet (void)."
+ },
+ {
+  "setting_id": "conquered_tribe_rule",
+  "value": "A tribe whose champion you defeat is subjugated: it gives resources but no warriors, no missions and no help in the final battle. It does not turn hostile.",
+  "description": "Applies to every tribe, not only the evil tribe."
+ },
+ {
+  "setting_id": "final_battle_phase_2",
+  "value": "The Avatar of Count Fuckula rises from the champion's body.",
+  "description": "Second phase: the run's final boss."
+ },
+ {
+  "setting_id": "avatar_model_file",
+  "value": "villain_avatar.glb",
+  "description": "Blender export file name (.glb) for the Avatar."
+ },
+ {
+  "setting_id": "corruption_set_file",
+  "value": "corruption_set.glb",
+  "description": "Corruption armor/props that attach to any race's rig."
+ },
+ {
+  "setting_id": "void_shrine_model_file",
+  "value": "shrine_void.glb",
+  "description": "The dark god's shrine in the evil stronghold."
+ }
+]

@@ -1,0 +1,79 @@
+[
+ {
+  "option_id": "so_blessing_of_the_road",
+  "type": "Starting Godly Gift",
+  "display_name": "Starting Godly Gift",
+  "description": "Start each run with 1 random Common godly gift from your starting god.",
+  "unlock_condition": "Finish 1 run (win or lose)."
+ },
+ {
+  "option_id": "so_veteran",
+  "type": "Starting Godly Gift",
+  "display_name": "Starting Level",
+  "description": "Start each run at level 2.",
+  "unlock_condition": "Reach level 10 in a run."
+ },
+ {
+  "option_id": "so_scouts_map",
+  "type": "Starting Godly Gift",
+  "display_name": "Revealed Encounters",
+  "description": "2 encounters are revealed on the map at the start.",
+  "unlock_condition": "Complete 10 encounters across runs."
+ },
+ {
+  "option_id": "so_reroll",
+  "type": "Starting Godly Gift",
+  "display_name": "Godly Gift Reroll",
+  "description": "Once per run, reroll a godly gift choice.",
+  "unlock_condition": "Take 25 godly gifts across runs."
+ },
+ {
+  "option_id": "so_watchtower",
+  "type": "Home Building",
+  "display_name": "Watchtower",
+  "description": "Start with a Watchtower: shows the evil tribe's next target.",
+  "unlock_condition": "Survive 3 evil tribe advances in one run."
+ },
+ {
+  "option_id": "so_market",
+  "type": "Home Building",
+  "display_name": "Market",
+  "description": "Start with a Market: trade supplies for godly gifts and healing.",
+  "unlock_condition": "Befriend 2 tribes in one run."
+ },
+ {
+  "option_id": "so_training_grounds",
+  "type": "Home Building",
+  "display_name": "Training Grounds",
+  "description": "Start with Training Grounds: one free level-up reroll per level.",
+  "unlock_condition": "Win 1 run."
+ },
+ {
+  "option_id": "so_stable",
+  "type": "Home Building",
+  "display_name": "Stable",
+  "description": "Start with a Stable: your mount is available from the start.",
+  "unlock_condition": "Ride 5 km across runs."
+ },
+ {
+  "option_id": "so_mount_race",
+  "type": "Mount",
+  "display_name": "Native Mount",
+  "description": "Ride your race's own mount instead of the Horse.",
+  "unlock_condition": "Win a run as that race."
+ },
+ {
+  "option_id": "so_mount_hyena",
+  "type": "Mount",
+  "display_name": "Hyena Mount",
+  "description": "Any race can ride the Hyena Mount.",
+  "unlock_condition": "Defeat 10 Gnoll Cavalrys."
+ },
+ {
+  "option_id": "so_mount_pegasus",
+  "type": "Mount",
+  "display_name": "Winged Horse Mount",
+  "description": "Any race can ride the Winged Horse.",
+  "unlock_condition": "Win a run with the Lady of the Dawn or the Wind Walker."
+ }
+]

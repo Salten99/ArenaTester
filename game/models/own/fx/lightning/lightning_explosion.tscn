@@ -1,0 +1,184 @@
+[gd_scene format=3 uid="uid://bqhq016l22bks"]
+
+[ext_resource type="Texture2D" uid="uid://dsfckcxftyu8m" path="res://models/own/fx/lightning/lightning bolts/bolts_atlas.png" id="1_atlas"]
+
+[sub_resource type="Gradient" id="Gradient_bolt"]
+offsets = PackedFloat32Array(0, 0.2, 0.65, 1)
+colors = PackedColorArray(1, 1, 1, 1, 0.8, 0.88, 1, 1, 0.5, 0.6, 1, 0.85, 0.35, 0.4, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture_bolt"]
+gradient = SubResource("Gradient_bolt")
+
+[sub_resource type="Curve" id="Curve_glow_grow"]
+_data = [Vector2(0, 0.15), 0.0, 4.0, 0, 0, Vector2(0.35, 0.85), 0.8, 0.8, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="CurveTexture" id="CurveTexture_glow_grow"]
+curve = SubResource("Curve_glow_grow")
+
+[sub_resource type="ParticleProcessMaterial" id="Process_glow"]
+spread = 0.0
+gravity = Vector3(0, 0, 0)
+scale_min = 3.0
+scale_max = 3.0
+scale_curve = SubResource("CurveTexture_glow_grow")
+color_ramp = SubResource("GradientTexture_bolt")
+
+[sub_resource type="Gradient" id="Gradient_glow"]
+offsets = PackedFloat32Array(0, 0.3, 1)
+colors = PackedColorArray(0.854, 0.902, 1, 0.85, 0.555, 0.702, 1, 0.45, 0.555, 0.702, 1, 0)
+
+[sub_resource type="GradientTexture2D" id="Tex_glow"]
+gradient = SubResource("Gradient_glow")
+width = 128
+height = 128
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(0.5, 0)
+
+[sub_resource type="StandardMaterial3D" id="Mat_glow"]
+transparency = 1
+blend_mode = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_texture = SubResource("Tex_glow")
+billboard_mode = 3
+billboard_keep_scale = true
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+proximity_fade_enabled = true
+proximity_fade_distance = 0.6
+
+[sub_resource type="QuadMesh" id="Quad_glow"]
+material = SubResource("Mat_glow")
+
+[sub_resource type="Curve" id="Curve_qk2eo"]
+_limits = [-360.0, 360.0, 0.0, 1.0]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(0.5026596, -26.577179), 0.0, 0.0, 0, 0, Vector2(0.5664894, -248.85904), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 4
+
+[sub_resource type="CurveTexture" id="CurveTexture_qk2eo"]
+curve = SubResource("Curve_qk2eo")
+
+[sub_resource type="Curve" id="Curve_grow"]
+_data = [Vector2(0, 0.1), 0.0, 0.0, 0, 0, Vector2(0.25, 1), 0.0, 0.0, 0, 0, Vector2(1, 1.1), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="CurveTexture" id="CurveTexture_grow"]
+curve = SubResource("Curve_grow")
+
+[sub_resource type="ParticleProcessMaterial" id="Process_crackle"]
+emission_shape_scale = Vector3(0, 0, 0)
+emission_shape = 1
+emission_sphere_radius = 0.5
+angle_min = -180.0
+angle_max = 180.0
+angle_curve = SubResource("CurveTexture_qk2eo")
+direction = Vector3(0, 1, 0)
+spread = 180.0
+initial_velocity_min = 0.6
+initial_velocity_max = 1.2
+gravity = Vector3(0, 0, 0)
+scale_min = 0.6
+scale_max = 1.4
+scale_curve = SubResource("CurveTexture_grow")
+color_ramp = SubResource("GradientTexture_bolt")
+anim_speed_min = 2.0
+anim_speed_max = 2.5
+anim_offset_max = 1.0
+
+[sub_resource type="StandardMaterial3D" id="Mat_bolt"]
+transparency = 1
+blend_mode = 1
+cull_mode = 2
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("1_atlas")
+billboard_mode = 3
+billboard_keep_scale = true
+particles_anim_h_frames = 3
+particles_anim_v_frames = 2
+particles_anim_loop = true
+
+[sub_resource type="QuadMesh" id="Quad_bolt_a"]
+material = SubResource("Mat_bolt")
+size = Vector2(0.5, 2)
+center_offset = Vector3(0, 1, 0)
+
+[sub_resource type="ParticleProcessMaterial" id="Process_ground"]
+angle_min = -180.0
+angle_max = 180.0
+spread = 180.0
+flatness = 1.0
+initial_velocity_min = 0.8
+initial_velocity_max = 1.5
+gravity = Vector3(0, 0, 0)
+scale_min = 0.8
+scale_max = 1.6
+scale_curve = SubResource("CurveTexture_grow")
+color_ramp = SubResource("GradientTexture_bolt")
+anim_speed_min = 2.0
+anim_speed_max = 2.5
+anim_offset_max = 1.0
+
+[sub_resource type="Animation" id="Anim_flash"]
+resource_name = "flash"
+length = 0.45
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("flash:light_energy")
+tracks/0/interp = 0
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.06, 0.12, 0.2, 0.28, 0.45),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [6.0, 0.5, 4.0, 0.0, 2.0, 0.0]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_flash"]
+_data = {
+&"flash": SubResource("Anim_flash")
+}
+
+[node name="Lightning Explosion" type="Node3D" unique_id=220103158]
+
+[node name="glow" type="GPUParticles3D" parent="." unique_id=38416226]
+emitting = false
+amount = 1
+lifetime = 0.3
+one_shot = true
+explosiveness = 1.0
+interpolate = false
+process_material = SubResource("Process_glow")
+draw_pass_1 = SubResource("Quad_glow")
+
+[node name="crackle" type="GPUParticles3D" parent="." unique_id=283372769]
+emitting = false
+amount = 16
+lifetime = 0.5
+explosiveness = 1.0
+interpolate = false
+process_material = SubResource("Process_crackle")
+draw_pass_1 = SubResource("Quad_bolt_a")
+
+[node name="ground_crackle" type="GPUParticles3D" parent="." unique_id=762127453]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.8, 0)
+emitting = false
+lifetime = 0.4
+one_shot = true
+explosiveness = 0.7
+interpolate = false
+process_material = SubResource("Process_ground")
+draw_pass_1 = SubResource("Quad_bolt_a")
+
+[node name="flash" type="OmniLight3D" parent="." unique_id=464950244]
+light_color = Color(0.6, 0.7, 1, 1)
+light_energy = 6.0
+omni_range = 6.0
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=2037224987]
+libraries/ = SubResource("AnimationLibrary_flash")
+autoplay = &"flash"

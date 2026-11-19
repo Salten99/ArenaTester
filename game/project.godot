@@ -1,0 +1,42 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Arena Game"
+config/description="Mythical gladiator arena horde fighter: endless survival, built to tune movement and combat feel."
+run/main_scene="res://scenes/endless_arena.tscn"
+config/features=PackedStringArray("4.7")
+
+[autoload]
+
+GameData="*res://scripts/autoload/game_data.gd"
+RunRng="*res://scripts/autoload/run_rng.gd"
+HitStop="*res://scripts/autoload/hit_stop.gd"
+Controls="*res://scripts/autoload/controls.gd"
+Combat="*res://scripts/autoload/combat.gd"
+Meta="*res://scripts/autoload/meta.gd"
+Run="*res://scripts/autoload/run.gd"
+Flow="*res://scripts/autoload/flow.gd"
+Playtest="*res://scripts/autoload/playtest.gd"
+RetroLook="*res://scripts/autoload/retro_look.gd"
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+
+[rendering]
+
+occlusion_culling/use_occlusion_culling=true

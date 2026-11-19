@@ -1,0 +1,35 @@
+[gd_scene format=3 uid="uid://b3dqxe810qnmp"]
+
+[ext_resource type="Script" uid="uid://c2cmk808c2ijd" path="res://tests/fx_preview.gd" id="1"]
+[ext_resource type="PackedScene" uid="uid://bqhq016l22bks" path="res://models/own/fx/lightning/lightning_explosion.tscn" id="2_yir2s"]
+
+[sub_resource type="Environment" id="env"]
+background_mode = 1
+background_color = Color(0.12, 0.13, 0.17, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.5, 0.5, 0.55, 1)
+
+[sub_resource type="PlaneMesh" id="floor"]
+size = Vector2(30, 30)
+
+[node name="FxPreview" type="Node3D" unique_id=980111719]
+script = ExtResource("1")
+effect = ExtResource("2_yir2s")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1311078862]
+environment = SubResource("env")
+
+[node name="Floor" type="MeshInstance3D" parent="." unique_id=1941164214]
+mesh = SubResource("floor")
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=592844163]
+transform = Transform3D(0.866025, -0.383022, 0.321394, 0, 0.642788, 0.766044, -0.5, -0.663414, 0.55667, 0, 8, 0)
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=201478783]
+transform = Transform3D(1, 0, 0, 0, 0.983, 0.182, 0, -0.182, 0.983, 0, 4, 11)
+current = true
+
+[node name="Hint" type="Label" parent="." unique_id=970926009]
+offset_left = 12.0
+offset_top = 24.0
+text = "Space: replay.  Pick another effect: select FxPreview, Inspector > Effect."
