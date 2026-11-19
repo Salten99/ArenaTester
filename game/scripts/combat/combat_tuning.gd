@@ -65,8 +65,6 @@ extends Resource
 @export_range(0.1, 1.0, 0.05) var stealth_notice_scale := 0.45
 ## ...and this fraction of that again when you're behind them (out of their sight).
 @export_range(0.1, 1.0, 0.05) var stealth_behind_scale := 0.5
-## A siege (user, 2026-11-16): seconds to get ready before the attack reaches the village (F starts it sooner).
-@export_range(5.0, 180.0, 5.0) var siege_prep_seconds := 60.0
 ## Camera drop while sliding or crouching, in meters.
 @export_range(-2.0, 0.0, 0.05) var slide_camera_offset := -0.6
 ## Movement speed while doing a light attack or casting (fraction of walk speed).
@@ -208,7 +206,6 @@ extends Resource
 @export_range(0.1, 2.0, 0.05) var ult_fire_ground_radius := 0.5
 @export_range(0.0, 1.0, 0.01) var ult_fire_ground_damage := 0.1
 
-
 @export_group("Stone eruption")
 ## The Stone special (user, 2026-11-16): a magic circle on the aimed ground, then spikes erupt from it.
 ## From the cast until the spikes come up (s).
@@ -267,18 +264,8 @@ extends Resource
 ## Multiplies the Mounts sheet's speed_mps / sprint_mps. 1.0 = the sheet's speeds
 ## (a horse sprints 16 m/s, about twice your 8.25 m/s run).
 @export_range(0.5, 4.0, 0.05) var mount_speed_scale := 1.0
-## Count Fuckula's pushes come this many times the sheet's advance_interval_min apart
-## (user, 2026-10-30: more time between them).
-@export_range(0.5, 4.0, 0.05) var evil_push_scale := 1.75
-## Seconds to reach a village under attack before its region falls (120 x run length until 2026-10-30).
-@export_range(30.0, 900.0, 10.0) var border_defense_seconds := 300.0
 ## A mount's health = its sheet hp x this (user, 2026-10-30: half).
 @export_range(0.1, 3.0, 0.05) var mount_health_mult := 0.5
-## Trampled at a full gallop (sprinting): the enemy is thrown back this fast (m/s,
-## Your mount on foot walks this far to your side (m).
-@export_range(1.0, 15.0, 0.5) var mount_follow_gap := 2.5  # 3.5 until 2026-11-05 (user: within 3 m of you)
-## Your mount on foot fights only enemies this close to you, so it stays at your side.
-@export_range(1.0, 30.0, 0.5) var mount_leash := 6.0
 ## Every weapon in a hand is drawn this much bigger (user, 2026-11-01: 30%).
 @export_range(0.5, 3.0, 0.05) var weapon_scale := 1.3
 ## A heavy shot from a bow or crossbow: the launch is this much harder, and if it carries
@@ -312,7 +299,8 @@ extends Resource
 ## combat feel plan, 2026-11-18: over the top).
 @export_range(0, 60) var blood_hit_drops := 24
 @export_range(0, 120) var blood_slam_drops := 40
-## and up), goes ragdoll (people; animals fly whole) and gets back up if it lives.
+## Trampled at a full gallop (sprinting): the enemy is thrown back this fast (m/s, and up), goes
+## ragdoll (people; animals fly whole) and gets back up if it lives.
 @export_range(0.0, 40.0, 0.5) var mount_throw_speed := 16.0
 @export_range(0.0, 20.0, 0.5) var mount_throw_lift := 6.0
 ## A charging mount attacks just before it hits someone (user, 2026-11-01): it starts this
@@ -331,66 +319,16 @@ extends Resource
 ## Upward speed of a mount's jump (Space while riding). Gravity is 15, so 6.5 is
 ## about 0.9 s in the air: a full gallop clears about 25 m (the narrow parts of a river).
 @export_range(0.0, 20.0, 0.5) var mount_jump_velocity := 6.5
-## The war chest's help in the final battle (WarChest): a catapult's stone and a meteor.
-@export_range(1.0, 30.0, 0.5) var catapult_interval := 5.0
-@export_range(0.0, 1000.0, 5.0) var catapult_damage := 90.0
-@export_range(0.5, 15.0, 0.5) var catapult_radius := 4.0
-@export_range(1, 30, 1) var meteors_per_volley := 8
-@export_range(0.0, 2000.0, 10.0) var meteor_damage := 250.0
-@export_range(0.5, 20.0, 0.5) var meteor_radius := 6.0
 ## With a bow, crossbow or spell weapon the camera sits this far to the right (m), over your shoulder.
 @export_range(0.0, 2.0, 0.05) var aim_shoulder_offset := 0.8
 ## Trampled enemies are thrown only after this many seconds at a full gallop (user, 2026-11-05).
 @export_range(0.0, 10.0, 0.1) var mount_throw_after := 2.0
-## A mount on a road goes this much faster (user, 2026-11-05: roads you can ride).
-@export_range(1.0, 2.0, 0.05) var road_mount_speed := 1.25
-
-@export_group("Swimming")
-## Swimming speed (Shift for faster), on foot. A swimming mount goes swim_mount_factor x that.
-@export_range(0.5, 15.0, 0.05) var swim_speed := 2.2
-@export_range(0.5, 15.0, 0.05) var swim_sprint_speed := 3.3
-@export_range(0.5, 4.0, 0.1) var swim_mount_factor := 1.5
-## Stamina per second while swimming fast (Shift).
-@export_range(0.0, 100.0, 1.0) var swim_sprint_stamina := 15.0
 
 @export_group("Battles")
-## Enemy health per second the player clears at level 1 with no godly gifts, measured
-## by tests/battle_sim.tscn. Battles are sized from this and the Encounters
-## sheet's target_minutes, so raise it if fights end too fast.
-@export_range(1.0, 300.0, 0.5) var battle_player_dps := 114.0  # measured 114.6, 106.8, 119.6 after the combat feel plan (2026-11-18; was 91, before that 39)
-## What warriors beside you add: battle_ally_dps x (number of warriors ^ battle_ally_scaling).
-## Each extra warrior adds less (they get swarmed and fall during long fights).
-## Measured: 4 warriors add ~21, 10 add ~29 enemy HP per second.
-@export_range(0.0, 100.0, 0.5) var battle_ally_dps := 0.0  # measured 0 on 3 seeds (2026-11-18): a raid's guards don't speed you up
-@export_range(0.1, 1.0, 0.05) var battle_ally_scaling := 0.35
-## How much stronger you count per level and per godly gift (0.06 = +6% each).
-@export_range(0.0, 0.5, 0.01) var battle_level_growth := 0.06
-@export_range(0.0, 0.5, 0.01) var battle_godly_gift_growth := 0.04
-## The final battle is a pitched battle (user, 2026-10-30): your tribe's warriors,
-## each allied tribe's, and each tribe Count Fuckula converted (on his side).
-@export_range(0, 60) var battle_home_warriors := 14
-@export_range(0, 40) var battle_ally_warriors := 10
-@export_range(0, 40) var battle_converted_warriors := 8
-## The final battle has at least this many on each side (user, 2026-11-05: 30 against 30).
-@export_range(0, 1000) var final_battle_min_side := 30
-## The final battle keeps at most this many of his army on the field; the rest march in
-## from behind his line as they fall (user, 2026-11-12: 500 on screen).
-@export_range(35, 1000) var final_battle_on_field := 500
 ## Warriors fighting beside you are this much tougher than their sheet health (so they last the fight).
 @export_range(0.5, 10.0, 0.1) var ally_health_mult := 3.0
 ## ...and take only this fraction of damage (0.12 = 12%), so they last a whole fight.
 @export_range(0.05, 1.0, 0.05) var ally_damage_taken := 0.12
-## The next wave comes when this fraction of the current one is left (keeps fights flowing).
-@export_range(0.0, 0.9, 0.05) var wave_overlap := 0.25
-## The most enemies in one wave.
-@export_range(5, 80) var max_wave_size := 28
-## Every fight: this many waves, each wave_growth times bigger than the one before,
-## then a mini boss once the last wave is down (user, 2026-10-29).
-@export_range(1, 10) var wave_count := 3
-@export_range(1.0, 3.0, 0.05) var wave_growth := 1.5
-## The first wave's size, from the fight's health budget, kept between these.
-@export_range(1, 40) var first_wave_min := 4
-@export_range(1, 40) var first_wave_max := 12
 ## A mini boss has this many times its sheet health (and is drawn 2x size).
 @export_range(1.0, 10.0, 0.1) var mini_boss_hp_mult := 3.0
 
@@ -406,8 +344,6 @@ extends Resource
 @export var hitstop_enabled := true
 
 @export_group("Giant animals")
-## How often a wild pack has a giant among it (user, 2026-11-03: giant animals as mini bosses).
-@export_range(0.0, 1.0) var giant_chance := 0.16
 ## x its normal size.
 @export var giant_scale := 2.6
 ## x its normal health, damage and the XP it gives.
@@ -416,22 +352,6 @@ extends Resource
 @export var giant_xp_mult := 10.0
 ## A giant of an animal that never fought before hits at least this hard.
 @export var giant_min_damage := 18.0
-
-@export_group("Chests in caves and towers")
-## A cave's chest; a tower's pays double.
-@export var loot_supplies_min := 15
-@export var loot_supplies_max := 35
-@export var loot_xp := 18.0
-@export_range(0.0, 100.0) var loot_heal_pct := 40.0
-## Percent chance of a godly gift offer as well.
-@export_range(0.0, 100.0) var loot_gift_chance_cave := 35.0
-## Clearing a dungeon (a cave, or a castle down to its boss; user, 2026-11-06): XP and supplies,
-## plus a godly gift or a weapon.
-@export_range(0.0, 400.0, 5.0) var dungeon_xp := 60.0
-@export_range(0, 300, 5) var dungeon_supplies := 50
-## Chance (%) a chest also holds a weapon you can swap for (user, 2026-11-06).
-@export_range(0.0, 100.0) var loot_weapon_chance := 60.0
-@export_range(0.0, 100.0) var loot_gift_chance_tower := 70.0
 
 @export_group("Battles")
 ## A fight is one big battle, not waves (user, 2026-11-09): this many enemies at once...
@@ -526,11 +446,6 @@ extends Resource
 @export_range(0.5, 30.0, 0.5) var item_throw_cooldown := 6.0
 ## A Large enemy's thrown item hits this many times as hard as its own blow.
 @export_range(0.5, 5.0, 0.1) var item_throw_damage_mult := 1.5
-## Loose boulders and branches around you in the valley: one cell of this size (m) in so many
-## holds one (x the biome's rocks or trees), out to item_field_radius.
-@export_range(5.0, 60.0, 1.0) var item_field_cell := 16.0
-@export_range(0.0, 1.0, 0.01) var item_field_chance := 0.35
-@export_range(20.0, 200.0, 5.0) var item_field_radius := 70.0
 
 @export_group("Crowd split")
 ## In a crowd bigger than this, only this many nearest you fight at full rate; the rest take turns
