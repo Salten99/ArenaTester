@@ -206,7 +206,8 @@ static func shoulder_meteor(center: Vector3, land: Vector3, wait: float, fly: fl
 	if Vfx._root() == null:
 		return
 	circle("Fire", center, (land - center).normalized(), GameData.tuning.ult_shoulder_circle, wait + fly + 0.3)
-	var m := _solid(_sphere(0.35), Color(1.0, 0.4, 0.08), center)
+	var size: float = GameData.tuning.ult_meteor_size
+	var m := _solid(_sphere(size), Color(1.0, 0.4, 0.08), center)
 	if m == null:
 		return
 	m.visible = false
@@ -216,6 +217,8 @@ static func shoulder_meteor(center: Vector3, land: Vector3, wait: float, fly: fl
 		m.visible = true
 		var trail := ElementFx.trail("Fire")
 		if trail != null:
+			trail.scale_amount_min *= size / 0.35  # the trail grows with the rock (0.35 m: its first size)
+			trail.scale_amount_max *= size / 0.35
 			m.add_child(trail)
 			trail.emitting = true)
 	tw.tween_property(m, "global_position", land, fly)  # straight and fast, no easing

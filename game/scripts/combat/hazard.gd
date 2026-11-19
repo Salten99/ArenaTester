@@ -10,11 +10,12 @@ var template: DamageInfo
 var _tick_left := 0.0
 
 
-static func spawn(center: Vector3, p_radius: float, p_lifetime: float, p_tick: float, p_template: DamageInfo, color: Color) -> void:
+static func spawn(center: Vector3, p_radius: float, p_lifetime: float, p_tick: float, p_template: DamageInfo, color: Color) -> Hazard:
 	var root: Node3D = Combat.effects_root
 	if root == null or not is_instance_valid(root):
-		return
+		return null
 	var h := Hazard.new()
+	h.add_to_group("hazards")
 	h.radius = p_radius
 	h.lifetime = p_lifetime
 	h.tick = p_tick
@@ -30,6 +31,7 @@ static func spawn(center: Vector3, p_radius: float, p_lifetime: float, p_tick: f
 	h.add_child(disc)
 	root.add_child(h)
 	h.global_position = center + Vector3.UP * 0.05
+	return h
 
 
 func _physics_process(delta: float) -> void:

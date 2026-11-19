@@ -195,6 +195,12 @@ extends Resource
 @export_range(0.0, 6.0, 0.1) var ult_meteor_spread := 1.5
 @export_range(0.1, 1.0, 0.05) var ult_meteor_share := 0.6
 @export_range(0.1, 1.5, 0.05) var ult_meteor_radius := 0.6
+## Each meteor's size (radius, m). Where it lands the ground burns this long (s), over this much of
+## its blast, setting alight whoever is in it and dealing this much of the ultimate's damage a second.
+@export_range(0.1, 3.0, 0.05) var ult_meteor_size := 0.9
+@export_range(0.0, 15.0, 0.5) var ult_fire_ground_time := 4.0
+@export_range(0.1, 2.0, 0.05) var ult_fire_ground_radius := 0.8
+@export_range(0.0, 1.0, 0.01) var ult_fire_ground_damage := 0.1
 
 
 @export_group("Stone eruption")

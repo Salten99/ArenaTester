@@ -564,6 +564,10 @@ func test_fire_twin_meteors() -> void:
 	var t: CombatTuning = GameData.tuning
 	await _frames(int((t.ult_meteor_delay + 14.0 / t.ult_meteor_speed) * Engine.physics_ticks_per_second) + 6)
 	check(enemies.any(func(e): return e.health.hp < e.health.max_hp), "the meteors shoot forward and burst where you aimed")
+	var fires := get_tree().get_nodes_in_group("hazards").filter(func(h): return Vector2(h.global_position.x - spot.x, h.global_position.z - spot.z).length() < 3.0)
+	check(fires.size() == 2, "and the ground burns where each one landed (%d)" % fires.size())
+	await _frames(int(Engine.physics_ticks_per_second * 0.6))
+	check(enemies.any(func(e): return e.statuses.has("fire")), "setting alight whoever stands in it")
 	for e in enemies:
 		e.queue_free()
 	p.abilities.defs = kept

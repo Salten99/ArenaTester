@@ -127,7 +127,26 @@ func _twin_meteors(a: Dictionary, player: Node, spot: Vector3, radius: float) ->
 		var land: Vector3 = spot + right * s * t.ult_meteor_spread
 		var fly := circle_at.distance_to(land) / t.ult_meteor_speed
 		UltimateFx.shoulder_meteor(circle_at, land, t.ult_meteor_delay, fly)
-		get_tree().create_timer(t.ult_meteor_delay + fly, false).timeout.connect(_blast.bind(each, player, land, radius * t.ult_meteor_radius))
+		get_tree().create_timer(t.ult_meteor_delay + fly, false).timeout.connect(_meteor_land.bind(each, player, land, radius * t.ult_meteor_radius))
+
+## A meteor hits: its blast, then the ground there burns a while (user, 2026-11-19), setting alight
+## whoever stands in it.
+func _meteor_land(a: Dictionary, player: Node, land: Vector3, radius: float) -> void:
+	_blast(a, player, land, radius)
+	if not is_instance_valid(player) or player.is_dead():
+		return
+	var t: CombatTuning = GameData.tuning
+	var tick := 0.5
+	var burn := DamageInfo.make(GameData.num(a, "base_damage") * t.ult_fire_ground_damage * tick, "Fire", DamageInfo.Kind.STATUS, player).with_status("fire")
+	var r := radius * t.ult_fire_ground_radius
+	var h := Hazard.spawn(land, r, t.ult_fire_ground_time, tick, burn, Color(1.0, 0.35, 0.05))
+	if h != null:
+		var flames := ElementFx.aura("Fire", r)
+		if flames != null:
+			flames.position = Vector3.UP * 0.4
+			h.add_child(flames)
+			flames.emitting = true
+
 
 
 func _leap(a: Dictionary, player: Node, dir: Vector3, reach: float, radius: float) -> void:
