@@ -8,7 +8,6 @@
 shader = ExtResource("1_shader")
 shader_parameter/grass = ExtResource("2_grass")
 shader_parameter/stone = ExtResource("3_stone")
-shader_parameter/grit_size = 1.92
 shader_parameter/grass_size = 2.0
 shader_parameter/stone_size = 3.0
 shader_parameter/stone_color = Color(0.86, 0.79, 0.66, 1)

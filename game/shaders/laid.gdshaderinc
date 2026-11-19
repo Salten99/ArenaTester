@@ -1,4 +1,4 @@
-// Pictures laid in world space (the valley ground, the arena): needs the world_pos and
+// Pictures laid in world space (the arena ground): needs the world_pos and
 // world_normal varyings declared before it is included.
 
 // How the tile at `cell` (whole-number tile coordinates) is turned, so the grass doesn't repeat

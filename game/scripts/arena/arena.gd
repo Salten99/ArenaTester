@@ -107,8 +107,6 @@ func _build_level() -> void:
 		# The user's grass and stone pictures on the arena model (tune them in materials/arena_ground.tres).
 		for m in world.find_children("arena", "MeshInstance3D", true, false):
 			var ground: ShaderMaterial = ARENA_GROUND
-			ground.set_shader_parameter("grit", RetroLook.grit())
-			ground.set_shader_parameter("grit_size", RetroLook.GRIT_SIZE * RetroLook.GRIT_TEXEL)
 			for pic in ["grass", "stone"]:
 				var avg := _average((ground.get_shader_parameter(pic) as Texture2D).get_image())
 				ground.set_shader_parameter(pic + "_gain", Vector3(1.0 / avg.r, 1.0 / avg.g, 1.0 / avg.b))

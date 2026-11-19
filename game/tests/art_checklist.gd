@@ -79,7 +79,6 @@ func _ready() -> void:
 		state_path = ProjectSettings.globalize_path("res://").path_join("..").simplify_path().path_join(STATE_FILE)
 	if get_tree().current_scene == self:  # not when a test opens it inside the test window
 		get_window().title = "Art checklist"
-		RetroLook.visible = false  # see the model sharp, as made
 		get_window().size = Vector2i(1180, 760)
 	_load_state()
 	items = gather()

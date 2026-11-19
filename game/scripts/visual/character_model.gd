@@ -717,9 +717,7 @@ func _show_tint(color: Color) -> void:
 
 ## The generated models keep their colors in vertex colors; the glTF importer
 ## doesn't switch those on, so this does (only for meshes that have them).
-## Models that aren't yours also get the pixel look (RetroLook.paint).
 static func use_vertex_colors(node: Node) -> void:
-	var yours := node.scene_file_path.contains("/own/")
 	for m in node.find_children("*", "MeshInstance3D", true, false):
 		var mesh: Mesh = (m as MeshInstance3D).mesh
 		if not mesh is ArrayMesh:
@@ -728,8 +726,6 @@ static func use_vertex_colors(node: Node) -> void:
 			var mat := mesh.surface_get_material(i)
 			if mat is BaseMaterial3D and (mesh as ArrayMesh).surface_get_format(i) & Mesh.ARRAY_FORMAT_COLOR:
 				(mat as BaseMaterial3D).vertex_color_use_as_albedo = true
-			if mat is BaseMaterial3D and not yours:
-				RetroLook.paint(mat)
 
 
 ## Repaints the clothes in a god's color (user, 2026-11-01). `palette` names the row in

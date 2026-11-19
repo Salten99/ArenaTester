@@ -1,14 +1,12 @@
 shader_type spatial;
 // The gladiator arena model (models/gen/world/arena.glb, one mesh painted with vertex colors):
 // the user's grass picture shading the sand color where it is painted sand, their stone picture
-// shading a sandstone/marble color where it is painted grey stone, the RetroLook grit over everything else (banners, gold trim, dark gates).
+// shading a sandstone/marble color where it is painted grey stone, plain vertex color elsewhere (banners, gold trim, dark gates).
 
-uniform sampler2D grit : source_color, filter_nearest_mipmap, repeat_enable;
-uniform sampler2D grass : source_color, filter_nearest_mipmap, repeat_enable;
-uniform sampler2D stone : source_color, filter_nearest_mipmap, repeat_enable;
-uniform float grit_size = 1.92;  // m one grit texture covers
+uniform sampler2D grass : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D stone : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform float grass_size = 2.0;  // m one grass picture covers
-uniform float stone_size = 3.0;  // m one stone picture covers (as on the valley's Old Towers)
+uniform float stone_size = 3.0;  // m one stone picture covers
 // The stone's color: a pale sandstone/marble (the picture only adds its pattern).
 uniform vec3 stone_color : source_color = vec3(0.86, 0.79, 0.66);
 // Divide out each picture's average color (set by Arena), so only its pattern shades the color.
@@ -37,7 +35,7 @@ void fragment() {
 	} else if (grey) {
 		ALBEDO = stone_color * laid(stone, stone_size, false) * stone_gain;
 	} else {
-		ALBEDO = base * laid(grit, grit_size, false);
+		ALBEDO = base;
 	}
 	ROUGHNESS = 1.0;
 }

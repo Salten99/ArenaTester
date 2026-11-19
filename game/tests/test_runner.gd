@@ -54,7 +54,7 @@ func _ready() -> void:
 		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_mount", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_main_weapon_and_sidearm", "test_spyglass_bestiary_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throwing_knife", "test_myths", "test_pin_to_wall", "test_aiming", "test_glide", "test_paired_claws", "test_retro_look", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_mount_stats", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_mount", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_main_weapon_and_sidearm", "test_spyglass_bestiary_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throwing_knife", "test_myths", "test_pin_to_wall", "test_aiming", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_mount_stats", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -1835,28 +1835,6 @@ func test_stealth() -> void:
 	await _frames(1)
 
 
-func test_retro_look() -> void:
-	var mat: ShaderMaterial = RetroLook.get_child(0).material
-	check(mat.shader.code.contains("hint_screen_texture"), "the retro look redraws the screen")
-	check(RetroLook.layer < 1, "the retro look is drawn under the HUD (layer %d)" % RetroLook.layer)
-	var was := RetroLook.visible
-	RetroLook.toggle()
-	check(RetroLook.visible != was and Meta.data.retro_look == RetroLook.visible, "O turns the retro look off and on, and the profile keeps it")
-	RetroLook.toggle()
-	check(InputMap.has_action("retro_look"), "the retro look has a key")
-	var plain := StandardMaterial3D.new()
-	RetroLook.paint(plain)
-	var own_tex := StandardMaterial3D.new()
-	own_tex.albedo_texture = PlaceholderTexture2D.new()
-	RetroLook.paint(own_tex)
-	check(plain.albedo_texture == RetroLook.grit() and plain.uv1_triplanar and own_tex.albedo_texture is PlaceholderTexture2D
-		and own_tex.texture_filter == BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS, "a plain model gets pixel grit; a textured one keeps its picture, with sharp pixels")
-	var blobs: Array = _arena.player.find_children("*", "Decal", true, false)
-	var feet: float = _arena.player.global_position.y
-	check(blobs.size() == 1 and absf((blobs[0] as Decal).global_position.y + (blobs[0] as Decal).size.y * 0.5 - 0.15 - feet) < 0.3,
-		"the player has a dark disc under the feet instead of a sun shadow")
-
-
 func test_myths() -> void:
 	var myths := ["animal_unicorn", "animal_jackalope", "animal_pegasus", "animal_phoenix", "animal_mermaid", "animal_hippocampus", "beast_chimera", "beast_cerberus", "beast_basilisk",
 		"beast_feathered_serpent", "beast_leviathan", "monster_cyclops", "monster_frost_giant", "monster_gorgon", "monster_mummy", "monster_harpy"]
@@ -3196,5 +3174,5 @@ func test_arena_textures() -> void:
 	var mat := looks[0] as ShaderMaterial if looks.size() == 1 else null
 	check(mat != null and mat.get_shader_parameter("grass").resource_path == "res://textures/grass.png"
 		and mat.get_shader_parameter("stone").resource_path == "res://textures/stone_masonry.png"
-		and mat.get_shader_parameter("grit") != null and mat.get_shader_parameter("grass_gain") != Vector3.ONE,
+		and mat.get_shader_parameter("grass_gain") != Vector3.ONE,
 		"the arena model wears the grass and stone pictures, each shading its own color")
