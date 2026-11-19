@@ -4,16 +4,18 @@ extends RefCounted
 ## attack as the hand grab: with no minion in reach but a target in the crosshair within
 ## chain_range, a chain shoots from your free hand and hooks it, even mid-air. No cooldown.
 ## With a minion hooked, still holding light attack:
-##   - scroll the wheel back: reel it in to your hand (then it's the hand grab: crush or hurl);
+##   - scroll the wheel: reel it in; if a light hit would kill it you punch it apart, else it's in
+##     your hand (the hand grab: crush or hurl);
+##   - right click: rip it to you into a kick (a heavy hit that launches it);
 ##   - flick the mouse down: yank it up and slam it down, a burst where it lands;
 ##   - sweep the mouse sideways: swing it around you, hitting all it sweeps; let go to fling it;
 ##   - let go without swinging: the chain lets go and it drops.
-## On a Large unit or boss the chain pulls you to it instead, and you land a drop kick (a heavy).
+## On a Large unit or boss the chain pulls you to it instead, and you land a drop kick (a heavy):
+## it's launched only if the kick kills it, else it slides back on its feet (chain_kick_push).
 
 ##   - walk away from it: the chain goes taut and drags it limp along the ground, hurting it as it goes.
 enum Mode { OFF, FLYING, HOOKED, REEL, SLAM, SWING, PULL, KICK, YANK, DRAG }
 const YANK_TIME := 0.22  ## s for a yanked minion to fly into your blow
-const YANK_DAMAGE := 1.6  ## the yank's blow x a heavy hit
 const WALL_SLAM_DAMAGE := 1.4  ## swinging it into a wall: x a heavy hit
 
 var player: Player
@@ -121,10 +123,10 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 			if intent.wheel_back:
 				mode = Mode.REEL
 			elif intent.heavy:
-				mode = Mode.YANK  # right click: rip it toward you into a heavy blow (arena tactics, 2026-11-19)
+				mode = Mode.YANK  # right click: rip it toward you into a kick (user, 2026-11-19)
 				_time = 0.0
 				if player.visual != null:
-					player.visual.play_strike("Melee_2H_Attack_Chop", YANK_TIME, YANK_TIME + 0.35)
+					player.visual.play_strike("Melee_Unarmed_Attack_Kick", YANK_TIME, YANK_TIME + 0.35)
 			elif pitch_rate <= -t.chain_flick_rate:
 				mode = Mode.SLAM
 				_slam_from = target.global_position
@@ -156,9 +158,7 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 				_release_target(false)
 				_stop()
 				if is_instance_valid(e) and not e.is_dead():
-					player.hit_targets([e], player.moveset._base(player) * player.heavy_mult() * YANK_DAMAGE, DamageInfo.Kind.HEAVY,
-						t.knockback_heavy * 1.5, false, t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], e.global_position + Vector3.UP)
-					Vfx.burst(e.global_position + Vector3.UP, 1.1, Color(1.0, 0.85, 0.4, 0.9), 0.1)
+					kick(e)
 				return false
 		Mode.REEL:
 			if not intent.light_held:
@@ -228,8 +228,7 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 				_time = 0.0
 				_show_line(false)
 				player.velocity = Vector3.ZERO
-				player.hit_targets([target], player.moveset._base(player) * player.heavy_mult(), DamageInfo.Kind.HEAVY,
-					t.knockback_heavy, true, t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], target.global_position + Vector3.UP)
+				kick(target)
 			elif _time > 2.0:
 				return _end()  # something's in the way
 		Mode.KICK:
@@ -237,6 +236,25 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 				return _end()
 	_update_line(delta)
 	return true
+
+
+## Your kick (user, 2026-11-19): a heavy hit. A small one is launched; a Large unit or boss only if
+## it dies, else it's driven back at pace and stays on its feet.
+func kick(e: Node3D) -> void:
+	var t: CombatTuning = GameData.tuning
+	var big := pulls_you(e)
+	player.hit_targets([e], player.moveset._base(player) * player.heavy_mult(), DamageInfo.Kind.HEAVY,
+		t.knockback_heavy * 1.5, true, t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], e.global_position + Vector3.UP,
+		"Physical", false, true, not big)
+	Vfx.burst(e.global_position + Vector3.UP, 1.1, Color(1.0, 0.85, 0.4, 0.9), 0.1)
+	if not big or not is_instance_valid(e):
+		return
+	var away := Vector3(e.global_position.x - player.global_position.x, 0.0, e.global_position.z - player.global_position.z)
+	away = away.normalized() if away.length() > 0.05 else player.facing
+	if e.is_dead():
+		e.throw((away * t.launch_speed + Vector3.UP * t.launch_lift) * Enemy.DEATH_LAUNCH, player)
+	else:
+		e._knock = away * t.chain_kick_push
 
 
 ## While pulling you to a big one: your velocity (the Player's _move uses it). ZERO otherwise.

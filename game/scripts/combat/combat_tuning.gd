@@ -492,6 +492,9 @@ extends Resource
 ## On a Large unit or boss the chain pulls you this fast (m/s) to within this reach (m) for the drop kick.
 @export_range(5.0, 80.0, 1.0) var chain_pull_speed := 28.0
 @export_range(0.5, 5.0, 0.1) var chain_kick_reach := 2.2
+## The chain kick (user, 2026-11-19) sends a Large unit or boss it doesn't kill sliding back on its
+## feet at this speed (m/s); it slows like any knockback. Small ones are launched instead.
+@export_range(0.0, 60.0, 1.0) var chain_kick_push := 28.0
 
 @export_group("Throwable items")
 ## Barrels, crates, loose boulders and branches (user, 2026-11-18). Large enemies pick one up within

@@ -10,7 +10,7 @@ var _wheel_back := false  ## the wheel turned back (down) since the last read: r
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("switch_weapon"):
 		_switch = true
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_DOWN, MOUSE_BUTTON_WHEEL_UP]:  # either way reels in a chained one
 		_wheel_back = true
 
 

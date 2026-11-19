@@ -4701,6 +4701,7 @@ func test_chain_grab() -> void:
 		await _frames(grab_frames + fly_frames)
 	# Reel in.
 	var foe: Enemy = _cluster(1, 8.0)[0]
+	foe.health.hp = 10000.0  # a light hit wouldn't kill it, so it lands in your hand
 	await hook.call(foe)
 	check(p.state == Player.State.CHAIN and p.chain.mode == Chain.Mode.HOOKED and foe.held_by == p, "a held light attack hooks a minion 8 m away")
 	var links: int = p.chain._line.multimesh.visible_instance_count if p.chain._line != null else 0
@@ -4713,6 +4714,29 @@ func test_chain_grab() -> void:
 	await _frames(3)
 	foe.queue_free()  # out of the way: a minion at your feet would be grabbed by hand next
 	await _frames(40)
+	# Reel in one a light hit would kill: you punch it and it bursts.
+	var weak: Enemy = _cluster(1, 8.0)[0]
+	weak.health.hp = 1.0
+	await hook.call(weak)
+	s.hold({"light_held": true, "wheel_back": true}, 1)
+	s.hold({"light_held": true}, 40)
+	await _frames(41)
+	check(weak.is_dead() and not weak.visible and p.state == Player.State.FREE, "reel in a weak one and your punch bursts it")
+	s.hold({}, 2)
+	await _frames(30)
+	# Right click: a kick that launches a small one.
+	var kicked: Enemy = _cluster(1, 8.0)[0]
+	kicked.health.hp = 10000.0
+	await hook.call(kicked)
+	s.hold({"light_held": true, "heavy": true}, 1)
+	s.hold({"light_held": true}, 20)
+	await _frames(21)
+	check(kicked.health.hp < 10000.0 and kicked.thrown and kicked.held_by == null, "right click kicks it: hurt and launched")
+	s.hold({}, 2)
+	await _frames(60)
+	if is_instance_valid(kicked):
+		kicked.queue_free()
+	await _frames(2)
 	# Let go: it drops.
 	var loose: Enemy = _cluster(1, 8.0)[0]
 	await hook.call(loose)
@@ -4789,11 +4813,13 @@ func test_chain_grab() -> void:
 	var ogre: Enemy = _cluster(1, 8.0, "human_hired_ogre")[0]
 	check(Chain.pulls_you(ogre), "an ogre is too big to hook")
 	var start := p.global_position
-	var ogre_hp := ogre.health.hp
+	ogre.health.hp = 10000.0
 	await hook.call(ogre)
-	await _frames(60)
+	await _frames(40)
 	check(p.global_position.distance_to(start) > 3.0, "the chain pulls you to it (%.1f m)" % p.global_position.distance_to(start))
-	check(ogre.health.hp < ogre_hp, "and you land a drop kick")
+	check(ogre.health.hp < 10000.0, "and you land a drop kick")
+	var gap := ogre.global_position.distance_to(p.global_position)
+	check(not ogre.thrown and gap > t.chain_kick_reach + 1.0, "it's driven back on its feet, not launched (%.1f m away)" % gap)
 	s.hold({}, 2)
 	await _frames(30)
 	check(p.state == Player.State.FREE, "and you're free again")

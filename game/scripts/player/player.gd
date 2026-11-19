@@ -825,8 +825,33 @@ func hold_point_for(e: Node3D) -> Vector3:
 ## A minion the chain reeled in lands in your hand: the hand grab from here on.
 func _take_into_hand(e: Node3D) -> void:
 	state = State.FREE  # not through _set_state: the chain has already let go
+	if e is Enemy and e.health.hp <= _boosted(moveset._base(self), "Physical", _category(), e):
+		_punch_apart(e)  # a light hit would kill it: one punch and it bursts (user, 2026-11-19)
+		return
 	grabber.grab(e)
 	_set_state(State.GRAB)
+
+
+## A reeled-in minion a light hit would kill: you punch it and it bursts apart, chunks and blood.
+func _punch_apart(e: Enemy) -> void:
+	var t: CombatTuning = GameData.tuning
+	if visual != null:
+		visual.play_strike("Melee_Unarmed_Attack_Punch_A", 0.05, 0.3)
+	var at: Vector3 = e.global_position + Vector3.UP * e.size_scale
+	var info := DamageInfo.make(e.health.hp + 1.0, "Physical", DamageInfo.Kind.HEAVY, self)
+	info.no_launch = true
+	info.hitstop = t.hitstop_heavy
+	info.shake = t.shake_heavy
+	Combat.deal(e, info)
+	e.visible = false  # nothing left of it but the pieces
+	var color: Color = Color(0.55, 0.03, 0.04) if e.bleeds() else Color(0.8, 0.78, 0.7)
+	for k in 8:
+		var out := Vector3(cos(k * TAU / 8.0), 0.6 + 0.3 * (k % 2), sin(k * TAU / 8.0)) + facing
+		Vfx.chunk(at, out * 5.0, color, 0.18)
+	Vfx.burst(at, 1.3, Color(color, 0.85), 0.2)
+	if e.bleeds():
+		Vfx.blood(at, facing, t.blood_kill_drops * 3)
+		Vfx.blood_stains(e.global_position, facing, t.blood_stains_per_hit * 2, 1.6)
 var _light_hold := -1.0  ## seconds light attack has been held since its press (a grab?), -1 = not waiting
 
 
@@ -937,7 +962,7 @@ func spend_stamina(amount: float) -> void:
 ## first once per enemy ("target" phase), then once for the swing ("swing" phase).
 ## Used by every weapon moveset.
 func hit_targets(targets: Array, base: float, kind: DamageInfo.Kind, knockback: float, knockdown: bool,
-		hitstop: float, shake: float, events: Array, impact: Vector3, damage_type := "Physical", explosive := false, god_blast := true) -> void:
+		hitstop: float, shake: float, events: Array, impact: Vector3, damage_type := "Physical", explosive := false, god_blast := true, launch := true) -> void:
 	if kind == DamageInfo.Kind.HEAVY:  # a charged heavy hits harder and knocks farther (user, 2026-11-05)
 		knockback *= 1.0 + heavy_charge * GameData.tuning.heavy_charge_knockback
 		if damage_type == "Physical" and god_blast:  # not for thrown bodies and items (user, 2026-11-19)  # your god's explosion where a weapon heavy lands, hit or miss (user, 2026-11-08); a spell's has its own
@@ -948,6 +973,7 @@ func hit_targets(targets: Array, base: float, kind: DamageInfo.Kind, knockback: 
 		info.knockback = knockback
 		info.knockdown = knockdown
 		info.explosive = explosive
+		info.no_launch = not launch
 		var away: Vector3 = e.global_position - global_position
 		away.y = 0.0
 		info.knockback_dir = away.normalized() if away.length() > 0.05 else facing
@@ -1106,8 +1132,8 @@ func _lunge_step(f: float, offset: Vector3) -> void:
 
 
 ## Builds outgoing damage with race, god, godly gift and crit modifiers.
-func make_hit(base: float, damage_type: String, category: String, target: Node, kind: DamageInfo.Kind) -> DamageInfo:
-	var t: CombatTuning = GameData.tuning
+## `base` with your damage bonuses for this kind of hit on `target` (no crit).
+func _boosted(base: float, damage_type: String, category: String, target: Node) -> float:
 	var pct := stats.get_stat("damage_pct") + stats.get_stat(category.to_lower() + "_pct")
 	if damage_type == "Physical":
 		pct += GameData.num(_god, "dmg_physical_pct")
@@ -1116,7 +1142,12 @@ func make_hit(base: float, damage_type: String, category: String, target: Node, 
 	elif damage_type == GameData.text(_god, "weak_element"):
 		pct += GameData.num(_god, "weak_element_pct")
 	pct += godly_gifts.damage_bonus_pct(target)
-	var info := DamageInfo.make(base * maxf(0.1, 1.0 + pct / 100.0), damage_type, kind, self)
+	return base * maxf(0.1, 1.0 + pct / 100.0)
+
+
+func make_hit(base: float, damage_type: String, category: String, target: Node, kind: DamageInfo.Kind) -> DamageInfo:
+	var t: CombatTuning = GameData.tuning
+	var info := DamageInfo.make(_boosted(base, damage_type, category, target), damage_type, kind, self)
 	info.category = category
 	if RunRng.chance(t.base_crit_chance + stats.get_stat("crit_chance")):
 		info.is_crit = true
