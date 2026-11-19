@@ -9,7 +9,8 @@ extends Node
 ##   range_m, slot Movement   -> leap forward, blast on landing
 ##   hits_or_projectiles > 1  -> repeated hits on the nearest enemy (radius 0)
 ##   shape Cone               -> a cone ahead, range_m long and radius_m wide each side at the end
-##                               (Movement lunges you forward first: Fire Lance)
+##                               (Movement lunges you forward first, then the Fire Lance's beam:
+##                               range_m long, radius_m wide each side, following your aim a moment)
 ## Abilities count as Magic damage.
 
 signal cooldowns_changed
@@ -21,6 +22,7 @@ const LANCE_FX_LENGTH := 3.5  # meters of visible flame in forge_fire_lance.tscn
 var defs := {}        # slot -> ability row
 var remaining := {}   # slot -> seconds left on cooldown
 var invulnerable := false
+var _beam := {}  # the Fire Lance's beam while it's on (user, 2026-11-19)
 
 
 func load_for(god_id: String) -> void:
@@ -31,6 +33,8 @@ func load_for(god_id: String) -> void:
 func _physics_process(delta: float) -> void:
 	for slot in remaining:
 		remaining[slot] = maxf(0.0, remaining[slot] - delta)
+	if not _beam.is_empty():
+		_update_beam(delta)
 
 
 func ready_in(slot: String) -> float:
@@ -206,7 +210,7 @@ func _strike(a: Dictionary, player: Node, e: Node, center: Vector3, explosive :=
 	Combat.deal(e, info)
 
 
-## Lunge forward (Movement only), then the cone bursts out where you land.
+## Lunge forward (Movement only), then the beam bursts out where you land (a cone, without the lunge).
 func _lance(a: Dictionary, player: Node, dir: Vector3, reach: float, half_width: float) -> void:
 	dir = Vector3(dir.x, 0.0, dir.z).normalized()
 	var lunge: float = GameData.tuning.lance_lunge_m if a.get("slot") == "Movement" else 0.0
@@ -215,13 +219,83 @@ func _lance(a: Dictionary, player: Node, dir: Vector3, reach: float, half_width:
 		return
 	invulnerable = true
 	var start: Vector3 = player.global_position
-	# Your flame bursts from the weapon's point as you lunge and moves with it (user, 2026-11-08).
-	var fx := ElementFx.play_own(GameData.text(a, "ability_id"), _tip(player, dir), reach / LANCE_FX_LENGTH, dir)
-	if fx != null:
-		_follow_tip(fx, player)
+	# Your flame bursts from the weapon's point as you lunge and moves with it (user, 2026-11-08),
+	# long and thin like a laser (user, 2026-11-19); it lasts the lunge and the beam.
+	var fx := _beam_fx(a, player, dir, reach)
 	var tw := create_tween()
 	tw.tween_method(_leap_step.bind(player, start, start + dir * lunge, 0.0), 0.0, 1.0, LUNGE_TIME)
-	tw.tween_callback(_cone.bind(a, player, dir, reach, half_width, fx != null))
+	tw.tween_callback(_start_beam.bind(a, player, dir, reach, half_width, fx))
+
+
+## Your lance scene (models/own/fx/fire/forge_fire_lance.tscn) stretched `reach` long and thin,
+## riding the weapon's point; it fades out as the beam ends. Null if you haven't made one.
+func _beam_fx(a: Dictionary, player: Node, dir: Vector3, reach: float) -> Node3D:
+	var scene := ElementFx.own_scene(GameData.text(a, "ability_id"))
+	var root := Vfx._root()
+	if scene == null or root == null:
+		return null
+	var fx: Node3D = scene.instantiate()
+	root.add_child(fx)
+	fx.global_position = _tip(player, dir)
+	fx.look_at(fx.global_position + dir, Vector3.UP)
+	var thin: float = GameData.tuning.lance_beam_thickness
+	fx.scale = Vector3(thin, thin, reach / LANCE_FX_LENGTH)
+	ElementFx._start(fx)
+	for ap: AnimationPlayer in fx.find_children("*", "AnimationPlayer", true, false):
+		if ap.current_animation != "":  # its fade lands at the beam's end
+			ap.speed_scale = ap.current_animation_length / (LUNGE_TIME + GameData.tuning.lance_beam_time)
+	_follow_tip(fx, player)
+	return fx
+
+
+## The beam (user, 2026-11-19): for lance_beam_time it points where you aim, up and down too, and
+## burns each enemy it touches once.
+func _start_beam(a: Dictionary, player: Node, dir: Vector3, reach: float, half_width: float, fx: Node3D) -> void:
+	invulnerable = false
+	if not is_instance_valid(player) or player.is_dead():
+		if fx != null:
+			fx.queue_free()
+		return
+	if fx == null:
+		var tip := _tip(player, dir)
+		ElementFx.beam(GameData.text(a, "damage_type", "Physical"), tip, tip + dir * reach)
+	_beam = {"a": a, "player": player, "reach": reach, "width": maxf(half_width, 0.5), "fx": fx,
+		"left": GameData.tuning.lance_beam_time, "hit": {}}
+	_update_beam(0.0)
+	var t: CombatTuning = GameData.tuning
+	Combat.shake(t.shake_explosion)
+	HitStop.trigger(t.hitstop_light)
+
+
+func _update_beam(delta: float) -> void:
+	var b := _beam
+	var player: Node = b.player
+	var fx: Node3D = b.fx if is_instance_valid(b.fx) else null
+	b.left -= delta
+	if b.left <= 0.0 or not is_instance_valid(player) or player.is_dead():
+		if fx != null:
+			fx.queue_free()
+		_beam = {}
+		return
+	var from := _tip(player, player.facing)
+	var dir: Vector3 = player.aim_direction(from)
+	if fx != null and absf(dir.y) < 0.99:
+		fx.look_at(fx.global_position + dir, Vector3.UP)
+	var reach: float = b.reach
+	var to := from + dir * reach
+	for e in Combat.enemies_in_radius(from, reach + 1.0):
+		if b.hit.has(e):
+			continue
+		var feet: Vector3 = e.global_position
+		var near := Geometry3D.get_closest_points_between_segments(from, to, feet, feet + Vector3.UP * e.aim_height() * 2.0)
+		if near[0].distance_to(near[1]) <= b.width:  # anywhere on the body, feet to head
+			b.hit[e] = true
+			_strike(b.a, player, e, from)
+	Breakable.smash_line(get_tree(), from, dir, reach, b.width * 0.6)
+
+
+func beaming() -> bool:
+	return not _beam.is_empty()
 
 
 ## The weapon's point now: its tip if the model has one, else about where it would be.

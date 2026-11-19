@@ -284,7 +284,8 @@ func _physics_process(delta: float) -> void:
 
 	_crosshair = intent.crosshair
 	if visual != null:
-		var held_aim := state == State.GRAB  # holding a minion or item, your upper body aims it (user, 2026-11-19)
+		# Holding a minion or item, or the Fire Lance's beam, your upper body aims it (user, 2026-11-19).
+		var held_aim := state == State.GRAB or abilities.beaming()
 		visual.set_aim_pitch(intent.aim_pitch if (aims_with_body() or held_aim) and (mount == null or not mount.riding) else 0.0)
 	var move_dir := _world_dir(intent.move, intent.aim_yaw)
 	var riding := mount != null and mount.riding
@@ -410,7 +411,7 @@ func _update_state(delta: float, intent: PlayerIntent) -> void:
 				collision_mask = 0b101
 				_set_state(State.FREE)
 		State.CAST:
-			if _state_time >= CAST_TIME * _cast_slow:
+			if _state_time >= CAST_TIME * _cast_slow and not abilities.beaming():
 				_set_state(State.FREE)
 		State.PARRY:
 			if _state_time >= t.parry_duration:
@@ -561,6 +562,8 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 	if free and not riding and _first_person():
 		# First person (user, 2026-11-19): you face where you look and strafe, so a swing lands on what's in view.
 		facing = _turn_toward(Vector3(-sin(intent.aim_yaw), 0.0, -cos(intent.aim_yaw)), 20.0 * delta)
+	if abilities.beaming():  # the Fire Lance's beam turns with your aim while the legs keep walking
+		facing = _turn_toward(Vector3(-sin(intent.aim_yaw), 0.0, -cos(intent.aim_yaw)), 12.0 * delta)
 	_finish_move(delta)
 
 

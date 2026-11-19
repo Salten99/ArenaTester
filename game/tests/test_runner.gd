@@ -866,9 +866,9 @@ func test_fire_lance() -> void:
 	check(GameData.text(p.abilities.defs.Movement, "ability_id") == "forge_fire_lance", "the forge god's Movement is Fire Lance")
 	var start := p.global_position
 	var ahead: Array = []
-	for x in [-1.0, 0.0, 1.0]:
+	for z in [-7.0, -11.0, -15.0]:  # in a line, out past the old 8 m (user, 2026-11-19: twice as far)
 		var e: Enemy = _arena.waves.spawn("barb_warlord")
-		e.global_position = start + Vector3(x, 0, -7.0)
+		e.global_position = start + Vector3(0, 0, z)
 		ahead.append(e)
 	var behind: Enemy = _arena.waves.spawn("barb_warlord")
 	behind.global_position = start + Vector3(0, 0, 3.0)
@@ -885,6 +885,16 @@ func test_fire_lance() -> void:
 	check(behind.health.hp == behind.health.max_hp and beside.health.hp == beside.health.max_hp, "enemies behind and beside you are untouched")
 	var tip: Node3D = p.visual.weapon_tip()
 	check(tip != null and tip.global_position.distance_to(p.global_position + Vector3.UP) < 3.0, "the flame rides your weapon's point (user, 2026-11-08)")
+	# The beam stays on and follows your aim (user, 2026-11-19): turn right and it sweeps onto the one beside.
+	check(p.abilities.beaming() and p.state == Player.State.CAST, "the beam stays on a moment, and you keep casting")
+	s.aim_yaw = -PI / 2.0
+	await _frames(20)
+	check(p.facing.x > 0.9, "your body turns with your aim while it's on")
+	check(beside.health.hp < beside.health.max_hp, "and the beam sweeps onto the enemy beside you")
+	await _frames(int(GameData.tuning.lance_beam_time * Engine.physics_ticks_per_second))
+	check(not p.abilities.beaming() and p.state == Player.State.FREE, "then the beam ends and you're free")
+	s.aim_yaw = 0.0
+	await _frames(20)
 	# Under a low roof (a cave): the lunge stays under it (playtest 2026-11-08: it put you on the ceiling).
 	var roof := StaticBody3D.new()
 	var box := CollisionShape3D.new()
