@@ -297,6 +297,8 @@ extends Resource
 @export_range(0.0, 20.0, 0.5) var launch_lift := 7.0  # 4 before the reels' frame-by-frame (2026-11-18): launched enemies hang high
 ## Every launched enemy flies this many times faster (user, 2026-11-01: 30% more).
 @export_range(0.5, 3.0, 0.05) var launch_velocity_mult := 1.3
+## A flying enemy falls this many times harder than it rises (user, 2026-11-19: a heavier descent).
+@export_range(1.0, 4.0, 0.05) var enemy_fall_gravity_mult := 1.6
 ## Blood drops from a hit, and from being slammed into something (x gore_amount; 24 since the
 ## combat feel plan, 2026-11-18: over the top).
 @export_range(0, 60) var blood_hit_drops := 24

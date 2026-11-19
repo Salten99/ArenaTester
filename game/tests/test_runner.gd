@@ -2047,6 +2047,9 @@ func test_launches_and_ragdolls() -> void:
 	check(not foe.thrown, "a light melee hit doesn't launch")
 	Combat.deal(foe, hard.call(DamageInfo.Kind.HEAVY, "Melee"))
 	check(foe.thrown and foe.model.is_ragdoll(), "a heavy attack launches, limp")
+	var fall_bone: Variant = foe.model.ragdoll_hips()
+	check(fall_bone.get("fall_mult") == GameData.tuning.enemy_fall_gravity_mult and foe._fall_mult(-1.0) > 1.0 and foe._fall_mult(1.0) == 1.0,
+		"a launched enemy falls harder than it rises")
 	var plain_speed := foe._throw_vel.length()
 	var blown: Enemy = _cluster(1, 3.0)[0]
 	var blast: DamageInfo = hard.call(DamageInfo.Kind.HEAVY, "Melee")

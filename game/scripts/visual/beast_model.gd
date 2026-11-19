@@ -131,7 +131,9 @@ func ragdoll(impulse: Vector3) -> bool:
 		return false
 	var box := CharacterModel.bounds(self)
 	_model_rest = model.transform
-	_limp = RigidBody3D.new()
+	var body := FallBody.new()
+	body.fall_mult = fall_gravity_mult
+	_limp = body
 	_limp.collision_layer = RAGDOLL_LAYER
 	_limp.collision_mask = 0b001
 	_limp.mass = 40.0
@@ -155,6 +157,16 @@ func ragdoll(impulse: Vector3) -> bool:
 	_static = false  # no code-driven bobbing while limp
 	push_ragdoll(impulse)
 	return true
+
+
+## An animal's limp body: falls harder than it rises, like a person's FallBone.
+class FallBody:
+	extends RigidBody3D
+	var fall_mult := 1.0
+
+	func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+		if state.linear_velocity.y < 0.0:
+			state.linear_velocity += state.total_gravity * (fall_mult - 1.0) * state.step
 
 
 func is_ragdoll() -> bool:

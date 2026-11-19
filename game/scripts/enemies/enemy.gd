@@ -229,8 +229,10 @@ func _ready() -> void:
 			m.queue_free()
 	if model == null:
 		_build_capsule(capsule, shape.position.y)
-	elif flying:
-		model.flapping = true  # winged flyers (the harpy) beat their wings all the time
+	else:
+		model.fall_gravity_mult = GameData.tuning.enemy_fall_gravity_mult
+		if flying:
+			model.flapping = true  # winged flyers (the harpy) beat their wings all the time
 	if model != null and giant:
 		_visual.scale = Vector3.ONE * size_scale
 		var tag := Label3D.new()
@@ -508,7 +510,7 @@ func _think(delta: float) -> void:
 			_fall_speed = 0.0
 		else:
 			_fall_speed = maxf(_fall_speed, -velocity.y)
-		velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta
+		velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta * _fall_mult(velocity.y)
 	var before := global_position
 	var catch_up := delta / get_physics_process_delta_time()  # > 1 after skipped ticks: cover their distance too
 	var land: Object = Combat.water
@@ -739,6 +741,11 @@ static func bowled_over(targets: Array) -> void:
 			e.stun(THROW_STUN)
 
 
+## Gravity is heavier on the way down (enemy_fall_gravity_mult).
+func _fall_mult(vy: float) -> float:
+	return GameData.tuning.enemy_fall_gravity_mult if vy < 0.0 else 1.0
+
+
 func throw(vel: Vector3, by: Node) -> void:
 	if _pinned_left > 0.0:
 		return  # stuck to the wall
@@ -905,7 +912,7 @@ func _update_throw(delta: float) -> void:
 		if (_throw_time > 1.2 and v.length() < 1.0) or (_throw_time > 3.0 and v.y > -2.0) or _throw_time > 10.0:
 			_get_up(hips.global_position)
 		return
-	_throw_vel.y -= GRAVITY * delta
+	_throw_vel.y -= GRAVITY * delta * _fall_mult(_throw_vel.y)
 	velocity = _throw_vel
 	move_and_slide()
 	for i in get_slide_collision_count():

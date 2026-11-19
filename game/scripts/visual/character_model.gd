@@ -41,6 +41,8 @@ const RAGDOLL_LAYER := 1 << 5
 static var ragdolls := 0
 ## The player goes limp whatever the cap says: it only exists to limit enemies and corpses.
 var ignore_ragdoll_cap := false
+## A limp body falls this many times harder than it rises (enemies set it from enemy_fall_gravity_mult).
+var fall_gravity_mult := 1.0
 var _ragdoll: PhysicalBoneSimulator3D
 var model: Node3D
 var _overlay: ShaderMaterial  ## blood and tint (shaders/blood_overlay.gdshader)
@@ -349,7 +351,8 @@ func ragdoll(impulse: Vector3) -> bool:
 		var j := _skeleton.find_bone(entry[1]) if entry[1] != "" else -1
 		if j >= 0:
 			length = _skeleton.get_bone_global_rest(i).origin.distance_to(_skeleton.get_bone_global_rest(j).origin)
-		var pb := PhysicalBone3D.new()
+		var pb := FallBone.new()
+		pb.fall_mult = fall_gravity_mult
 		pb.bone_name = entry[0]
 		pb.joint_type = PhysicalBone3D.JOINT_TYPE_NONE if entry[0] == "hips" else PhysicalBone3D.JOINT_TYPE_CONE
 		pb.collision_layer = RAGDOLL_LAYER
@@ -375,6 +378,16 @@ func ragdoll(impulse: Vector3) -> bool:
 
 
 var _head_pop: HeadPop
+
+
+## A ragdoll bone that falls harder than it rises: the way up is unchanged, the way down heavier.
+class FallBone:
+	extends PhysicalBone3D
+	var fall_mult := 1.0
+
+	func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+		if state.linear_velocity.y < 0.0:
+			state.linear_velocity += state.total_gravity * (fall_mult - 1.0) * state.step
 
 
 ## The head is gone (a squeeze kill, user 2026-11-19): shrunk to nothing every frame from now on,
