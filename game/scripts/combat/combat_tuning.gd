@@ -152,10 +152,12 @@ extends Resource
 @export_range(0.0, 10.0, 0.25) var lance_lunge_m := 3.0
 ## The Fire Lance's stab animation plays this many times longer than other casts (user, 2026-11-08: 50% slower).
 @export_range(0.5, 3.0, 0.05) var lance_stab_slow := 1.5
-## The Fire Lance's beam (user, 2026-11-19): how long it stays on, following your aim (s), and how
-## thick it looks (1 = your lance scene's own thickness).
+## The Fire Lance's beam (user, 2026-11-19): how long it stays on, following your aim (s). It fires
+## from a magic circle this wide (m) this far in front of your forehead (m). Its length and width
+## are range_m and radius_m (half its width) on the God Abilities data.
 @export_range(0.1, 3.0, 0.05) var lance_beam_time := 0.8
-@export_range(0.1, 2.0, 0.05) var lance_beam_thickness := 0.5
+@export_range(0.2, 3.0, 0.05) var lance_circle_diameter := 1.0
+@export_range(0.0, 1.5, 0.05) var lance_circle_ahead := 0.4
 
 @export_group("Ultimate magic circle")
 ## Every Ultimate (user, 2026-11-10): you raise your weapon, a magic circle opens in the sky over

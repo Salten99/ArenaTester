@@ -18,6 +18,7 @@ signal cooldowns_changed
 const LEAP_TIME := 0.45
 const LUNGE_TIME := 0.18
 const LANCE_FX_LENGTH := 3.5  # meters of visible flame in forge_fire_lance.tscn (models/own/fx/fire/) at scale 1
+const LANCE_FX_WIDTH := 1.78  # meters across it at scale 1 (its 31 px tall frames x 0.0575 m a pixel)
 
 var defs := {}        # slot -> ability row
 var remaining := {}   # slot -> seconds left on cooldown
@@ -219,68 +220,82 @@ func _lance(a: Dictionary, player: Node, dir: Vector3, reach: float, half_width:
 		return
 	invulnerable = true
 	var start: Vector3 = player.global_position
-	# Your flame bursts from the weapon's point as you lunge and moves with it (user, 2026-11-08),
-	# long and thin like a laser (user, 2026-11-19); it lasts the lunge and the beam.
-	var fx := _beam_fx(a, player, dir, reach)
+	# A magic circle opens in front of your forehead as you lunge (user, 2026-11-19); the beam
+	# fires out of it when you land.
+	var t: CombatTuning = GameData.tuning
+	var circle := UltimateFx.circle(GameData.text(a, "damage_type", "Fire"), _brow(player, dir), dir,
+		t.lance_circle_diameter * 0.5, LUNGE_TIME + t.lance_beam_time)
+	_beam = {"a": a, "player": player, "reach": reach, "width": maxf(half_width, 0.5), "circle": circle,
+		"fx": null, "on": false, "left": t.lance_beam_time, "hit": {}}
 	var tw := create_tween()
 	tw.tween_method(_leap_step.bind(player, start, start + dir * lunge, 0.0), 0.0, 1.0, LUNGE_TIME)
-	tw.tween_callback(_start_beam.bind(a, player, dir, reach, half_width, fx))
+	tw.tween_callback(_start_beam)
 
 
-## Your lance scene (models/own/fx/fire/forge_fire_lance.tscn) stretched `reach` long and thin,
-## riding the weapon's point; it fades out as the beam ends. Null if you haven't made one.
-func _beam_fx(a: Dictionary, player: Node, dir: Vector3, reach: float) -> Node3D:
-	var scene := ElementFx.own_scene(GameData.text(a, "ability_id"))
-	var root := Vfx._root()
-	if scene == null or root == null:
-		return null
-	var fx: Node3D = scene.instantiate()
-	root.add_child(fx)
-	fx.global_position = _tip(player, dir)
-	fx.look_at(fx.global_position + dir, Vector3.UP)
-	var thin: float = GameData.tuning.lance_beam_thickness
-	fx.scale = Vector3(thin, thin, reach / LANCE_FX_LENGTH)
-	ElementFx._start(fx)
-	for ap: AnimationPlayer in fx.find_children("*", "AnimationPlayer", true, false):
-		if ap.current_animation != "":  # its fade lands at the beam's end
-			ap.speed_scale = ap.current_animation_length / (LUNGE_TIME + GameData.tuning.lance_beam_time)
-	_follow_tip(fx, player)
-	return fx
+## In front of your forehead, `dir` (where you aim) ahead of it.
+func _brow(player: Node, dir: Vector3) -> Vector3:
+	var p: Vector3 = player.global_position
+	var head: Vector3 = player.visual.head_position(p + Vector3.UP * 1.6) \
+		if player.get("visual") != null and player.visual.has_method("head_position") else p + Vector3.UP * 1.6
+	return head + Vector3.UP * 0.1 + dir * GameData.tuning.lance_circle_ahead
 
 
-## The beam (user, 2026-11-19): for lance_beam_time it points where you aim, up and down too, and
-## burns each enemy it touches once.
-func _start_beam(a: Dictionary, player: Node, dir: Vector3, reach: float, half_width: float, fx: Node3D) -> void:
+## The beam (user, 2026-11-19): for lance_beam_time it fires from the circle where you aim, up and
+## down too, and burns each enemy it touches once. Your lance scene
+## (models/own/fx/fire/forge_fire_lance.tscn) is stretched to range_m long and radius_m * 2 across.
+func _start_beam() -> void:
 	invulnerable = false
-	if not is_instance_valid(player) or player.is_dead():
-		if fx != null:
-			fx.queue_free()
+	if _beam.is_empty() or not is_instance_valid(_beam.player):
 		return
-	if fx == null:
-		var tip := _tip(player, dir)
-		ElementFx.beam(GameData.text(a, "damage_type", "Physical"), tip, tip + dir * reach)
-	_beam = {"a": a, "player": player, "reach": reach, "width": maxf(half_width, 0.5), "fx": fx,
-		"left": GameData.tuning.lance_beam_time, "hit": {}}
+	var b := _beam
+	b.on = true
+	var player: Node = b.player
+	var dir: Vector3 = player.facing
+	var from := _brow(player, dir)
+	var scene := ElementFx.own_scene(GameData.text(b.a, "ability_id"))
+	var root := Vfx._root()
+	if scene != null and root != null:
+		var fx: Node3D = scene.instantiate()
+		root.add_child(fx)
+		var across: float = b.width * 2.0 / LANCE_FX_WIDTH
+		fx.scale = Vector3(across, across, b.reach / LANCE_FX_LENGTH)
+		ElementFx._start(fx)
+		for ap: AnimationPlayer in fx.find_children("*", "AnimationPlayer", true, false):
+			if ap.current_animation != "":  # its fade lands at the beam's end
+				ap.speed_scale = ap.current_animation_length / GameData.tuning.lance_beam_time
+		b.fx = fx
+	else:
+		ElementFx.beam(GameData.text(b.a, "damage_type", "Physical"), from, from + dir * b.reach)
 	_update_beam(0.0)
 	var t: CombatTuning = GameData.tuning
 	Combat.shake(t.shake_explosion)
 	HitStop.trigger(t.hitstop_light)
 
 
+## Keeps the circle (and the beam, once it's on) in front of your forehead, pointing where you aim.
 func _update_beam(delta: float) -> void:
 	var b := _beam
 	var player: Node = b.player
 	var fx: Node3D = b.fx if is_instance_valid(b.fx) else null
-	b.left -= delta
+	var circle: Node3D = b.circle if is_instance_valid(b.circle) else null
+	if b.on:
+		b.left -= delta
 	if b.left <= 0.0 or not is_instance_valid(player) or player.is_dead():
-		if fx != null:
-			fx.queue_free()
+		for n in [fx, circle]:
+			if n != null:
+				n.queue_free()
 		_beam = {}
 		return
-	var from := _tip(player, player.facing)
-	var dir: Vector3 = player.aim_direction(from)
+	var dir: Vector3 = player.aim_direction(_brow(player, player.facing))
+	var from := _brow(player, dir)
+	if circle != null:
+		circle.global_position = from
+		circle.quaternion = Quaternion(Vector3.UP, dir)
+	if not b.on:
+		return
 	if fx != null and absf(dir.y) < 0.99:
-		fx.look_at(fx.global_position + dir, Vector3.UP)
+		fx.global_position = from
+		fx.look_at(from + dir, Vector3.UP)
 	var reach: float = b.reach
 	var to := from + dir * reach
 	for e in Combat.enemies_in_radius(from, reach + 1.0):
@@ -302,19 +317,6 @@ func beaming() -> bool:
 func _tip(player: Node, dir: Vector3) -> Vector3:
 	var tip: Node3D = player.visual.weapon_tip() if player.get("visual") != null else null
 	return tip.global_position if tip != null else player.global_position + Vector3.UP * 1.2 + dir * 0.6
-
-
-## Keeps `fx` on the weapon's point (its place only: it keeps pointing where you lunge).
-func _follow_tip(fx: Node3D, player: Node) -> void:
-	var tip: Node3D = player.visual.weapon_tip() if player.get("visual") != null else null
-	if tip == null:
-		return
-	var follow := RemoteTransform3D.new()
-	follow.update_rotation = false
-	follow.update_scale = false
-	tip.add_child(follow)
-	follow.remote_path = follow.get_path_to(fx)
-	fx.tree_exiting.connect(follow.queue_free)
 
 
 func _cone(a: Dictionary, player: Node, dir: Vector3, reach: float, half_width: float, flame_shown := false) -> void:
