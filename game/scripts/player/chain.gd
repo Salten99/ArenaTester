@@ -33,6 +33,7 @@ var _line: MultiMeshInstance3D
 var _kick_started := false
 var _vel := Vector3.ZERO  ## a hanging minion's fall speed
 var _spin := 0.0  ## the swing's spin now (radians/s): it winds up, a heavy thing takes time to get going
+var _swing_turned := 0.0  ## radians swung so far this swing
 var _length := 0.0  ## how much chain is out (m, along the ground): walk farther than this and it drags
 var _drag_tick := 0.0  ## s until the next scrape of drag damage
 const GRAVITY := 20.0  ## the same fall as thrown things
@@ -141,6 +142,7 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 				_swing_angle = atan2(to.x, to.z)
 				_swing_hit = [target]
 				_spin = 0.0
+				_swing_turned = 0.0
 			elif target is Enemy and _flat_gap(_hold_at) > _length + 0.5:
 				mode = Mode.DRAG  # you walked off with it: the chain goes taut
 				_drag_tick = 0.0
@@ -194,8 +196,10 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 				var look := Vector3(-sin(intent.aim_yaw) * cos(intent.aim_pitch), sin(intent.aim_pitch), -cos(intent.aim_yaw) * cos(intent.aim_pitch))
 				e.hurl((look * t.hurl_speed + Vector3.UP * t.hurl_lift) * Grabber.THROW_BOOST, player)
 				return _end()
-			_spin = move_toward(_spin, maxf(absf(yaw_rate), t.chain_swing_spin), t.chain_swing_windup * delta)
+			var top := minf(t.chain_swing_spin + t.chain_swing_spin_per_turn * floorf(_swing_turned / TAU), t.chain_swing_spin_max)
+			_spin = move_toward(_spin, maxf(absf(yaw_rate), top), t.chain_swing_windup * delta)
 			_swing_angle += _swing_dir * _spin * delta
+			_swing_turned += _spin * delta  # every full turn it goes faster
 			var circle := player.global_position + Vector3(sin(_swing_angle), 0.0, cos(_swing_angle)) * t.chain_swing_radius + Vector3.UP * 1.0
 			# The body trails behind where the chain pulls it, as a weight does.
 			var swung := _hold_at.lerp(circle, 1.0 - exp(-t.chain_swing_pull * delta))

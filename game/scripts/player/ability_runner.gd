@@ -24,6 +24,10 @@ var defs := {}        # slot -> ability row
 var remaining := {}   # slot -> seconds left on cooldown
 var invulnerable := false
 var _beam := {}  # the Fire Lance's beam while it's on (user, 2026-11-19)
+var hover_y := 0.0  # the Fire ultimate's lift: the height you hang at, for this many seconds more
+var _hover_left := 0.0
+var _ult_beams := []  # the Fire ultimate's three beams while they're on
+var _jets := []  # its boot jets while you hang in the air
 
 
 func load_for(god_id: String) -> void:
@@ -34,8 +38,16 @@ func load_for(god_id: String) -> void:
 func _physics_process(delta: float) -> void:
 	for slot in remaining:
 		remaining[slot] = maxf(0.0, remaining[slot] - delta)
+	_hover_left = maxf(0.0, _hover_left - delta)
+	if _hover_left <= 0.0 and not _jets.is_empty():
+		for j in _jets:
+			if is_instance_valid(j):
+				j.queue_free()
+		_jets.clear()
 	if not _beam.is_empty():
 		_update_beam(delta)
+	if not _ult_beams.is_empty():
+		_update_ult_beams(delta)
 
 
 func ready_in(slot: String) -> float:
@@ -117,33 +129,96 @@ func _cast_now(slot: String, a: Dictionary, player: Node, dir: Vector3, at: Vect
 	return true
 
 
-## The Fire ultimate (user, 2026-11-19): a magic circle opens diagonally above each shoulder, and a
-## fast meteor shoots from each toward the aimed spot; each bursts where it lands, side by side.
+## The Fire ultimate (user, 2026-11-19): Fire Lance jets blast down from your boots and lift you
+## ult_lift_height up; there three magic circles open around your head, facing the aimed spot, and
+## each fires a gigantic Fire Lance beam at it for ult_beam_time. You drop when they end.
 func _twin_meteors(a: Dictionary, player: Node, spot: Vector3, radius: float) -> void:
+	var t: CombatTuning = GameData.tuning
+	var feet: Vector3 = player.global_position
+	hover_y = feet.y + t.ult_lift_height
+	_hover_left = t.ult_lift_time + t.ult_beam_delay + t.ult_beam_gap * 2.0 + t.ult_beam_time
+	var right: Vector3 = (player.facing as Vector3).cross(Vector3.UP).normalized()
+	for s in [-1.0, 1.0]:  # one jet under each boot, riding along with you
+		var jet := _lance_fx("forge_fire_lance", feet + right * s * 0.15, Vector3.DOWN, t.ult_lift_height + 0.5, t.ult_jet_width, _hover_left)
+		if jet != null:
+			jet.reparent(player)
+			_jets.append(jet)
+	get_tree().create_timer(t.ult_lift_time, false).timeout.connect(_circles_from_above.bind(a, player, spot, radius))
+
+
+func _circles_from_above(a: Dictionary, player: Node, spot: Vector3, radius: float) -> void:
+	if not is_instance_valid(player) or player.is_dead():
+		return
 	var t: CombatTuning = GameData.tuning
 	var from: Vector3 = player.global_position
 	var flat := Vector3(spot.x - from.x, 0.0, spot.z - from.z)
 	var ahead: Vector3 = flat.normalized() if flat.length() > 0.5 else player.facing
 	var right := ahead.cross(Vector3.UP).normalized()
 	var each := a.duplicate()
-	each["base_damage"] = GameData.num(a, "base_damage") * t.ult_meteor_share
-	for s in [-1.0, 1.0]:
-		var circle_at: Vector3 = from + Vector3.UP * t.ult_shoulder_height + right * s * t.ult_shoulder_out
-		var land: Vector3 = spot + right * s * t.ult_meteor_spread
-		var fly := circle_at.distance_to(land) / t.ult_meteor_speed
-		UltimateFx.shoulder_meteor(circle_at, land, t.ult_meteor_delay, fly)
-		get_tree().create_timer(t.ult_meteor_delay + fly, false).timeout.connect(_meteor_land.bind(each, player, land, radius * t.ult_meteor_radius))
+	each["base_damage"] = GameData.num(a, "base_damage") * t.ult_beam_share
+	var head := _brow(player, Vector3.ZERO)
+	for i in 3:
+		var s := float(i - 1)  # left of your head, above it, right of it
+		var circle_at: Vector3 = head + (right * s if s != 0.0 else Vector3.UP) * t.ult_circle_around
+		var side: Vector3 = right * s * t.ult_beam_spread
+		var wait := t.ult_beam_delay + t.ult_beam_gap * i
+		var circle := UltimateFx.circle("Fire", circle_at, (spot + side - circle_at).normalized(), t.ult_shoulder_circle, wait + t.ult_beam_time)
+		get_tree().create_timer(wait, false).timeout.connect(_ult_beam.bind(each, player, circle_at, spot, side, radius, circle))
 
-## A meteor hits: its blast, then the ground there burns a while (user, 2026-11-19), setting alight
-## whoever stands in it.
-func _meteor_land(a: Dictionary, player: Node, land: Vector3, radius: float) -> void:
-	_blast(a, player, land, radius)
+
+## One of the three beams: from the circle `from` at the aimed spot (`side` off it, so the three land
+## side by side), for ult_beam_time; it follows your aim while it fires (user, 2026-11-19), burns
+## each enemy it touches once, and the ground where it first lands burns.
+func _ult_beam(a: Dictionary, player: Node, from: Vector3, spot: Vector3, side: Vector3, radius: float, circle: Node3D) -> void:
 	if not is_instance_valid(player) or player.is_dead():
 		return
 	var t: CombatTuning = GameData.tuning
+	var b := {"a": a, "player": player, "from": from, "spot": spot, "side": side, "circle": circle, "left": t.ult_beam_time, "hit": {}}
+	_ult_beam_aim(b)
+	b.fx = _lance_fx("forge_fire_lance", from, b.dir, b.reach, t.ult_beam_width, t.ult_beam_time)
+	_ult_beams.append(b)
+	_burn_ground(a, player, spot + side, radius * t.ult_fire_ground_radius)
+	Combat.shake(t.shake_heavy)
+	HitStop.trigger(t.hitstop_light)
+
+
+## Points beam `b` at the crosshair (or the spot first aimed, without one), a little past it.
+func _ult_beam_aim(b: Dictionary) -> void:
+	var aim: Vector3 = b.player.aim_point()
+	var target: Vector3 = (aim if aim != Vector3.INF else b.spot) + b.side
+	b.dir = (target - b.from).normalized()
+	b.reach = minf(b.from.distance_to(target) + 2.0, aim_range() + 10.0)
+
+
+func _update_ult_beams(delta: float) -> void:
+	var t: CombatTuning = GameData.tuning
+	for b: Dictionary in _ult_beams.duplicate():
+		b.left -= delta
+		if b.left <= 0.0 or not is_instance_valid(b.player) or b.player.is_dead():
+			if is_instance_valid(b.fx):
+				b.fx.queue_free()
+			_ult_beams.erase(b)
+			continue
+		_ult_beam_aim(b)
+		var fx: Node3D = b.fx if is_instance_valid(b.fx) else null
+		if fx != null and absf(b.dir.y) < 0.99:
+			fx.scale.z = b.reach / LANCE_FX_LENGTH
+			fx.look_at(b.from + b.dir, Vector3.UP)
+		if is_instance_valid(b.circle):
+			b.circle.quaternion = Quaternion(Vector3.UP, b.dir)
+		_beam_hits(b.a, b.player, b.hit, b.from, b.dir, b.reach, t.ult_beam_width)
+
+
+## While the Fire ultimate holds you up: the Player hangs at hover_y.
+func levitating() -> bool:
+	return _hover_left > 0.0
+
+
+## The ground at `land` burns a while (user, 2026-11-19), setting alight whoever stands in it.
+func _burn_ground(a: Dictionary, player: Node, land: Vector3, r: float) -> void:
+	var t: CombatTuning = GameData.tuning
 	var tick := 0.5
 	var burn := DamageInfo.make(GameData.num(a, "base_damage") * t.ult_fire_ground_damage * tick, "Fire", DamageInfo.Kind.STATUS, player).with_status("fire")
-	var r := radius * t.ult_fire_ground_radius
 	var h := Hazard.spawn(land, r, t.ult_fire_ground_time, tick, burn, Color(1.0, 0.35, 0.05))
 	if h != null:
 		var flames := ElementFx.aura("Fire", r)
@@ -151,8 +226,6 @@ func _meteor_land(a: Dictionary, player: Node, land: Vector3, radius: float) -> 
 			flames.position = Vector3.UP * 0.4
 			h.add_child(flames)
 			flames.emitting = true
-
-
 
 func _leap(a: Dictionary, player: Node, dir: Vector3, reach: float, radius: float) -> void:
 	invulnerable = true
@@ -252,20 +325,7 @@ func _start_beam() -> void:
 	var player: Node = b.player
 	var dir: Vector3 = player.facing
 	var from := _brow(player, dir)
-	var scene := ElementFx.own_scene(GameData.text(b.a, "ability_id"))
-	var root := Vfx._root()
-	if scene != null and root != null:
-		var fx: Node3D = scene.instantiate()
-		root.add_child(fx)
-		var across: float = b.width * 2.0 / LANCE_FX_WIDTH
-		fx.scale = Vector3(across, across, b.reach / LANCE_FX_LENGTH)
-		ElementFx._start(fx)
-		for ap: AnimationPlayer in fx.find_children("*", "AnimationPlayer", true, false):
-			if ap.current_animation != "":  # its fade lands at the beam's end
-				ap.speed_scale = ap.current_animation_length / GameData.tuning.lance_beam_time
-		b.fx = fx
-	else:
-		ElementFx.beam(GameData.text(b.a, "damage_type", "Physical"), from, from + dir * b.reach)
+	b.fx = _lance_fx(GameData.text(b.a, "ability_id"), from, dir, b.reach, b.width, GameData.tuning.lance_beam_time)
 	_update_beam(0.0)
 	var t: CombatTuning = GameData.tuning
 	Combat.shake(t.shake_explosion)
@@ -297,17 +357,44 @@ func _update_beam(delta: float) -> void:
 	if fx != null and absf(dir.y) < 0.99:
 		fx.global_position = from
 		fx.look_at(from + dir, Vector3.UP)
-	var reach: float = b.reach
+	_beam_hits(b.a, player, b.hit, from, dir, b.reach, b.width)
+
+
+## Your lance scene (models/own/fx/fire/forge_fire_lance.tscn for `id`) at `from` pointing `dir`,
+## stretched to `reach` long and `half_width` * 2 across, its fade landing `time` s later; without
+## the scene, the code's beam. Returns the scene (null without).
+func _lance_fx(id: String, from: Vector3, dir: Vector3, reach: float, half_width: float, time: float) -> Node3D:
+	var scene := ElementFx.own_scene(id)
+	var root := Vfx._root()
+	if scene == null or root == null:
+		ElementFx.beam("Fire", from, from + dir * reach)
+		return null
+	var fx: Node3D = scene.instantiate()
+	root.add_child(fx)
+	var across: float = half_width * 2.0 / LANCE_FX_WIDTH
+	fx.scale = Vector3(across, across, reach / LANCE_FX_LENGTH)
+	ElementFx._start(fx)
+	for ap: AnimationPlayer in fx.find_children("*", "AnimationPlayer", true, false):
+		if ap.current_animation != "":  # its fade lands at the beam's end
+			ap.speed_scale = ap.current_animation_length / time
+	fx.global_position = from
+	fx.look_at(from + dir, Vector3.UP if absf(dir.y) < 0.99 else Vector3.FORWARD)  # straight down: the boot jets
+	return fx
+
+
+## A beam from `from` along `dir`: strikes each enemy it touches (anywhere feet to head) that isn't
+## in `hit` yet, and smashes props on its line.
+func _beam_hits(a: Dictionary, player: Node, hit: Dictionary, from: Vector3, dir: Vector3, reach: float, width: float) -> void:
 	var to := from + dir * reach
-	for e in Combat.enemies_in_radius(from, reach + 1.0):
-		if b.hit.has(e):
+	for e in Combat.enemies_in_radius(from, reach + width + 1.0):
+		if hit.has(e):
 			continue
 		var feet: Vector3 = e.global_position
 		var near := Geometry3D.get_closest_points_between_segments(from, to, feet, feet + Vector3.UP * e.aim_height() * 2.0)
-		if near[0].distance_to(near[1]) <= b.width:  # anywhere on the body, feet to head
-			b.hit[e] = true
-			_strike(b.a, player, e, from)
-	Breakable.smash_line(get_tree(), from, dir, reach, b.width * 0.6)
+		if near[0].distance_to(near[1]) <= width:
+			hit[e] = true
+			_strike(a, player, e, from)
+	Breakable.smash_line(get_tree(), from, dir, reach, width * 0.6)
 
 
 func beaming() -> bool:

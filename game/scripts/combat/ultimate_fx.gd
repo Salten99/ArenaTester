@@ -3,7 +3,7 @@ extends RefCounted
 ## How a god's Ultimate looks (user, 2026-11-10): you raise your weapon, a glowing magic circle
 ## opens and spins in the sky over the aimed spot (lying parallel to the ground there), then it
 ## calls the element down:
-##   Fire (its own way: two circles over your shoulders, a meteor shooting from each, shoulder_meteor) · Lightning a storm of strikes · Ice giant icicles · Stone a rain of rock shards
+##   Fire (its own way: Fire Lance boot jets lift you, three circles around your head, a giant Fire Lance beam from each; all in AbilityRunner) · Lightning a storm of strikes · Ice giant icicles · Stone a rain of rock shards
 ##   Sand a tornado that moves across · Poison a gas bomb and its cloud · Light an orbital laser sweep
 ## The damage lands once, impact_time() after the cast (AbilityRunner deals it, God Abilities sheet
 ## rules); what comes after (more strikes, the tornado moving on, the cloud) is for the eye.
@@ -198,31 +198,6 @@ static func _strike(element: String, sky: Vector3, spot: Vector3, radius: float)
 			root.get_tree().create_timer(fall, false).timeout.connect(func(): _cloud(spot, radius, tail))
 		"Light":  # an orbital laser sweeps through the spot
 			_laser(sky, spot, radius, fall)
-
-
-## The Fire ultimate's half (user, 2026-11-19): a circle at `center` (over a shoulder) facing
-## `land`; after `wait` a meteor shoots out of it and reaches `land` `fly` s later.
-static func shoulder_meteor(center: Vector3, land: Vector3, wait: float, fly: float) -> void:
-	if Vfx._root() == null:
-		return
-	circle("Fire", center, (land - center).normalized(), GameData.tuning.ult_shoulder_circle, wait + fly + 0.3)
-	var size: float = GameData.tuning.ult_meteor_size
-	var m := _solid(_sphere(size), Color(1.0, 0.4, 0.08), center)
-	if m == null:
-		return
-	m.visible = false
-	var tw := m.create_tween()
-	tw.tween_interval(wait)
-	tw.tween_callback(func():
-		m.visible = true
-		var trail := ElementFx.trail("Fire")
-		if trail != null:
-			trail.scale_amount_min *= size / 0.35  # the trail grows with the rock (0.35 m: its first size)
-			trail.scale_amount_max *= size / 0.35
-			m.add_child(trail)
-			trail.emitting = true)
-	tw.tween_property(m, "global_position", land, fly)  # straight and fast, no easing
-	tw.tween_callback(m.queue_free)
 
 
 # ---------------------------------------------------------------- the Stone special

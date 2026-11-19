@@ -440,6 +440,11 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 	if swimming:
 		_swim(delta, intent, move_dir)
 		return
+	if abilities.levitating():  # the Fire ultimate's column holds you up, eased toward its top
+		velocity = Vector3(0.0, (abilities.hover_y - global_position.y) * 10.0, 0.0)
+		_finish_move(delta)
+		velocity.y = 0.0  # you drop from rest when it lets go
+		return
 	if not on_floor:
 		velocity.y -= t.gravity * delta
 		if race_id in GLIDERS and _thrown_left <= 0.0:
@@ -461,10 +466,11 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 	var free := state == State.FREE
 	var riding := mount != null and mount.riding
 	var nimble := free or state in [State.GRAB, State.CHAIN]  # you can jump and slide with something on your hand or chain
-	var factor := 1.0 if free else (t.attack_move_factor if state in [State.LIGHT, State.CAST] else (t.grab_move_factor if state in [State.GRAB, State.CHAIN] else 0.0))
+	var chained := state == State.CHAIN  # the chain never slows you (user, 2026-11-19)
+	var factor := 1.0 if free or chained else (t.attack_move_factor if state in [State.LIGHT, State.CAST] else (t.grab_move_factor if state == State.GRAB else 0.0))
 	if riding:
-		factor = 1.0 if free else 0.6  # a mount keeps moving while you swing
-	var sprinting := intent.sprint and (free or riding) and (riding or _can_sprint())
+		factor = 1.0 if free or chained else 0.6  # a mount keeps moving while you swing
+	var sprinting := intent.sprint and (free or chained or riding) and (riding or _can_sprint())
 	if sprinting and not riding and move_dir.length() > 0.1:
 		spend_stamina(t.sprint_stamina * delta)
 	var skip_update := false
@@ -653,6 +659,11 @@ func throw_off(impulse: Vector3) -> void:
 ## Where a shot from `from` should head to land on the crosshair (user, 2026-11-05: you aim,
 ## nothing aims for you). A shot that drops (`drop` m/s², arrows) at `speed` m/s is aimed that
 ## much higher, so it falls onto the point you picked.
+## What the crosshair is on (INF: nothing).
+func aim_point() -> Vector3:
+	return _crosshair
+
+
 func aim_direction(from: Vector3, speed := 0.0, drop := 0.0) -> Vector3:
 	if _crosshair == Vector3.INF or (_crosshair - from).length() < 0.5:
 		return facing

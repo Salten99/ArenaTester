@@ -541,8 +541,9 @@ func test_ultimate_circles() -> void:
 	check(get_tree().get_nodes_in_group("magic_circle").is_empty(), "the circles close afterwards")
 
 
-## The Fire ultimate (user, 2026-11-19): a magic circle opens diagonally above each shoulder and a
-## fast meteor shoots from each toward the aimed spot, hurting what's there when they land.
+## The Fire ultimate (user, 2026-11-19): a fire column lifts you ult_lift_height up, three magic
+## circles open around you (each shoulder, over your head) and a fast meteor shoots from each toward
+## the aimed spot, hurting what's there when they land; then you come back down.
 func test_fire_twin_meteors() -> void:
 	var p: Player = _arena.player
 	var kept: Dictionary = p.abilities.defs
@@ -551,23 +552,31 @@ func test_fire_twin_meteors() -> void:
 	var enemies := _cluster(3, 12.0, "barb_warlord")
 	for e in enemies:
 		e.freeze(5.0)
+	var t: CombatTuning = GameData.tuning
+	var ground_y: float = p.global_position.y
 	var spot: Vector3 = p.global_position + Vector3(0, 0, -12)
 	check(p.abilities.cast("Ultimate", p, Vector3.FORWARD, spot), "the Fire ultimate casts")
-	await _frames(3)
-	var right := Vector3.FORWARD.cross(Vector3.UP)
+	await _frames(int(t.ult_lift_time * Engine.physics_ticks_per_second) + 3)
+	check(p.global_position.y > ground_y + t.ult_lift_height - 0.5, "the boot jets lift you %.0f m up (%.1f)" % [t.ult_lift_height, p.global_position.y - ground_y])
+	check(p.abilities._jets.all(func(j): return is_instance_valid(j) and j.get_parent() == p), "the jets ride along under your boots")
 	var over := get_tree().get_nodes_in_group("magic_circle").filter(func(c):
 		var to: Vector3 = c.global_position - p.global_position
-		return to.y > 1.5 and absf(to.dot(right)) > 0.5 and Vector2(to.x, to.z).length() < 3.0)
-	check(over.size() == 2 and signf((over[0].global_position - p.global_position).dot(right)) != signf((over[1].global_position - p.global_position).dot(right)),
-		"two magic circles open above your shoulders, one each side (%d)" % over.size())
-	check(enemies.all(func(e): return e.health.hp == e.health.max_hp), "the meteors haven't landed yet")
-	var t: CombatTuning = GameData.tuning
-	await _frames(int((t.ult_meteor_delay + 14.0 / t.ult_meteor_speed) * Engine.physics_ticks_per_second) + 6)
-	check(enemies.any(func(e): return e.health.hp < e.health.max_hp), "the meteors shoot forward and burst where you aimed")
+		return to.y > 0.5 and to.length() < 5.0)
+	check(over.size() == 3, "three magic circles open around your head up there (%d)" % over.size())
+	check(enemies.all(func(e): return e.health.hp == e.health.max_hp), "the beams haven't fired yet")
+	await _frames(int((t.ult_beam_delay + t.ult_beam_gap * 2.0) * Engine.physics_ticks_per_second) + 4)
+	check(enemies.any(func(e): return e.health.hp < e.health.max_hp), "a fire lance beam shoots from each circle to where you aimed")
 	var fires := get_tree().get_nodes_in_group("hazards").filter(func(h): return Vector2(h.global_position.x - spot.x, h.global_position.z - spot.z).length() < 3.0)
-	check(fires.size() == 2, "and the ground burns where each one landed (%d)" % fires.size())
+	check(fires.size() == 3, "and the ground burns where each one lands (%d)" % fires.size())
 	await _frames(int(Engine.physics_ticks_per_second * 0.6))
 	check(enemies.any(func(e): return e.statuses.has("fire")), "setting alight whoever stands in it")
+	check(p.abilities.levitating(), "you stay up while the beams burn")
+	var beam: Dictionary = p.abilities._ult_beams[0]
+	p._crosshair = beam.from + Vector3(8, -4, -6)
+	p.abilities._ult_beam_aim(beam)
+	check((beam.dir as Vector3).dot((p._crosshair + beam.side - beam.from).normalized()) > 0.99, "the beams follow your aim")
+	await _frames(int((t.ult_beam_time + 1.5) * Engine.physics_ticks_per_second))
+	check(not p.abilities.levitating() and p.global_position.y < ground_y + 0.5 and p.abilities._jets.is_empty(), "then the jets stop and you come back down")
 	for e in enemies:
 		e.queue_free()
 	p.abilities.defs = kept
@@ -2052,6 +2061,9 @@ func test_launches_and_ragdolls() -> void:
 	check(not foe.thrown, "a light melee hit doesn't launch")
 	Combat.deal(foe, hard.call(DamageInfo.Kind.HEAVY, "Melee"))
 	check(foe.thrown and foe.model.is_ragdoll(), "a heavy attack launches, limp")
+	var fall_bone: Variant = foe.model.ragdoll_hips()
+	check(fall_bone.get("fall_mult") == GameData.tuning.enemy_fall_gravity_mult and foe._fall_mult(-1.0) > 1.0 and foe._fall_mult(1.0) == 1.0,
+		"a launched enemy falls harder than it rises")
 	var plain_speed := foe._throw_vel.length()
 	var blown: Enemy = _cluster(1, 3.0)[0]
 	var blast: DamageInfo = hard.call(DamageInfo.Kind.HEAVY, "Melee")
@@ -4806,6 +4818,10 @@ func test_chain_grab() -> void:
 	await _frames(40)
 	check(p.chain.mode == Chain.Mode.SWING, "a sweep sideways swings it around you")
 	check(swept.health.hp < swept_hp or swept.is_dead() or swept.thrown, "and it hits what it sweeps")
+	p.chain._swing_turned = TAU * 3.0  # three turns in
+	s.hold({"light_held": true, "aim_yaw": yaw}, 30)
+	await _frames(30)
+	check(p.chain._spin > t.chain_swing_spin + 2.0 * t.chain_swing_spin_per_turn, "every turn of the swing spins it faster (%.1f rad/s)" % p.chain._spin)
 	s.hold({"aim_yaw": yaw, "aim_pitch": 1.0}, 2)
 	await _frames(3)
 	check(swung._hurled and swung.held_by == null, "let go mid-swing and it's flung")

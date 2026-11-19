@@ -183,24 +183,29 @@ extends Resource
 @export_range(1, 30) var ult_storm_strikes := 7
 ## Stone: how many rock shards rain down.
 @export_range(1, 80) var ult_shard_count := 26
-## Fire (user, 2026-11-19): instead of one circle in the sky, a circle opens diagonally above each
-## shoulder, this high over you (m), this far out to the side (m) and this big (radius, m); after
-## this long (s) a meteor shoots from each at this speed (m/s) toward where you aimed, landing this
-## far apart to each side (m). Each meteor deals this much of the ultimate's damage, over this much
-## of its blast radius.
-@export_range(1.0, 5.0, 0.1) var ult_shoulder_height := 2.4
-@export_range(0.3, 3.0, 0.05) var ult_shoulder_out := 1.1
-@export_range(0.2, 3.0, 0.05) var ult_shoulder_circle := 0.8
-@export_range(0.0, 2.0, 0.05) var ult_meteor_delay := 0.35
-@export_range(5.0, 150.0, 1.0) var ult_meteor_speed := 45.0
-@export_range(0.0, 6.0, 0.1) var ult_meteor_spread := 1.5
-@export_range(0.1, 1.0, 0.05) var ult_meteor_share := 0.6
-@export_range(0.1, 1.5, 0.05) var ult_meteor_radius := 0.6
-## Each meteor's size (radius, m). Where it lands the ground burns this long (s), over this much of
-## its blast, setting alight whoever is in it and dealing this much of the ultimate's damage a second.
-@export_range(0.1, 3.0, 0.05) var ult_meteor_size := 0.9
+## Fire (user, 2026-11-19): Fire Lance jets blast down from your boots and lift you this high (m);
+## it takes this long (s) to rise, and you hang there until the beams end. The jets are this wide
+## each side (m).
+@export_range(0.0, 15.0, 0.5) var ult_lift_height := 5.0
+@export_range(0.1, 2.0, 0.05) var ult_lift_time := 0.4
+@export_range(0.05, 2.0, 0.05) var ult_jet_width := 0.3
+## Then three circles open this far (m) around your head (left, right, above), all facing where you
+## aim, this big (radius, m); after this long (s) each fires a gigantic Fire Lance beam, this far
+## apart in time (s), at where you aimed, landing this far apart to each side (m). A beam lasts this
+## long (s), is this wide each side (m) and deals this much of the ultimate's damage to each enemy it
+## touches.
+@export_range(0.5, 5.0, 0.1) var ult_circle_around := 2.0
+@export_range(0.2, 4.0, 0.05) var ult_shoulder_circle := 1.6
+@export_range(0.0, 2.0, 0.05) var ult_beam_delay := 0.35
+@export_range(0.0, 1.0, 0.05) var ult_beam_gap := 0.15
+@export_range(0.0, 6.0, 0.1) var ult_beam_spread := 1.5
+@export_range(0.5, 10.0, 0.1) var ult_beam_time := 2.0
+@export_range(0.2, 5.0, 0.1) var ult_beam_width := 1.5
+@export_range(0.1, 1.0, 0.05) var ult_beam_share := 0.4
+## Where a beam lands the ground burns this long (s), over this much of the ultimate's radius,
+## setting alight whoever is in it and dealing this much of the ultimate's damage a second.
 @export_range(0.0, 15.0, 0.5) var ult_fire_ground_time := 4.0
-@export_range(0.1, 2.0, 0.05) var ult_fire_ground_radius := 0.8
+@export_range(0.1, 2.0, 0.05) var ult_fire_ground_radius := 0.5
 @export_range(0.0, 1.0, 0.01) var ult_fire_ground_damage := 0.1
 
 
@@ -490,6 +495,9 @@ extends Resource
 @export_range(0.5, 20.0, 0.1) var chain_swing_rate := 4.0
 @export_range(1.0, 8.0, 0.1) var chain_swing_radius := 3.5
 @export_range(1.0, 30.0, 0.5) var chain_swing_spin := 9.0
+## Each full turn of the swing (user, 2026-11-19) adds this much spin (radians/s), up to the cap.
+@export_range(0.0, 10.0, 0.25) var chain_swing_spin_per_turn := 2.5
+@export_range(1.0, 60.0, 0.5) var chain_swing_spin_max := 24.0
 ## The chain's weight (user, 2026-11-19). The swing winds up to speed this fast (radians/s each
 ## second: lower is heavier); the body follows the chain's pull this hard (lower trails farther
 ## behind); and the chain is this much longer than the gap it spans (1 = taut, more = more sag).
