@@ -362,7 +362,7 @@ func _plow() -> void:
 	var side := pull.cross(Vector3.UP)
 	for e in fresh:
 		var info := player.make_hit(player.moveset._base(player) * t.heavy_multiplier, "Physical", "Melee", e, DamageInfo.Kind.HEAVY)
-		info.knockback = t.knockback_heavy
+		info.knockback = t.chain_plow_knockback
 		info.knockdown = true
 		info.no_launch = true
 		info.knockback_dir = side if (e.global_position - _hold_at).dot(side) >= 0.0 else -side  # out the side it stands on

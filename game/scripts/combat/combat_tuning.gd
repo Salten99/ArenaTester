@@ -480,6 +480,8 @@ extends Resource
 @export_range(10.0, 200.0, 1.0) var chain_speed := 70.0
 ## Scrolling the wheel back reels a hooked minion in this fast (m/s).
 @export_range(2.0, 80.0, 1.0) var chain_reel_speed := 22.0
+## What you pull in (reel or yank) knocks enemies in its path aside this hard (a heavy hit is knockback_heavy).
+@export_range(0.0, 60.0, 0.5) var chain_plow_knockback := 22.0
 ## A flick of the mouse down this fast (radians/s of camera pitch) yanks it into a slam, this high (m).
 @export_range(0.5, 20.0, 0.1) var chain_flick_rate := 3.0
 @export_range(0.5, 10.0, 0.1) var chain_slam_height := 3.0
