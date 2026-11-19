@@ -225,6 +225,7 @@ func _process(delta: float) -> void:
 		var left: float = player.race_active.cooldown
 		parts.append("[V] %s %s" % [player.race_active.title(), "ready" if left <= 0.0 else "%.0fs" % ceilf(left)])
 		parts.append("[G] Knife %s" % ("ready" if player._knife_left <= 0.0 else "%.0fs" % ceilf(player._knife_left)))
+		parts.append("[C] Bow %s" % ("ready" if player.bow_left <= 0.0 else "%.0fs" % ceilf(player.bow_left)))
 	_abilities.text = "   ".join(parts)
 	var lines: Array = ["Godly Gifts"]
 	for b in player.godly_gifts.owned:

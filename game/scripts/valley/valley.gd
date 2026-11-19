@@ -496,11 +496,12 @@ func meet(race: String) -> void:
 
 ## A weapon in a chest (user, 2026-11-06: find weapons and switch in the world): a sidearm you don't
 ## carry, offered in place of yours. Never a melee weapon: that's your class (user, 2026-11-09).
-func offer_weapon() -> void:
+## False when there's none to offer (only the bow since 2026-11-19).
+func offer_weapon() -> bool:
 	var s: RunState = Run.state
 	var found: Array = GameData.sidearms().filter(func(w): return w != s.sidearm_id)
 	if found.is_empty():
-		return
+		return false
 	var w: String = found[RunRng.randi_range(0, found.size() - 1)]
 	var side := GameData.is_sidearm(w)
 	var now := s.sidearm_id if side else s.weapon_id
@@ -508,6 +509,7 @@ func offer_weapon() -> void:
 	hud.offer_choice("weapon", "In the chest: a %s (%s)" % [GameData.text(row, "display_name", w), GameData.text(row, "weapon_class")], [w, "leave"], [
 		"Take it in place of your %s%s\n%s" % [GameData.text(GameData.weapon(now), "display_name", now), " (sidearm)" if side else "", GameData.text(row, "short_description")],
 		"Leave it"])
+	return true
 
 
 func take_weapon(w: String) -> void:

@@ -86,7 +86,7 @@ static func migrate(d: Dictionary) -> Dictionary:
 		out["pending_level_ups"] = 0
 	if v < 7:  # a main weapon and a sidearm (2026-11-06): a bow or spell run keeps it as the sidearm
 		var w: String = out.get("weapon_id", "warhammer")
-		out["sidearm_id"] = "staff" if w in ["staff", "whip"] else "bow"
+		out["sidearm_id"] = "bow"
 		if w in ["bow", "crossbow", "staff", "whip"]:
 			out["weapon_id"] = "warhammer"
 	out["version"] = VERSION

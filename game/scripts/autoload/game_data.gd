@@ -140,15 +140,9 @@ func sidearms() -> Array:
 	return rows("weapons").filter(func(r): return is_sidearm(r.weapon_id)).map(func(r): return r.weapon_id)
 
 
-## The sidearm each class starts with (user, 2026-11-16): Barbarian and Guardian the staff, Rogue and
-## Lancer the bow. Chests offer the other one.
-# shortcut: kept in code, not on the Weapons sheet; add a sheet column if you want to edit it there.
-const CLASS_SIDEARM := {"Heavy": "staff", "Blade": "staff", "Twin": "bow", "Polearm": "bow"}
-
-
-func sidearm_for(weapon_id: String) -> String:
-	var w: String = CLASS_SIDEARM.get(text(weapon(weapon_id), "weapon_class"), "")
-	return w if w in sidearms() else sidearms()[0]
+## The sidearm every class starts with: the bow, the only one since the staff went (user, 2026-11-19).
+func sidearm_for(_weapon_id: String) -> String:
+	return sidearms()[0]
 
 
 func status(id: String) -> Dictionary:

@@ -26,7 +26,7 @@ const REBINDABLE := [
 	["move_right", "Move right"], ["jump", "Jump"], ["sprint", "Sprint"], ["dodge", "Dodge"], ["slide", "Slide"],
 	["attack_light", "Light attack"], ["attack_heavy", "Heavy attack"],
 	["ability_signature", "Special ability"], ["ability_movement", "Movement ability"],
-	["ability_ultimate", "Ultimate ability"], ["race_active", "Race active skill"], ["throw_knife", "Throwing knife"], ["sidearm", "Switch to your bow or staff and back"], ["switch_weapon", "Switch to your bow or staff and back (wheel)"], ["spyglass", "Hold: spyglass (identify creatures far away)"], ["god_mode", "God mode"], ["interact", "Interact"], ["mount", "Mount: ride / call back (hold: send away; through the spyglass: attack or go there)"],
+	["ability_ultimate", "Ultimate ability"], ["race_active", "Race active skill"], ["throw_knife", "Throwing knife"], ["sidearm", "Switch to your bow and back"], ["switch_weapon", "Switch to your bow and back (wheel)"], ["spyglass", "Hold: spyglass (identify creatures far away)"], ["god_mode", "God mode"], ["interact", "Interact"], ["mount", "Mount: ride / call back (hold: send away; through the spyglass: attack or go there)"],
 	["valley_map", "Valley map"], ["retro_look", "Retro look on/off"], ["choose_1", "Choose option 1"], ["choose_2", "Choose option 2"],
 	["choose_3", "Choose option 3"],
 ]

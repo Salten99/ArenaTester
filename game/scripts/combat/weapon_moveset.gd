@@ -192,7 +192,8 @@ class Polearm extends WeaponMoveset:
 			DamageInfo.Kind.HEAVY, t.knockback_heavy, false, t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], p.global_position)
 
 
-## Bows and crossbows: arrows; the finisher fires a 3-arrow spread; heavy is a piercing shot.
+## The bow (user, 2026-11-19): either click fires one powerful bolt that goes through every enemy
+## in its path and pins them to walls, then waits bow_cooldown.
 class Ranged extends WeaponMoveset:
 	func launch_scale() -> float:
 		return 1.0
@@ -206,14 +207,14 @@ class Ranged extends WeaponMoveset:
 	func idle_anim() -> String:
 		return "Ranged_Bow_Idle"
 
-	func light_hit(p: Player, finisher: bool) -> void:
-		var spread: Array = [-0.15, 0.0, 0.15] if finisher else [0.0]
-		for angle in spread:
-			p.fire_projectile(p.facing.rotated(Vector3.UP, angle), 45.0, _base(p), DamageInfo.Kind.LIGHT, 0,
-				["on_light_hit", "on_combo_finisher"] if finisher else ["on_light_hit"])
+	const PIERCE := 99  ## enemies one bolt goes through
+
+	func light_hit(p: Player, _finisher: bool) -> void:
+		heavy_hit(p)
 
 	func heavy_hit(p: Player) -> void:
-		p.fire_projectile(p.facing, 60.0, _base(p) * p.heavy_mult(), DamageInfo.Kind.HEAVY, 0, ["on_heavy_hit"])  # no pierce: that's a godly gift's (user, 2026-11-05)
+		p.bow_left = GameData.tuning.bow_cooldown
+		p.fire_projectile(p.facing, GameData.tuning.bow_bolt_speed, _base(p) * p.heavy_mult(), DamageInfo.Kind.HEAVY, PIERCE, ["on_heavy_hit"])
 
 
 ## A blowgun: the bow's shots as darts, the tube held at the mouth in the bow's aiming pose.

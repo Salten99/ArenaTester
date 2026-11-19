@@ -275,6 +275,10 @@ extends Resource
 ## An explosion launches the ones it ragdolls this much faster (user, 2026-11-08: 33%).
 @export_range(1.0, 3.0, 0.05) var explosion_launch_scale := 1.33
 @export_range(0.5, 20.0, 0.5) var pin_seconds := 5.0
+## The bow fires one bolt, then waits this long (s) before the next (user, 2026-11-19).
+@export_range(0.0, 60.0, 0.5) var bow_cooldown := 10.0
+## How fast the bow's bolt flies (m/s).
+@export_range(10.0, 200.0, 5.0) var bow_bolt_speed := 80.0
 @export_range(0.0, 500.0, 5.0) var pin_damage := 40.0
 ## How fast your arrows and bolts fall (m/s per second): a little drop over distance.
 @export_range(0.0, 30.0, 0.25) var missile_gravity := 5.0

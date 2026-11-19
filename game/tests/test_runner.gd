@@ -250,16 +250,8 @@ func test_run_opens_with_camp_raid() -> void:
 	v.player.global_position = home.global_position + Vector3(Valley.FIRE_LEFT + 30.0, 5.0, 0.0)
 	await _frames(40)
 	check(v._smoke.is_empty() and home.buildings.has_meta("burned"), "leave and the fires go out; the burned houses stay")
-	# A weapon found in a chest replaces the one of its kind.
-	var before := [Run.state.weapon_id, Run.state.sidearm_id]
-	v.offer_weapon()
-	await _frames(1)
-	var found: String = v.hud._offer[0] if v.hud._offer_kind == "weapon" else ""
-	v.hud._pick(0)
-	await _frames(2)
-	var now := [Run.state.weapon_id, Run.state.sidearm_id]
-	check(found != "" and GameData.is_sidearm(found) and now[0] == before[0] and now[1] == found and v.player.sidearm_id == found,
-		"a chest's weapon is a sidearm, in place of yours; your class keeps its weapon (%s -> %s)" % [before, now])
+	# With the bow the only sidearm (user, 2026-11-19), a chest has no weapon to offer.
+	check(not v.offer_weapon() and v.hud._offer_kind != "weapon", "no weapon in a chest: the bow is the only sidearm")
 
 
 func test_first_fight_and_playtest_numbers() -> void:
@@ -285,9 +277,8 @@ func test_first_fight_and_playtest_numbers() -> void:
 
 func test_god_pick_and_class_sidearm() -> void:
 	# Fewer picks before a run (user, 2026-11-16): the class sets the sidearm, the god is picked after the opening.
-	check(GameData.sidearm_for("warhammer") == "staff" and GameData.sidearm_for("greatsword") == "staff"
-		and GameData.sidearm_for("twin_khopesh") == "bow" and GameData.sidearm_for("naginata") == "bow",
-		"Barbarian and Guardian start with the staff, Rogue and Lancer with the bow")
+	check(["warhammer", "greatsword", "twin_khopesh", "naginata"].all(func(w): return GameData.sidearm_for(w) == "bow"),
+		"every class starts with the bow")
 	check(Run.start_new("dwarf", "forge_god", 5, 1.0, "twin_khopesh").sidearm_id == "bow", "a run started without a sidearm takes the class's")
 	var s := _fresh_run(43)
 	var patron := s.god_id
@@ -682,7 +673,7 @@ func test_batch_2026_11_09() -> void:
 	# Spells leave the staff's tip.
 	var caster := CharacterModel.new()
 	add_child(caster)
-	caster.setup(ModelRegistry.for_unit("barb_hedge_witch").model, ModelRegistry.weapon_model("staff"), 1.0)
+	caster.setup(ModelRegistry.for_unit("barb_hedge_witch").model, ModelRegistry.own("weapon_staff.glb"), 1.0)
 	caster.global_position = Vector3(500, 0, 500)
 	caster.play("Idle_A")
 	await _frames(20)  # in its idle pose, staff held up
@@ -1164,7 +1155,7 @@ func test_void_mark() -> void:
 
 func test_all_movesets() -> void:
 	var p: Player = _arena.player
-	for weapon in ["warhammer", "greatsword", "naginata", "bow", "staff"]:
+	for weapon in ["warhammer", "greatsword", "naginata", "bow"]:
 		p.setup("dwarf", "forge_god", weapon)
 		var enemies := _cluster(3, 3.0, "barb_warlord")
 		var s := _scripted()
@@ -1732,7 +1723,11 @@ func test_spyglass_bestiary_wings() -> void:
 	check(p.using_sidearm, "and it stays out")
 	input.press("heavy")
 	await _frames(6)
-	check(p.state == Player.State.HEAVY and p.using_sidearm, "right click fires the heavy shot")
+	check(p.state != Player.State.HEAVY and p.bow_left > 0.0, "one shot, then the bow waits (%.1f s left)" % p.bow_left)
+	p.bow_left = 0.0
+	input.press("heavy")
+	await _frames(6)
+	check(p.state == Player.State.HEAVY and p.using_sidearm, "and once it's ready, right click fires it too")
 	await _frames(120)
 	input.press("sidearm")
 	await _frames(4)
@@ -1796,23 +1791,23 @@ func test_spyglass_bestiary_wings() -> void:
 func test_main_weapon_and_sidearm() -> void:
 	var mains := GameData.weapon_options("dwarf")
 	check(mains.size() == 4 and "naginata" in mains and not "guandao" in mains and not "mace" in mains, "four main weapons to start with (%s)" % ", ".join(mains))
-	check(GameData.sidearms() == ["bow", "staff"], "and two sidearms: bow or spells")
-	check(GameData.rows("weapons").size() == 6, "only the six weapons in use are on the sheet")
+	check(GameData.sidearms() == ["bow"], "and one sidearm: the bow (user, 2026-11-19: no staff)")
+	check(GameData.rows("weapons").size() == 5, "only the five weapons in use are on the sheet")
 	check(GameData.text(GameData.weapon("twin_khopesh"), "weapon_class") == "Twin" and WeaponMoveset.for_class("Twin") is WeaponMoveset.Twin, "twin blades are their own class")
 	check(ModelRegistry.weapon_model("naginata").ends_with("weapon_naginata.glb"), "the naginata has its own model")
-	check(ModelRegistry.weapon_model("staff", "macaque").ends_with("macaque/weapon_staff.glb") and ModelRegistry.weapon_model("bow", "dwarf").ends_with("dwarf/weapon_bow.glb"),
+	check(ModelRegistry.weapon_model("bow", "macaque").ends_with("macaque/weapon_bow.glb") and ModelRegistry.weapon_model("bow", "dwarf").ends_with("dwarf/weapon_bow.glb"),
 		"a race's own weapon versions are used for that race")
 	check(ModelRegistry.weapon_model("naginata", "macaque") == ModelRegistry.OWN + "weapon_naginata.glb"
 		and ModelRegistry.weapon_model("naginata", "minotaur").ends_with("minotaur/weapon_naginata.glb") and ModelRegistry.weapon_model("naginata", "frog").ends_with("frog/weapon_naginata.glb"),
 		"polearms by race: your naginata for the macaques, the minotaurs' and frogfolk's own (user, 2026-11-09; the dwarves' is your lance, below)")
-	# Every race has its own set of all six weapons (user, 2026-11-09).
+	# Every race has its own set of all five weapons (user, 2026-11-09).
 	var shared: Array = []
 	for r in GameData.rows("races"):
 		for w in GameData.rows("weapons"):
 			if not ModelRegistry.weapon_model(w.weapon_id, r.race_id).contains("/%s/" % r.race_id):
 				shared.append("%s %s" % [r.race_id, w.weapon_id])
 	check(shared == ["macaque naginata"], "every race has its own version of every weapon; only the macaques' polearm is your naginata (%s)" % [shared])
-	check(ModelRegistry.weapon_model("staff", "nobody") == ModelRegistry.weapon_model("staff"), "and the normal weapon where there is no race version")
+	check(ModelRegistry.weapon_model("bow", "nobody") == ModelRegistry.weapon_model("bow"), "and the normal weapon where there is no race version")
 	check(ModelRegistry.own("dwarf/gear_knife.glb") != "", "the dwarves throw axes instead of knives")
 	# Each race has the same classes, each with its own look (user, 2026-11-17): own/<race>/<class>/.
 	check(ModelRegistry.weapon_model("greatsword", "dwarf") == ModelRegistry.OWN + "dwarf/guardian/weapon.glb"
@@ -1826,7 +1821,7 @@ func test_main_weapon_and_sidearm() -> void:
 	check(old.weapon_id == "warhammer" and old.sidearm_id == "bow", "an old bow run keeps its bow as the sidearm")
 	var p: Player = _arena.player
 	p.god_mode = true
-	p.setup("dwarf", "forge_god", "greatsword", "staff")
+	p.setup("dwarf", "forge_god", "greatsword", "bow")
 	check(is_equal_approx(p._light_duration() * 1.5 * GameData.num(GameData.weapon("greatsword"), "weapon_attacks_per_sec", 1.2) * p.stats.mult("attack_speed_pct") * GameData.tuning.light_speed_mult, 1.0),
 		"sword swings are 50% faster (user, 2026-11-08)")
 	var dash_from := p.global_position
@@ -1839,7 +1834,7 @@ func test_main_weapon_and_sidearm() -> void:
 	var input := _scripted()
 	input.press("sidearm")
 	await _frames(4)
-	check(p.using_sidearm and p.weapon_class() == "Caster" and p.aiming, "C draws the sidearm, with the crosshair")
+	check(p.using_sidearm and p.weapon_class() == "Ranged" and p.aiming, "C draws the sidearm, with the crosshair")
 	input.press("sidearm")
 	await _frames(4)
 	check(not p.using_sidearm and p.weapon_class() == "Blade", "pressed again: back to your class's weapon")
@@ -1864,7 +1859,7 @@ func test_main_weapon_and_sidearm() -> void:
 	check(Controls.binding_text("switch_weapon") == "Wheel Up / Wheel Down", "scrolling the wheel switches weapon (%s)" % Controls.binding_text("switch_weapon"))
 	input.press("switch_weapon")
 	await _frames(12)
-	check(p.using_sidearm and p.weapon_class() == "Caster", "a turn of the wheel draws your sidearm, and it stays out")
+	check(p.using_sidearm and p.weapon_class() == "Ranged", "a turn of the wheel draws your sidearm, and it stays out")
 	input.press("switch_weapon")
 	await _frames(4)
 	check(not p.using_sidearm and p.weapon_class() == "Blade", "another turn puts the main weapon back")
@@ -1898,6 +1893,22 @@ func test_main_weapon_and_sidearm() -> void:
 	if dart != null:
 		dart.queue_free()
 	p.setup("dwarf", "forge_god", "warhammer", "bow")
+	# The bow (user, 2026-11-19): one heavy bolt through everyone in its path, then a 10 s wait.
+	p._use_sidearm(true)
+	var shots: Array = []
+	var count := func(n: Node) -> void:
+		if n is Projectile:
+			shots.append(n)
+	get_tree().node_added.connect(count)
+	p.moveset.light_hit(p, false)
+	get_tree().node_added.disconnect(count)
+	check(shots.size() == 1 and shots[0].pierce >= 99 and shots[0].template.kind == DamageInfo.Kind.HEAVY
+		and is_equal_approx(p.bow_left, GameData.tuning.bow_cooldown) and is_equal_approx(GameData.tuning.bow_cooldown, 10.0),
+		"a bow shot is one heavy bolt that goes through every enemy, then the bow waits 10 s")
+	for b in shots:
+		b.queue_free()
+	p.bow_left = 0.0
+	p._use_sidearm(false)
 	input.hold({}, 1)
 
 
@@ -4577,7 +4588,7 @@ func test_weapon_and_spell_feel() -> void:
 	check(k["Heavy"] > k["Polearm"] and k["Polearm"] > k["Blade"] and k["Blade"] > k["Twin"], "the hammer throws hardest, twin blades least: %s" % str(k))
 	var speeds := {}
 	for w in ["warhammer", "twin_khopesh"]:
-		p.equip(w, "staff")
+		p.equip(w, "bow")
 		var foe: Enemy = _cluster(1, 3.0)[0]
 		await _frames(2)
 		var info := DamageInfo.make(1.0, "Physical", DamageInfo.Kind.HEAVY, p)
@@ -4588,7 +4599,7 @@ func test_weapon_and_spell_feel() -> void:
 		foe.queue_free()
 		await _frames(1)
 	check(speeds["warhammer"] > speeds["twin_khopesh"], "a hammer's launch flies farther than a twin blade's (%s)" % str(speeds))
-	p.equip("warhammer", "staff")
+	p.equip("warhammer", "bow")
 	p._use_sidearm(true)
 	var shot: Projectile = p.fire_projectile(p.facing, 30.0, 5.0, DamageInfo.Kind.LIGHT, 0, [], true)
 	check(shot != null and is_equal_approx(shot.template.hitstop, t.hitstop_heavy) and shot.template.shake > 0.0, "a spell bolt freezes and shakes like a heavy blow")
@@ -4688,7 +4699,7 @@ func test_grab_crush_hurl() -> void:
 	wall.queue_free()
 	# Not with the sidearm out.
 	p._use_sidearm(true)
-	check(not p._can_grab(), "no grab with the bow or staff out")
+	check(not p._can_grab(), "no grab with the bow out")
 	p._use_sidearm(false)
 
 

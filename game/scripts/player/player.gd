@@ -39,6 +39,7 @@ var race_active := RaceActive.new()
 var race_active_held := false
 var _crosshair := Vector3.INF  ## what you're aiming at (PlayerIntent.crosshair)
 var _knife_left := 0.0  ## seconds until the knife can be thrown again
+var bow_left := 0.0  ## seconds until the bow can fire again
 var _cast_clip := "Throw"
 var _cast_slow := 1.0  ## the cast animation plays this many times longer (the Fire Lance's stab: 1.5)
 const CAST_TIME := 0.25  ## a cast holds you this long (s)...
@@ -63,7 +64,7 @@ var god_mode := false
 const THROWN_TIME := 2.0
 ## Holding the mount key this long on foot tells your mount to stay; a tap rides (or calls it back).
 const MOUNT_HOLD := 0.4
-var _sidearm_out := false  ## switched to your bow or staff (C or the wheel), until you switch back
+var _sidearm_out := false  ## switched to your bow (C or the wheel), until you switch back
 var _mount_hold := -1.0  ## seconds the mount key has been held on foot, -1 when it isn't
 var _thrown_left := 0.0
 ## God mode (F6) also flies: Space up, Ctrl down, Shift fast. No gravity.
@@ -303,7 +304,7 @@ func _physics_process(delta: float) -> void:
 	if flying:
 		intent.dodge = false  # Ctrl flies down instead
 	spying = intent.spyglass_held and not swimming
-	# C or the wheel switches to your bow or staff and back; your class keeps its one melee weapon
+	# C or the wheel switches to your bow and back; your class keeps its one melee weapon
 	# (user, 2026-11-09). Holding an attack is just an attack. Changes between attacks, never mid-swing.
 	if state == State.CHAIN:  # the wheel reels the chain in, it doesn't switch weapons
 		intent.switch_weapon = false
@@ -340,7 +341,7 @@ func _physics_process(delta: float) -> void:
 			_start_parry(intent.aim_yaw)
 	elif intent.dodge and state != State.DODGE and stamina >= t.dodge_stamina_cost:
 		_start_dodge(move_dir if move_dir.length() > 0.1 else -facing)
-	elif state == State.FREE or (state == State.LIGHT and _hit_done):
+	elif (state == State.FREE or (state == State.LIGHT and _hit_done)) and not (using_sidearm and bow_left > 0.0):
 		if light_now:
 			if state == State.LIGHT:
 				_queued_light = true
@@ -353,6 +354,7 @@ func _physics_process(delta: float) -> void:
 	if intent.race_active and state == State.FREE:
 		race_active.cast()
 	_knife_left = maxf(0.0, _knife_left - delta)
+	bow_left = maxf(0.0, bow_left - delta)
 	if intent.throw_knife and state == State.FREE:
 		throw_knife(intent.aim_yaw)
 	if state == State.FREE:

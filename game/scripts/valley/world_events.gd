@@ -561,10 +561,8 @@ func dungeon_reward(place: String) -> void:
 	Run.note("dungeons")
 	_pay(t.dungeon_supplies, "", 0, "%s is cleared: %d supplies." % [place, t.dungeon_supplies])
 	valley.give_xp(t.dungeon_xp)
-	if RunRng.chance(50.0):
+	if RunRng.chance(50.0) or not valley.offer_weapon():
 		_offer_gift(Run.state.god_id)
-	else:
-		valley.offer_weapon()
 
 
 func _pay(supplies: int, race: String, rep: int, text: String) -> void:
