@@ -64,9 +64,7 @@ static func wave_units(index: int) -> Array:
 
 ## Damage of one plain light hit with your main weapon (no crit), which sets enemy health.
 func light_hit_damage() -> float:
-	var s: PlayerStats = player.stats
-	var pct := s.get_stat("damage_pct") + s.get_stat("melee_pct") + GameData.num(player._god, "dmg_physical_pct")
-	return player.moveset._base(player) * maxf(0.1, 1.0 + pct / 100.0)
+	return player._boosted(player.moveset._base(player), "Physical", player._category(), null)
 
 
 func _begin() -> void:

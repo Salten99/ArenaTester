@@ -8,9 +8,8 @@ extends Node
 ##                               the blast (or the hits, without a radius) lands at UltimateFx.impact_time()
 ##   range_m, slot Movement   -> leap forward, blast on landing
 ##   hits_or_projectiles > 1  -> repeated hits on the nearest enemy (radius 0)
-##   shape Cone               -> a cone ahead, range_m long and radius_m wide each side at the end
-##                               (Movement lunges you forward first, then the Fire Lance's beam:
-##                               range_m long, radius_m wide each side, following your aim a moment)
+##   shape Cone               -> the Fire Lance: lunge forward (lance_lunge_m), then a beam
+##                               range_m long, radius_m wide each side, following your aim a moment
 ## Abilities count as Magic damage.
 
 signal cooldowns_changed
@@ -284,13 +283,10 @@ func _strike(a: Dictionary, player: Node, e: Node, center: Vector3, explosive :=
 	Combat.deal(e, info)
 
 
-## Lunge forward (Movement only), then the beam bursts out where you land (a cone, without the lunge).
+## Lunge forward (Movement only), then the beam bursts out where you land.
 func _lance(a: Dictionary, player: Node, dir: Vector3, reach: float, half_width: float) -> void:
 	dir = Vector3(dir.x, 0.0, dir.z).normalized()
 	var lunge: float = GameData.tuning.lance_lunge_m if a.get("slot") == "Movement" else 0.0
-	if lunge <= 0.0:
-		_cone(a, player, dir, reach, half_width)
-		return
 	invulnerable = true
 	var start: Vector3 = player.global_position
 	# A magic circle opens in front of your forehead as you lunge (user, 2026-11-19); the beam
@@ -398,32 +394,6 @@ func _beam_hits(a: Dictionary, player: Node, hit: Dictionary, from: Vector3, dir
 
 func beaming() -> bool:
 	return not _beam.is_empty()
-
-
-## The weapon's point now: its tip if the model has one, else about where it would be.
-func _tip(player: Node, dir: Vector3) -> Vector3:
-	var tip: Node3D = player.visual.weapon_tip() if player.get("visual") != null else null
-	return tip.global_position if tip != null else player.global_position + Vector3.UP * 1.2 + dir * 0.6
-
-
-func _cone(a: Dictionary, player: Node, dir: Vector3, reach: float, half_width: float) -> void:
-	invulnerable = false
-	if not is_instance_valid(player) or player.is_dead():
-		return
-	var from: Vector3 = player.global_position
-	var tip := _tip(player, dir)
-	if ElementFx.play_own(GameData.text(a, "ability_id"), tip, reach / LANCE_FX_LENGTH, dir) == null:
-		ElementFx.beam(GameData.text(a, "damage_type", "Physical"), tip, tip + dir * reach)
-	var cos_max := cos(atan2(maxf(half_width, 0.5), reach))
-	Breakable.smash_line(get_tree(), from, dir, reach, maxf(half_width, 0.5) * 0.6)
-	for e in Combat.enemies_in_radius(from, reach):
-		var to: Vector3 = e.global_position - from
-		to.y = 0.0
-		if to.length() < 1.0 or to.normalized().dot(dir) >= cos_max:  # point-blank always counts
-			_strike(a, player, e, from)
-	var t: CombatTuning = GameData.tuning
-	Combat.shake(t.shake_explosion)
-	HitStop.trigger(t.hitstop_light)
 
 
 ## Where the Spikes open: the aimed ground point, at most `reach` away (ahead of you, unaimed).
