@@ -4720,13 +4720,19 @@ func test_chain_grab() -> void:
 	check(p.state == Player.State.CHAIN and p.chain.mode == Chain.Mode.HOOKED and foe.held_by == p, "a held light attack hooks a minion 8 m away")
 	var links: int = p.chain._line.multimesh.visible_instance_count if p.chain._line != null else 0
 	check(p.chain._line != null and p.chain._line.visible and links >= 30, "you see the chain: %d links from hand to hook" % links)
+	var in_way: Enemy = _cluster(1, 8.0)[0]
+	in_way.global_position = p.global_position + p.facing * 4.0
+	in_way.health.hp = 10000.0
+	var in_way_hp := in_way.health.hp
 	s.hold({"light_held": true, "wheel_back": true}, 1)
 	s.hold({"light_held": true}, 40)
 	await _frames(41)
 	check(p.state == Player.State.GRAB and p.grabber.held == foe, "the wheel reels it into your hand (state %d)" % p.state)
+	check(in_way.health.hp < in_way_hp and in_way.state == Enemy.State.DOWN, "and it knocks down and hurts the one in its path (state %d)" % in_way.state)
 	s.hold({}, 2)
 	await _frames(3)
 	foe.queue_free()  # out of the way: a minion at your feet would be grabbed by hand next
+	in_way.queue_free()
 	await _frames(40)
 	# Reel in one a light hit would kill: you punch it and it bursts.
 	var weak: Enemy = _cluster(1, 8.0)[0]

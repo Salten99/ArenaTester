@@ -89,6 +89,7 @@ func fire(e: Node3D) -> void:
 	_kick_started = false
 	_last_yaw = INF
 	_last_pitch = INF
+	_swing_hit = [e]
 	_show_line(true)
 
 
@@ -153,6 +154,7 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 			var meet: Vector3 = player.global_position + player.facing * 1.3 + Vector3.UP * 1.0
 			var from := _hold_at
 			_hold_at = from.lerp(meet, clampf(delta / maxf(YANK_TIME - _time + delta, 0.001), 0.0, 1.0))
+			_plow()
 			if _time >= YANK_TIME or _hold_at.distance_to(meet) < 0.4:
 				var e := target
 				_release_target(false)
@@ -164,6 +166,7 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 			if not intent.light_held:
 				return _end()
 			_hold_at = _hold_at.move_toward(player.grabber.hold_point(), t.chain_reel_speed * delta)
+			_plow()
 			if _hold_at.distance_to(player.grabber.hold_point()) < 0.3:
 				var e := target
 				_release_target(false)
@@ -345,6 +348,18 @@ func _slam(land: Vector3) -> void:
 	if e.bleeds():
 		Vfx.blood(land + Vector3.UP * 0.5, Vector3.UP, t.blood_kill_drops)
 		Vfx.blood_stains(land, player.facing, t.blood_stains_per_hit * 2, 1.4)
+
+
+## What you pull in (user, 2026-11-19) knocks down and hurts each enemy in its path, once each,
+## as the swing does.
+func _plow() -> void:
+	var t: CombatTuning = GameData.tuning
+	var fresh: Array = Combat.enemies_in_radius(_hold_at, 1.3, _swing_hit)
+	if fresh.is_empty():
+		return
+	_swing_hit.append_array(fresh)
+	player.hit_targets(fresh, player.moveset._base(player) * t.heavy_multiplier, DamageInfo.Kind.HEAVY, t.knockback_heavy,
+		true, t.hitstop_heavy, t.shake_heavy * 0.5, [], _hold_at, "Physical", false, false, false)
 
 
 ## A wall (not the ground) between `a` and `b`: the ray's hit {position, normal}, or {} if none.
