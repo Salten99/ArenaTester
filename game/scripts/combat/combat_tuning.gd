@@ -124,24 +124,17 @@ extends Resource
 ## Holding jump (user, 2026-11-05): a tap jumps 100%, held it rises to jump_charge_max after jump_charge_time seconds.
 @export_range(0.0, 5.0, 0.1) var jump_charge_time := 2.0
 @export_range(1.0, 2.0, 0.05) var jump_charge_max := 1.3
-## How far your arrows, bolts and spells fly (m).
+## How far your arrows fly (m).
 @export_range(10.0, 200.0, 5.0) var missile_range := 75.0
 ## Aiming help (user, 2026-11-05): an enemy this close to the crosshair (degrees), within the weapon's
-## sure range, is hit: bows and crossbows aim true at it; spells launch anywhere in the wider circle
-## and pull toward it.
+## sure range, is hit: the bow aims true at it.
 @export_range(0.0, 15.0, 0.5) var aim_cone_missile_deg := 3.0
-@export_range(0.0, 30.0, 0.5) var aim_cone_magic_deg := 10.0
 @export_range(5.0, 100.0, 1.0) var sure_range_bow := 30.0
-@export_range(5.0, 100.0, 1.0) var sure_range_caster := 45.0
-@export_range(0.0, 720.0, 10.0) var cast_pull_deg := 240.0
 ## A jump crouches at least this long (s) first: knees bend even on a tap (user, 2026-11-06).
 @export_range(0.0, 0.4, 0.02) var jump_crouch_min := 0.12
 ## The spyglass: how narrow the view gets (degrees) and how far it identifies creatures (m).
 @export_range(4.0, 40.0, 1.0) var spyglass_fov := 12.0
 @export_range(50.0, 1000.0, 10.0) var spyglass_range := 450.0
-## Spells burst where they land: this wide (m), dealing this share of the spell's damage to those around.
-@export_range(0.0, 8.0, 0.5) var spell_blast_radius := 2.5
-@export_range(0.0, 200.0, 5.0) var spell_blast_pct := 50.0
 ## The camera's view while you hold an attack with a bow or spell weapon (it's 70 otherwise).
 @export_range(30.0, 90.0, 1.0) var aim_fov := 58.0
 ## Half-angle of the light attack arc, in degrees.
@@ -298,9 +291,6 @@ extends Resource
 ## Your heavy and magic hits launch enemies: how fast and how high (m/s), before launch_velocity_mult.
 @export_range(0.0, 40.0, 0.5) var launch_speed := 9.0
 @export_range(0.0, 20.0, 0.5) var launch_lift := 7.0  # 4 before the reels' frame-by-frame (2026-11-18): launched enemies hang high
-## A staff's or whip's light magic bolts launch this much of that (1 since the combat feel plan,
-## 2026-11-18: a spell lands like a heavy blow).
-@export_range(0.0, 1.0, 0.05) var launch_bolt_scale := 1.0
 ## Every launched enemy flies this many times faster (user, 2026-11-01: 30% more).
 @export_range(0.5, 3.0, 0.05) var launch_velocity_mult := 1.3
 ## Blood drops from a hit, and from being slammed into something (x gore_amount; 24 since the

@@ -45,7 +45,7 @@ const PLAYABLE_RACES := ["dwarf"]
 const SHELVED_GODS := ["nature_god", "war_god", "disease_god", "death_god", "chaos_god", "desert_god",
 	"sun_god", "moon_god", "harvest_god", "sea_god", "wind_god"]
 ## Sidearm classes: held on their own key beside your main (melee) weapon.
-const SIDEARM_CLASSES := ["Ranged", "Caster"]
+const SIDEARM_CLASSES := ["Ranged"]
 
 
 func load_all() -> void:

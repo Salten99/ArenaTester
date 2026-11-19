@@ -1867,26 +1867,6 @@ func test_main_weapon_and_sidearm() -> void:
 	input.press("switch_weapon")
 	await _frames(4)
 	check(not p.using_sidearm and p.weapon_class() == "Blade", "another turn puts the main weapon back")
-	# The staff's heavy: a bolt that drifts to its target and bursts there.
-	var target: Enemy = _cluster(1, 10.0)[0]
-	target.health.setup(5000.0)
-	await _frames(1)
-	p._face_yaw(atan2(-(target.global_position.x - p.global_position.x), -(target.global_position.z - p.global_position.z)))
-	var burst_at := []
-	var bolt := p.fire_burst_bolt(WeaponMoveset.Caster.BOLT_SPEED, WeaponMoveset.Caster.BOLT_PULL, func(at): burst_at.append([at, target.global_position]))
-	check(bolt != null, "a staff's heavy fires a bolt")
-	await _frames(60)
-	check(burst_at.size() == 1 and (burst_at[0][0] as Vector3).distance_to(burst_at[0][1] + Vector3.UP) < 2.0 and target.health.hp == target.health.max_hp,
-		"which bursts once, where it meets an enemy (the burst does the damage)")
-	target.queue_free()
-	# A spell bursts where it lands.
-	var foes := _cluster(3, 6.0)
-	var hp: float = foes[1].health.hp
-	var info := p.make_hit(12.0, "Fire", "Magic", foes[0], DamageInfo.Kind.LIGHT)
-	p._spell_blast(foes[0], info)
-	check(foes[1].health.hp < hp, "a spell hurts the ones around the one it hit")
-	for e in foes:
-		e.queue_free()
 	# The frogfolk's bow is a blowgun, held at the mouth, shooting darts (user, 2026-11-10).
 	p.setup("frog", "forge_god", "warhammer", "bow")
 	p._use_sidearm(true)
@@ -4604,11 +4584,6 @@ func test_weapon_and_spell_feel() -> void:
 		await _frames(1)
 	check(speeds["warhammer"] > speeds["twin_khopesh"], "a hammer's launch flies farther than a twin blade's (%s)" % str(speeds))
 	p.equip("warhammer", "bow")
-	p._use_sidearm(true)
-	var shot: Projectile = p.fire_projectile(p.facing, 30.0, 5.0, DamageInfo.Kind.LIGHT, 0, [], true)
-	check(shot != null and is_equal_approx(shot.template.hitstop, t.hitstop_heavy) and shot.template.shake > 0.0, "a spell bolt freezes and shakes like a heavy blow")
-	check(is_equal_approx(t.launch_bolt_scale, 1.0), "and launches as hard")
-	p._use_sidearm(false)
 
 
 ## Combat feel plan, part 4: hold light attack to grab a minion; keep holding to crush it, right

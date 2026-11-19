@@ -3,7 +3,7 @@ extends CharacterBody3D
 ## The player character: movement, dodge, the god's weapon moveset and abilities.
 ## Reads a PlayerIntent each physics frame (see PlayerInput); never reads keys itself.
 ##
-## Weapon movesets are per weapon class (Heavy, Blade, Polearm, Ranged, Caster).
+## Weapon movesets are per weapon class (Heavy, Blade, Polearm, Ranged).
 ## Milestone 0 implements Heavy; other classes fall back to it until built.
 
 signal died
@@ -94,7 +94,7 @@ var _weapon_pivot: Node3D
 ## The animated character model, or null when using the capsule fallback.
 var visual: CharacterModel
 var _body := ""  ## the model file `visual` was built from
-## The weapon type's attacks (Heavy, Blade, Polearm, Ranged, Caster).
+## The weapon type's attacks (Heavy, Blade, Polearm, Ranged).
 var moveset: WeaponMoveset = WeaponMoveset.new()
 var _weapon_hits := 0
 var _low_health_fired := false
@@ -247,7 +247,7 @@ func weapon_class() -> String:
 	return GameData.text(_weapon, "weapon_class", "Heavy")
 
 
-## The pledged god's element (Caster weapons shoot it).
+## The pledged god's element.
 func element() -> String:
 	return GameData.text(_god, "element", "Physical")
 
@@ -660,12 +660,9 @@ func aim_direction(from: Vector3, speed := 0.0, drop := 0.0) -> Vector3:
 	return to if to.dot(facing) > 0.1 else facing
 
 
-## How far this weapon's shots are sure to hit what the crosshair is on (bow 30 m, spells 45 m).
+## How far the bow's shots are sure to hit what the crosshair is on (30 m).
 func sure_range() -> float:
-	var t: CombatTuning = GameData.tuning
-	if GameData.text(_weapon, "weapon_class") == "Caster":
-		return t.sure_range_caster
-	return t.sure_range_bow
+	return GameData.tuning.sure_range_bow
 
 
 ## The enemy nearest the crosshair within `cone_deg` and `reach` of `from`, or null.
@@ -1033,38 +1030,25 @@ func _jump_now(intent: PlayerIntent, delta: float, on_floor: bool) -> bool:
 var aiming := false
 
 
-## Fires a projectile weapon shot (Ranged and Caster movesets). Caster shots use the god's element.
+## Fires a bow shot.
 func fire_projectile(dir: Vector3, speed: float, base: float, kind: DamageInfo.Kind, pierce: int,
-		events: Array, elemental := false) -> Projectile:
+		events: Array) -> Projectile:
 	var t: CombatTuning = GameData.tuning
 	if kind == DamageInfo.Kind.HEAVY:
 		speed *= 1.0 + heavy_charge * t.heavy_charge_speed  # a charged shot flies faster
-	var element := element() if elemental else "Physical"
-	var info := make_hit(base, element, _category(), null, kind)
+	var info := make_hit(base, "Physical", _category(), null, kind)
 	info.knockback = GameData.tuning.knockback_light
 	info.hitstop = GameData.tuning.hitstop_light
-	if elemental:  # a spell lands like a heavy blow (combat feel plan, 2026-11-18): its freeze and shake
-		info.hitstop = t.hitstop_heavy
-		info.shake = t.shake_heavy * 0.6
 	var from := global_position + Vector3.UP * 1.3 + dir * 0.6
-	if _category() == "Magic" and visual != null:  # a spell leaves the staff's tip (user, 2026-11-09)
-		var tip: Node3D = visual.weapon_tip()
-		if tip != null and tip.global_position.distance_to(from) < 3.0:
-			from = tip.global_position
-	# Aim where the crosshair is, up or down too; a finisher's spread keeps its angle around that.
+	# Aim where the crosshair is, up or down too; a shot fired off to the side keeps its angle around that.
 	var drop: float = t.missile_gravity if _category() == "Missile" else 0.0
 	var shot := aim_direction(from, speed, drop).rotated(Vector3.UP, facing.signed_angle_to(dir, Vector3.UP))
-	var magic := _category() == "Magic"
-	var sure := sure_target(from, t.aim_cone_magic_deg if magic else t.aim_cone_missile_deg, sure_range())
-	if sure != null and not magic and is_equal_approx(facing.signed_angle_to(dir, Vector3.UP), 0.0):
+	var sure := sure_target(from, t.aim_cone_missile_deg, sure_range())
+	if sure != null and is_equal_approx(facing.signed_angle_to(dir, Vector3.UP), 0.0):
 		var at: Vector3 = sure.global_position + Vector3.UP * sure.aim_height()
 		var fly := from.distance_to(at) / speed
 		shot = (at + Vector3.UP * 0.5 * drop * fly * fly - from).normalized()  # true at the one you aimed at
-	elif sure != null and magic:  # a spell leaves anywhere in the wide circle, then pulls in
-		shot = shot.rotated(shot.cross(Vector3.UP).normalized() if absf(shot.y) < 0.99 else Vector3.RIGHT, deg_to_rad(RunRng.randf_range(-1.0, 1.0) * t.aim_cone_magic_deg)) \
-			.rotated(Vector3.UP, deg_to_rad(RunRng.randf_range(-1.0, 1.0) * t.aim_cone_magic_deg))
-	var p := Projectile.fire(from, shot, speed, info,
-		Combat._element_color(element) if elemental else Color(1.0, 0.95, 0.7), pierce)
+	var p := Projectile.fire(from, shot, speed, info, Color(1.0, 0.95, 0.7), pierce)
 	if p != null:
 		p.aimed = true
 		p.on_hit = _projectile_hit.bind(events)
@@ -1073,7 +1057,7 @@ func fire_projectile(dir: Vector3, speed: float, base: float, kind: DamageInfo.K
 		p.bright = true
 		if sure != null:
 			p.homing = sure
-			p.pull_deg = t.cast_pull_deg if magic else 720.0  # an arrow at the one in the crosshair can't miss
+			p.pull_deg = 720.0  # an arrow at the one in the crosshair can't miss
 	if p != null and moveset is WeaponMoveset.Blowgun:  # a dart, not an arrow
 		(p._mesh.mesh as BoxMesh).size = Vector3(0.04, 0.04, 0.35)
 	if p != null and kind == DamageInfo.Kind.HEAVY and _category() == "Missile":
@@ -1082,43 +1066,11 @@ func fire_projectile(dir: Vector3, speed: float, base: float, kind: DamageInfo.K
 	return p
 
 
-## A slow bolt of your god's power (a staff's heavy, user 2026-11-08): it drifts toward the enemy
-## in the crosshair (pull_deg a second) and bursts on the first enemy, wall or ground it touches.
-func fire_burst_bolt(speed: float, pull_deg: float, on_burst: Callable) -> Projectile:
-	var t: CombatTuning = GameData.tuning
-	var from := global_position + Vector3.UP * 1.3 + facing * 0.6
-	var info := make_hit(0.0, element(), _category(), null, DamageInfo.Kind.HEAVY)
-	var p := Projectile.fire(from, aim_direction(from, speed, 0.0), speed, info, Combat._element_color(element()), 0)
-	if p == null:
-		return null
-	p.aimed = true
-	p.bright = true
-	p.lifetime = t.missile_range / speed
-	p.homing = sure_target(from, t.aim_cone_magic_deg, sure_range())
-	p.pull_deg = pull_deg
-	p.on_burst = on_burst
-	p.scale = Vector3.ONE * 2.0  # a big bolt
-	return p
-
-
 func _projectile_hit(target: Node, info: DamageInfo, dealt: float, events: Array) -> void:
 	_after_weapon_hit(target, info, dealt)
-	if info.category == "Magic" and is_instance_valid(target):
-		_spell_blast(target, info)
 	for event in events:
 		godly_gifts.trigger(event, {"target": target, "position": target.global_position, "phase": "target"})
 		godly_gifts.trigger(event, {"target": target, "position": target.global_position, "phase": "swing", "targets": [target]})
-
-
-## Spells burst where they land (user, 2026-11-06: spells explode, arrows pin): the ones
-## around the one you hit take part of the damage.
-func _spell_blast(target: Node3D, info: DamageInfo) -> void:
-	var t: CombatTuning = GameData.tuning
-	var at := target.global_position
-	ElementFx.area(info.damage_type, at, t.spell_blast_radius, "burst")
-	var around := Combat.enemies_in_radius(at, t.spell_blast_radius).filter(func(e): return e != target)
-	hit_targets(around, GameData.num(_side, "weapon_base_damage", 12.0) * t.spell_blast_pct / 100.0, DamageInfo.Kind.LIGHT,
-		t.knockback_explosion * 0.5, false, 0.0, 0.0, [], at, info.damage_type, true)
 
 
 ## Lifesteal, the god's on-hit passive and crit godly gifts, for any weapon hit.

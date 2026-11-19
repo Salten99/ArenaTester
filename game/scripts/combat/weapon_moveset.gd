@@ -1,7 +1,7 @@
 class_name WeaponMoveset
 extends RefCounted
 ## The shared weapon types (Council II 5; Twin added 2026-11-06): main weapons Heavy, Blade,
-## Twin, Polearm; sidearms Ranged (bow) and Caster (spells).
+## Twin, Polearm; the sidearm Ranged (bow).
 ## The weapon (Weapons sheet, picked with the race) gives the stats and model; the moveset
 ## decides the shape of the light combo, the heavy attack, and the animations.
 ##
@@ -97,7 +97,6 @@ static func for_class(weapon_class: String, race_id := "") -> WeaponMoveset:
 		"Twin": return Twin.new()
 		"Polearm": return Polearm.new()
 		"Ranged": return Ranged.new()
-		"Caster": return Caster.new()
 		_: return WeaponMoveset.new()  # Heavy
 
 
@@ -230,43 +229,6 @@ class Blowgun extends Ranged:
 
 	func weapon_bone() -> String:
 		return "head"
-
-
-## Staffs and whips (as spell foci): magic bolts in the god's element; heavy is a blast at range.
-class Caster extends WeaponMoveset:
-	func launch_scale() -> float:
-		return 1.0
-
-	func light_anims() -> Array:
-		return ["Ranged_Magic_Shoot", "Ranged_Magic_Shoot", "Ranged_Magic_Spellcasting"]
-
-	func heavy_anim() -> String:
-		return "Ranged_Magic_Summon"
-
-	func light_hit(p: Player, finisher: bool) -> void:
-		var count := 3 if finisher else 1
-		for i in count:
-			p.fire_projectile(p.facing.rotated(Vector3.UP, (i - (count - 1) * 0.5) * 0.12), 30.0, _base(p),
-				DamageInfo.Kind.LIGHT, 0, ["on_light_hit", "on_combo_finisher"] if finisher else ["on_light_hit"], true)
-
-	const BOLT_SPEED := 22.0  ## the heavy's bolt (m/s): slow enough to see
-	const BOLT_PULL := 45.0  ## degrees a second it turns toward the one in your crosshair: a slight homing
-	const BURST := 3.0  ## its burst's radius (m)
-
-	## A bolt of your god's power that drifts toward your target and bursts on contact (user, 2026-11-08).
-	func heavy_hit(p: Player) -> void:
-		var base := _base(p) * p.heavy_mult()
-		var burst := func(center: Vector3) -> void:
-			if not is_instance_valid(p):
-				return
-			var t: CombatTuning = GameData.tuning
-			var element := p.element()
-			ElementFx.area(element, center, BURST)
-			Breakable.smash_near(p.get_tree(), center, BURST, center)
-			p.hit_targets(Combat.enemies_in_radius(center, BURST), base, DamageInfo.Kind.HEAVY,
-				t.knockback_explosion, true, t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], center, element, true)
-		if p.fire_burst_bolt(BOLT_SPEED, BOLT_PULL, burst) == null:
-			burst.call(p.global_position + p.facing * 8.0)
 
 
 ## Enemies inside a capsule from `start` along `dir`.

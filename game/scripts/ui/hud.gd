@@ -207,7 +207,6 @@ func _process(delta: float) -> void:
 		_charge_fill.size.x = 62.0 * charge
 		_charge_fill.color = Color(0.85, 0.12, 0.08) if charge < 0.34 else (Color(0.95, 0.5, 0.1) if charge < 0.67 else Color(1.0, 0.85, 0.2))
 	# Spells hit anything in the wider circle: their reticle is that wide.
-	_reticle.scale = Vector2.ONE * (2.6 if player.aiming and GameData.text(player._weapon, "weapon_class") == "Caster" else 1.0)
 	_hp_bar.max_value = player.health.max_hp
 	_hp_bar.value = player.health.hp
 	if Run.active:

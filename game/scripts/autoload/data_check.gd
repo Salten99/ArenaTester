@@ -16,7 +16,7 @@ static func run() -> Array:
 	var regions := _ids("valley_regions")
 	var weapons := _ids("weapons")
 	for w in GameData.rows("weapons"):
-		if not GameData.text(w, "weapon_class") in ["Heavy", "Blade", "Twin", "Polearm", "Ranged", "Caster"]:
+		if not GameData.text(w, "weapon_class") in ["Heavy", "Blade", "Twin", "Polearm", "Ranged"]:
 			problems.append("Weapons %s: unknown weapon_class '%s'" % [w.weapon_id, GameData.text(w, "weapon_class")])
 	for g in GameData.rows("gods"):
 		_ref(problems, "Gods", g.god_id, "default_race", g.get("default_race"), races, true)

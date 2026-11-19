@@ -16,9 +16,6 @@ var hostile := false
 ## An enemy's shot also hits this (the player); your warriors are in "allies".
 var player: Node3D
 var homing: Node3D
-## Set: the shot deals nothing itself; it bursts (on_burst.call(where)) on the first enemy, wall or
-## ground it touches, or where its flight ends (a staff's heavy bolt, user 2026-11-08).
-var on_burst: Callable
 ## Called with where the shot ends: the first wall or ground, or the last enemy it goes into.
 var on_land: Callable
 var pull_deg := 0.0
@@ -82,18 +79,12 @@ func _physics_process(delta: float) -> void:
 		if wall:
 			if not hostile:  # your shots knock chunks out of buildings
 				Breakable.smash_near(get_tree(), wall.position, 0.6, global_position)
-			if on_burst.is_valid():
-				on_burst.call(wall.position)
 			if on_land.is_valid():
 				on_land.call(wall.position)
 			_stick(wall.position, Combat.effects_root)
 			queue_free()
 			return
 	global_position = next
-	if on_burst.is_valid() and not _targets().is_empty():
-		on_burst.call(global_position)
-		queue_free()
-		return
 	for e in _targets():
 		var info := Combat._copy(template)
 		info.knockback_dir = velocity.normalized()
@@ -110,8 +101,6 @@ func _physics_process(delta: float) -> void:
 			queue_free()
 			return
 	if lifetime <= 0.0:
-		if on_burst.is_valid():
-			on_burst.call(global_position)
 		queue_free()
 
 

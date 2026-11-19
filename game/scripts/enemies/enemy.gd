@@ -543,7 +543,7 @@ func launch_from_hit(info: DamageInfo) -> void:
 	if dir.length() < 0.01 and info.source is Node3D and is_instance_valid(info.source):
 		dir = Vector3(global_position.x - info.source.global_position.x, 0.0, global_position.z - info.source.global_position.z)
 	dir = dir.normalized() if dir.length() > 0.01 else Vector3.FORWARD
-	var k := t.launch_bolt_scale if info.kind == DamageInfo.Kind.LIGHT else 1.0
+	var k := 1.0
 	if info.source is Player and is_instance_valid(info.source) and info.source.moveset != null:
 		k *= info.source.moveset.launch_scale()  # each weapon class throws its own way
 	if info.explosive:
