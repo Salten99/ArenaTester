@@ -4696,6 +4696,11 @@ func test_chain_grab() -> void:
 	# Let go: it drops.
 	var loose: Enemy = _cluster(1, 8.0)[0]
 	await hook.call(loose)
+	s.hold({"light_held": true}, 30)
+	await _frames(30)
+	var mid: Vector3 = p.chain._rope[Chain.ROPE_NODES / 2]
+	var straight: Vector3 = (p.chain.hand() + p.chain._target_point()) * 0.5
+	check(mid.y < straight.y - 0.1, "the chain sags under its weight (%.2f m)" % (straight.y - mid.y))
 	s.hold({}, 2)
 	await _frames(3)
 	check(loose.held_by == null and p.state == Player.State.FREE and not loose.is_dead(), "let go and the chain drops it")
@@ -4732,14 +4737,34 @@ func test_chain_grab() -> void:
 	await _frames(40)
 	check(p.chain.mode == Chain.Mode.SWING, "a sweep sideways swings it around you")
 	check(swept.health.hp < swept_hp or swept.is_dead() or swept.thrown, "and it hits what it sweeps")
-	s.hold({"aim_yaw": yaw}, 2)
+	s.hold({"aim_yaw": yaw, "aim_pitch": 1.0}, 2)
 	await _frames(3)
 	check(swung._hurled and swung.held_by == null, "let go mid-swing and it's flung")
+	var hips: PhysicsBody3D = swung.model.ragdoll_hips() if swung.model != null else null
+	var flung: Vector3 = hips.linear_velocity if hips != null else swung._throw_vel
+	check(flung.y > 5.0, "where you look, up too: looking up launches it skyward (%.1f m/s up)" % flung.y)
 	await _frames(60)
 	for e in [swung, swept]:
 		if is_instance_valid(e):
 			e.queue_free()
 	await _frames(2)
+	# Walk away with it hooked: it's dragged limp along the ground, and it hurts.
+	var dragged: Enemy = _cluster(1, 8.0)[0]
+	await hook.call(dragged)
+	var drag_hp := dragged.health.hp
+	var drag_from := dragged.global_position
+	p.global_position -= p.facing * 3.0
+	s.hold({"light_held": true}, 40)
+	await _frames(40)
+	check(p.chain.mode == Chain.Mode.DRAG and dragged.thrown, "walk away and the chain drags it, off its feet")
+	check(dragged.global_position.distance_to(drag_from) > 1.5, "it's hauled after you (%.1f m)" % dragged.global_position.distance_to(drag_from))
+	check(dragged.health.hp < drag_hp, "and the ground hurts it")
+	s.hold({}, 2)
+	await _frames(3)
+	check(p.state == Player.State.FREE and dragged.held_by == null, "let go and it's left lying there")
+	if is_instance_valid(dragged):
+		dragged.queue_free()
+	await _frames(30)
 	# A big one pulls you in for a drop kick.
 	var ogre: Enemy = _cluster(1, 8.0, "human_hired_ogre")[0]
 	check(Chain.pulls_you(ogre), "an ogre is too big to hook")

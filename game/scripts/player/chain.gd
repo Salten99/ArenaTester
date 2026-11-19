@@ -10,7 +10,8 @@ extends RefCounted
 ##   - let go without swinging: the chain lets go and it drops.
 ## On a Large unit or boss the chain pulls you to it instead, and you land a drop kick (a heavy).
 
-enum Mode { OFF, FLYING, HOOKED, REEL, SLAM, SWING, PULL, KICK, YANK }
+##   - walk away from it: the chain goes taut and drags it limp along the ground, hurting it as it goes.
+enum Mode { OFF, FLYING, HOOKED, REEL, SLAM, SWING, PULL, KICK, YANK, DRAG }
 const YANK_TIME := 0.22  ## s for a yanked minion to fly into your blow
 const YANK_DAMAGE := 1.6  ## the yank's blow x a heavy hit
 const WALL_SLAM_DAMAGE := 1.4  ## swinging it into a wall: x a heavy hit
@@ -28,6 +29,11 @@ var _last_pitch := INF
 var _hold_at := Vector3.ZERO  ## where a hooked minion hangs while nothing moves it
 var _line: MultiMeshInstance3D
 var _kick_started := false
+var _vel := Vector3.ZERO  ## a hanging minion's fall speed
+var _spin := 0.0  ## the swing's spin now (radians/s): it winds up, a heavy thing takes time to get going
+var _length := 0.0  ## how much chain is out (m, along the ground): walk farther than this and it drags
+var _drag_tick := 0.0  ## s until the next scrape of drag damage
+const GRAVITY := 20.0  ## the same fall as thrown things
 const KICK_LEAD := 0.15  ## s before you reach a big one that the drop kick starts, so its strike frame lands on arrival
 
 
@@ -103,8 +109,11 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 				else:
 					mode = Mode.HOOKED
 					_hold_at = target.global_position
+					_vel = Vector3.ZERO
+					_length = _flat_gap(_hold_at)
 					target.grab_by(player)
 					Vfx.sparks(_target_point(), hand() - _target_point(), 6)
+					Combat.shake(t.shake_heavy * 0.3)  # the jolt as the chain goes taut on its weight
 				Vfx.burst(_target_point() - Vector3.UP * 0.6, 0.7, Color(1, 1, 1, 0.85), 0.08)  # the white flash where it hooks
 		Mode.HOOKED:
 			if not intent.light_held:
@@ -128,9 +137,16 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 				var to: Vector3 = target.global_position - player.global_position
 				_swing_angle = atan2(to.x, to.z)
 				_swing_hit = [target]
-			else:  # it hangs where it was hooked, sinking to the ground
-				var ground := _ground_y(_hold_at)
-				_hold_at.y = move_toward(_hold_at.y, ground, 6.0 * delta)
+				_spin = 0.0
+			elif target is Enemy and _flat_gap(_hold_at) > _length + 0.5:
+				mode = Mode.DRAG  # you walked off with it: the chain goes taut
+				_drag_tick = 0.0
+				var e: Enemy = target
+				e.release_grab()
+				e.throw((player.global_position - _hold_at).normalized() * 2.0, player)  # it goes limp, off its feet
+			else:  # it hangs where it was hooked, falling to the ground
+				_vel.y -= GRAVITY * delta
+				_hold_at.y = maxf(_hold_at.y + _vel.y * delta, _ground_y(_hold_at))
 		Mode.YANK:
 			var meet: Vector3 = player.global_position + player.facing * 1.3 + Vector3.UP * 1.0
 			var from := _hold_at
@@ -156,13 +172,14 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 				return true
 		Mode.SLAM:
 			var up := 0.18
-			if _time < up:
-				_hold_at = _slam_from.lerp(_slam_from + Vector3.UP * t.chain_slam_height, _time / up)
-			else:
+			if _time < up:  # ripped up fast, slowing at the top as its weight catches up
+				var u := _time / up
+				_hold_at = _slam_from.lerp(_slam_from + Vector3.UP * t.chain_slam_height, 1.0 - (1.0 - u) * (1.0 - u))
+			else:  # then it comes down faster and faster
 				var fall := clampf((_time - up) / 0.14, 0.0, 1.0)
 				var top := _slam_from + Vector3.UP * t.chain_slam_height
 				var land := Vector3(_slam_from.x, _ground_y(_slam_from), _slam_from.z)
-				_hold_at = top.lerp(land, fall)
+				_hold_at = top.lerp(land, fall * fall)
 				if fall >= 1.0:
 					_slam(land)
 					return _end()
@@ -170,11 +187,15 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 			if not intent.light_held:
 				var e := target
 				_release_target(true)
-				var look := Vector3(-sin(intent.aim_yaw), 0.0, -cos(intent.aim_yaw))
+				# Wherever you look, up and down too (user, 2026-11-19): aim high to launch it, low to spike it.
+				var look := Vector3(-sin(intent.aim_yaw) * cos(intent.aim_pitch), sin(intent.aim_pitch), -cos(intent.aim_yaw) * cos(intent.aim_pitch))
 				e.hurl((look * t.hurl_speed + Vector3.UP * t.hurl_lift) * Grabber.THROW_BOOST, player)
 				return _end()
-			_swing_angle += _swing_dir * maxf(absf(yaw_rate), t.chain_swing_spin) * delta
-			var swung := player.global_position + Vector3(sin(_swing_angle), 0.0, cos(_swing_angle)) * t.chain_swing_radius + Vector3.UP * 1.0
+			_spin = move_toward(_spin, maxf(absf(yaw_rate), t.chain_swing_spin), t.chain_swing_windup * delta)
+			_swing_angle += _swing_dir * _spin * delta
+			var circle := player.global_position + Vector3(sin(_swing_angle), 0.0, cos(_swing_angle)) * t.chain_swing_radius + Vector3.UP * 1.0
+			# The body trails behind where the chain pulls it, as a weight does.
+			var swung := _hold_at.lerp(circle, 1.0 - exp(-t.chain_swing_pull * delta))
 			var wall := _wall_between(_hold_at, swung)
 			if wall.is_empty():
 				wall = _wall_between(player.global_position + Vector3.UP * 1.0, swung)
@@ -187,6 +208,15 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 				_swing_hit.append_array(fresh)
 				player.hit_targets(fresh, player.moveset._base(player) * t.heavy_multiplier, DamageInfo.Kind.HEAVY, t.knockback_heavy,
 					false, t.hitstop_heavy, t.shake_heavy * 0.5, [], _hold_at, "Physical", false, false)
+		Mode.DRAG:
+			if not intent.light_held:
+				return _end()  # it lies there, then gets up
+			if intent.wheel_back:  # reel it in off the ground
+				_hold_at = target.global_position
+				target.grab_by(player)
+				mode = Mode.REEL
+			else:
+				_drag(delta)
 		Mode.PULL:
 			var to: Vector3 = target.global_position - player.global_position
 			if not _kick_started and to.length() <= t.chain_kick_reach + t.chain_pull_speed * KICK_LEAD:
@@ -205,7 +235,7 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 		Mode.KICK:
 			if _time >= 0.35:
 				return _end()
-	_update_line()
+	_update_line(delta)
 	return true
 
 
@@ -231,6 +261,48 @@ func cancel() -> void:
 ## Your free hand, where the chain starts.
 func hand() -> Vector3:
 	return player.global_position + Vector3.UP * 1.3 + player.facing.cross(Vector3.UP) * -0.3 + player.facing * 0.3
+
+
+func _flat_gap(at: Vector3) -> float:
+	return Vector2(at.x - player.global_position.x, at.z - player.global_position.z).length()
+
+
+## A limp body on the chain (user, 2026-11-19): it never gets farther from you than the chain that's
+## out, so walking away drags it along the ground, and every moment it scrapes along it hurts.
+func _drag(delta: float) -> void:
+	var t: CombatTuning = GameData.tuning
+	var e: Enemy = target
+	if not e.thrown:
+		e.throw(Vector3.UP, player)  # it got its feet back: down it goes again
+	e._throw_time = minf(e._throw_time, 1.0)  # and it doesn't get up while you drag it
+	var hips: PhysicsBody3D = _hips()
+	var at: Vector3 = hips.global_position if hips != null else e.global_position
+	var v: Vector3 = hips.linear_velocity if hips != null else e._throw_vel
+	var to := Vector3(player.global_position.x - at.x, 0.0, player.global_position.z - at.z)
+	var gap := to.length()
+	if gap > _length and gap > 0.01:  # taut: haul it after you
+		var dir := to / gap
+		var want := (gap - _length) * t.chain_drag_pull
+		var along := v.dot(dir)
+		if along < want:
+			v += dir * (want - along)
+		if hips != null:
+			hips.linear_velocity = v
+		else:
+			e._throw_vel = v
+	var speed := Vector2(v.x, v.z).length()
+	_drag_tick -= delta
+	if speed > 1.5 and _drag_tick <= 0.0:
+		_drag_tick = 0.25
+		Combat.deal(e, DamageInfo.make(player.moveset._base(player) * t.chain_drag_damage * 0.25, "Physical", DamageInfo.Kind.STATUS, player))
+		if e.bleeds():
+			Vfx.blood_stains(Vector3(at.x, player.global_position.y, at.z), Vector3(v.x, 0.0, v.z), 1, 0.6)
+
+
+## A dragged body's hips while it's limp, or null.
+func _hips() -> PhysicsBody3D:
+	var e := target as Enemy
+	return e.model.ragdoll_hips() if e != null and e.model != null and e.model.is_ragdoll() else null
 
 
 func _slam(land: Vector3) -> void:
@@ -310,6 +382,8 @@ func _stop() -> void:
 func _target_point() -> Vector3:
 	if mode in [Mode.HOOKED, Mode.REEL, Mode.SLAM, Mode.SWING, Mode.YANK]:
 		return _hold_at + Vector3.UP * 1.0
+	if mode == Mode.DRAG and _hips() != null:
+		return _hips().global_position
 	return target.global_position + Vector3.UP * (target.aim_height() if target.has_method("aim_height") else 1.0)
 
 
@@ -352,33 +426,84 @@ func _show_line(on: bool) -> void:
 	if _line != null:
 		_line.visible = on
 	if on:
+		_rope.resize(ROPE_NODES)
+		_rope.fill(hand())  # it uncoils from your hand
+		_rope_prev = _rope.duplicate()
 		_update_line()
 
 
-func _update_line() -> void:
+# The chain's shape (user, 2026-11-19: make it feel like a real, heavy chain): a row of points that
+# keep their speed from frame to frame and fall under gravity, held no farther apart than one
+# stretch of chain. Both ends are pinned, to your hand and the hook, so it sags when slack and
+# whips and trails when you or what's on it move fast.
+const ROPE_NODES := 20
+var _rope := PackedVector3Array()
+var _rope_prev := PackedVector3Array()
+
+
+func _step_rope(a: Vector3, b: Vector3, delta: float) -> void:
+	var n := _rope.size()
+	var slack := 1.0 if mode in [Mode.FLYING, Mode.DRAG] else GameData.tuning.chain_slack  # flying out or dragging it's pulled straight
+	var seg := a.distance_to(b) * slack / (n - 1)
+	var floor_y := player.global_position.y + LINK_WIDTH  # it lies on the ground, not through it
+	for i in range(1, n - 1):
+		var now := _rope[i]
+		_rope[i] = now + (now - _rope_prev[i]) * 0.98 + Vector3.DOWN * GRAVITY * delta * delta
+		_rope_prev[i] = now
+	_rope[0] = a
+	_rope[n - 1] = b
+	for _pass in 10:
+		for i in n - 1:
+			var d := _rope[i + 1] - _rope[i]
+			var l := d.length()
+			if l <= seg:
+				continue  # a chain goes slack, it doesn't push
+			var fix := d * (1.0 - seg / l)
+			if i == 0:
+				_rope[i + 1] -= fix
+			elif i + 1 == n - 1:
+				_rope[i] += fix
+			else:
+				_rope[i] += fix * 0.5
+				_rope[i + 1] -= fix * 0.5
+		for i in range(1, n - 1):
+			_rope[i].y = maxf(_rope[i].y, floor_y)
+
+
+func _update_line(delta := 0.0) -> void:
 	# Not `not _line.visible`: the chain hides itself on its first frame (length 0, still in your hand),
 	# and skipping hidden chains kept it hidden for good.
-	if _line == null or mode == Mode.OFF or not is_instance_valid(target):
+	if _line == null or mode == Mode.OFF or not is_instance_valid(target) or _rope.size() < 2:
 		return
 	var a := hand()
 	var b := _target_point()
 	if mode == Mode.FLYING:
 		b = a.lerp(b, clampf(_time * GameData.tuning.chain_speed / maxf(a.distance_to(b), 0.01), 0.0, 1.0))
-	var length := a.distance_to(b)
-	if length < 0.05:
+	if a.distance_to(b) < 0.05:
 		_line.visible = false
 		return
+	_step_rope(a, b, delta)
 	_line.visible = true
 	_line.global_transform = Transform3D.IDENTITY
-	var dir := (b - a) / length
-	var along := Basis.looking_at(dir, Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT)
 	var mm := _line.multimesh
-	var count := mini(ceili(length / LINK_SPACING), mm.instance_count)
 	var flat := Basis(Vector3.BACK, 0.0)
 	var turned := Basis(Vector3.BACK, PI * 0.5)
-	for i in count:
-		# The torus's ring lies in its XZ plane, so the chain (local Z) runs along it; stretched along Z
-		# into an oval link, every other link turned a quarter about the chain.
-		var ring := along * (turned if i % 2 == 1 else flat) * Basis.from_scale(Vector3(1.0, 1.0, 1.6))
-		mm.set_instance_transform(i, Transform3D(ring, a + dir * (i + 0.5) * minf(LINK_SPACING, length / count)))
+	var count := 0
+	var next := LINK_SPACING * 0.5  # how far into this stretch the next link sits
+	for i in _rope.size() - 1:
+		var d := _rope[i + 1] - _rope[i]
+		var l := d.length()
+		if l < 0.0001:
+			next -= l
+			continue
+		var dir := d / l
+		var along := Basis.looking_at(dir, Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT)
+		while next < l and count < mm.instance_count:
+			# The torus's ring lies in its XZ plane, so the chain (local Z) runs along it; stretched along Z
+			# into an oval link, every other link turned a quarter about the chain.
+			var ring := along * (turned if count % 2 == 1 else flat) * Basis.from_scale(Vector3(1.0, 1.0, 1.6))
+			mm.set_instance_transform(count, Transform3D(ring, _rope[i] + dir * next))
+			count += 1
+			next += LINK_SPACING
+		next -= l
 	mm.visible_instance_count = count

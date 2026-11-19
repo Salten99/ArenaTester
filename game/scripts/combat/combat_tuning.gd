@@ -464,6 +464,17 @@ extends Resource
 @export_range(0.5, 20.0, 0.1) var chain_swing_rate := 4.0
 @export_range(1.0, 8.0, 0.1) var chain_swing_radius := 3.5
 @export_range(1.0, 30.0, 0.5) var chain_swing_spin := 9.0
+## The chain's weight (user, 2026-11-19). The swing winds up to speed this fast (radians/s each
+## second: lower is heavier); the body follows the chain's pull this hard (lower trails farther
+## behind); and the chain is this much longer than the gap it spans (1 = taut, more = more sag).
+@export_range(5.0, 200.0, 1.0) var chain_swing_windup := 40.0
+@export_range(2.0, 60.0, 0.5) var chain_swing_pull := 14.0
+@export_range(1.0, 1.3, 0.01) var chain_slack := 1.04
+## Walk away from a hooked minion and you drag it limp along the ground: the chain hauls it this hard
+## (higher keeps it closer behind you), and while it's moving it takes this much damage a second
+## (x your base hit).
+@export_range(1.0, 40.0, 0.5) var chain_drag_pull := 12.0
+@export_range(0.0, 5.0, 0.05) var chain_drag_damage := 0.6
 ## On a Large unit or boss the chain pulls you this fast (m/s) to within this reach (m) for the drop kick.
 @export_range(5.0, 80.0, 1.0) var chain_pull_speed := 28.0
 @export_range(0.5, 5.0, 0.1) var chain_kick_reach := 2.2
