@@ -10,11 +10,11 @@ extends RefCounted
 ##   - flick the mouse down: yank it up and slam it down, a burst where it lands;
 ##   - sweep the mouse sideways: swing it around you, hitting all it sweeps; let go to fling it;
 ##   - let go without swinging: the chain lets go and it drops.
-## On a Large unit or boss the chain pulls you to it instead, and you land a drop kick (a heavy):
+## On a Large unit or boss the chain holds fast; right click (or the wheel) pulls you to it for a drop kick (a heavy):
 ## it's launched only if the kick kills it, else it slides back on its feet (chain_kick_push).
 
 ##   - walk away from it: the chain goes taut and drags it limp along the ground, hurting it as it goes.
-enum Mode { OFF, FLYING, HOOKED, REEL, SLAM, SWING, PULL, KICK, YANK, DRAG }
+enum Mode { OFF, FLYING, HOOKED, REEL, SLAM, SWING, PULL, KICK, YANK, DRAG, ANCHOR }
 const YANK_TIME := 0.22  ## s for a yanked minion to fly into your blow
 const WALL_SLAM_DAMAGE := 1.4  ## swinging it into a wall: x a heavy hit
 
@@ -107,7 +107,7 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 			var reach := hand().distance_to(_target_point())
 			if _time * t.chain_speed >= reach:
 				if pulls_you(target):
-					mode = Mode.PULL
+					mode = Mode.ANCHOR  # it holds on a big one until you pull yourself in
 				else:
 					mode = Mode.HOOKED
 					_hold_at = target.global_position
@@ -217,6 +217,12 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 				mode = Mode.REEL
 			else:
 				_drag(delta)
+		Mode.ANCHOR:
+			if not intent.light_held:
+				return _end()
+			if intent.heavy or intent.wheel_back:  # right click (user, 2026-11-19) or the wheel: in for the drop kick
+				mode = Mode.PULL
+				_time = 0.0
 		Mode.PULL:
 			var to: Vector3 = target.global_position - player.global_position
 			if not _kick_started and to.length() <= t.chain_kick_reach + t.chain_pull_speed * KICK_LEAD:

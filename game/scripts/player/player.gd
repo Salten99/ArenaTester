@@ -284,8 +284,7 @@ func _physics_process(delta: float) -> void:
 
 	_crosshair = intent.crosshair
 	if visual != null:
-		# Holding a minion or item, or the Fire Lance's beam, your upper body aims it (user, 2026-11-19).
-		var held_aim := state == State.GRAB or abilities.beaming()
+		var held_aim := state == State.GRAB  # holding a minion or item, your upper body aims it (user, 2026-11-19)
 		visual.set_aim_pitch(intent.aim_pitch if (aims_with_body() or held_aim) and (mount == null or not mount.riding) else 0.0)
 	var move_dir := _world_dir(intent.move, intent.aim_yaw)
 	var riding := mount != null and mount.riding
@@ -411,7 +410,7 @@ func _update_state(delta: float, intent: PlayerIntent) -> void:
 				collision_mask = 0b101
 				_set_state(State.FREE)
 		State.CAST:
-			if _state_time >= CAST_TIME * _cast_slow and not abilities.beaming():
+			if _state_time >= CAST_TIME * _cast_slow:
 				_set_state(State.FREE)
 		State.PARRY:
 			if _state_time >= t.parry_duration:
@@ -460,6 +459,7 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 
 	var free := state == State.FREE
 	var riding := mount != null and mount.riding
+	var nimble := free or state in [State.GRAB, State.CHAIN]  # you can jump and slide with something on your hand or chain
 	var factor := 1.0 if free else (t.attack_move_factor if state in [State.LIGHT, State.CAST] else (t.grab_move_factor if state in [State.GRAB, State.CHAIN] else 0.0))
 	if riding:
 		factor = 1.0 if free else 0.6  # a mount keeps moving while you swing
@@ -476,7 +476,7 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 			if not on_floor:
 				_mount_air_jump = false
 			velocity.y = mount.jump_speed() * (t.glide_jump_mult if race_id in GLIDERS else 1.0)
-	elif free and _jump_now(intent, delta, on_floor):
+	elif nimble and _jump_now(intent, delta, on_floor):
 		# Ground jump, with a small speed boost if it cancels a slide.
 		if is_sliding:
 			var boosted := minf(h.length() + t.slide_jump_speed_gain, t.max_speed)
@@ -490,7 +490,7 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 			velocity.y *= t.glide_jump_mult
 		is_sliding = false
 		is_crouching = false
-	elif free and intent.jump and not on_floor and is_on_wall() and _wall_jump_timer <= 0.0:
+	elif nimble and intent.jump and not on_floor and is_on_wall() and _wall_jump_timer <= 0.0:
 		# Wall jump: launch at 45 degrees off the wall, keeping speed along it.
 		var normal := get_wall_normal()
 		var horizontal := Vector3(velocity.x, 0.0, velocity.z)
@@ -506,7 +506,7 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 		is_crouching = false
 		skip_update = true
 
-	if free and not riding and intent.slide and on_floor and not is_sliding and not is_crouching:
+	if nimble and not riding and intent.slide and on_floor and not is_sliding and not is_crouching:
 		if move_dir.length() > 0.0:
 			is_sliding = true
 			_slide_timer = t.slide_duration_sprint if sprinting else t.slide_duration
@@ -562,8 +562,6 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 	if free and not riding and _first_person():
 		# First person (user, 2026-11-19): you face where you look and strafe, so a swing lands on what's in view.
 		facing = _turn_toward(Vector3(-sin(intent.aim_yaw), 0.0, -cos(intent.aim_yaw)), 20.0 * delta)
-	if abilities.beaming():  # the Fire Lance's beam turns with your aim while the legs keep walking
-		facing = _turn_toward(Vector3(-sin(intent.aim_yaw), 0.0, -cos(intent.aim_yaw)), 12.0 * delta)
 	_finish_move(delta)
 
 
@@ -1413,7 +1411,8 @@ func _set_state(s: State) -> void:
 	if state == State.CHAIN and s != State.CHAIN:
 		chain.cancel()
 	if s != State.FREE:
-		is_sliding = false
+		if s not in [State.GRAB, State.CHAIN]:  # grabbing or chaining keeps your slide going (user, 2026-11-19)
+			is_sliding = false
 		is_crouching = false
 	state = s
 	_state_time = 0.0

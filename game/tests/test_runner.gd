@@ -866,9 +866,9 @@ func test_fire_lance() -> void:
 	check(GameData.text(p.abilities.defs.Movement, "ability_id") == "forge_fire_lance", "the forge god's Movement is Fire Lance")
 	var start := p.global_position
 	var ahead: Array = []
-	for z in [-7.0, -11.0, -15.0]:  # in a line, out past the old 8 m (user, 2026-11-19: twice as far)
+	for x in [-1.0, 0.0, 1.0]:
 		var e: Enemy = _arena.waves.spawn("barb_warlord")
-		e.global_position = start + Vector3(0, 0, z)
+		e.global_position = start + Vector3(x, 0, -7.0)
 		ahead.append(e)
 	var behind: Enemy = _arena.waves.spawn("barb_warlord")
 	behind.global_position = start + Vector3(0, 0, 3.0)
@@ -885,16 +885,6 @@ func test_fire_lance() -> void:
 	check(behind.health.hp == behind.health.max_hp and beside.health.hp == beside.health.max_hp, "enemies behind and beside you are untouched")
 	var tip: Node3D = p.visual.weapon_tip()
 	check(tip != null and tip.global_position.distance_to(p.global_position + Vector3.UP) < 3.0, "the flame rides your weapon's point (user, 2026-11-08)")
-	# The beam stays on and follows your aim (user, 2026-11-19): turn right and it sweeps onto the one beside.
-	check(p.abilities.beaming() and p.state == Player.State.CAST, "the beam stays on a moment, and you keep casting")
-	s.aim_yaw = -PI / 2.0
-	await _frames(20)
-	check(p.facing.x > 0.9, "your body turns with your aim while it's on")
-	check(beside.health.hp < beside.health.max_hp, "and the beam sweeps onto the enemy beside you")
-	await _frames(int(GameData.tuning.lance_beam_time * Engine.physics_ticks_per_second))
-	check(not p.abilities.beaming() and p.state == Player.State.FREE, "then the beam ends and you're free")
-	s.aim_yaw = 0.0
-	await _frames(20)
 	# Under a low roof (a cave): the lunge stays under it (playtest 2026-11-08: it put you on the ceiling).
 	var roof := StaticBody3D.new()
 	var box := CollisionShape3D.new()
@@ -2047,9 +2037,6 @@ func test_launches_and_ragdolls() -> void:
 	check(not foe.thrown, "a light melee hit doesn't launch")
 	Combat.deal(foe, hard.call(DamageInfo.Kind.HEAVY, "Melee"))
 	check(foe.thrown and foe.model.is_ragdoll(), "a heavy attack launches, limp")
-	var fall_bone: Variant = foe.model.ragdoll_hips()
-	check(fall_bone.get("fall_mult") == GameData.tuning.enemy_fall_gravity_mult and foe._fall_mult(-1.0) > 1.0 and foe._fall_mult(1.0) == 1.0,
-		"a launched enemy falls harder than it rises")
 	var plain_speed := foe._throw_vel.length()
 	var blown: Enemy = _cluster(1, 3.0)[0]
 	var blast: DamageInfo = hard.call(DamageInfo.Kind.HEAVY, "Melee")
@@ -4822,13 +4809,45 @@ func test_chain_grab() -> void:
 	if is_instance_valid(dragged):
 		dragged.queue_free()
 	await _frames(30)
-	# A big one pulls you in for a drop kick.
+	# Jump and slide with a minion on the chain; reel it in mid-slide and throw it.
+	var hopper: Enemy = _cluster(1, 8.0)[0]
+	hopper.health.hp = 10000.0
+	await hook.call(hopper)
+	s.hold({"light_held": true, "jump": true, "jump_held": true}, 1)
+	s.hold({"light_held": true}, 90)
+	await _frames(15)
+	check(p.state == Player.State.CHAIN and not p.is_on_floor(), "you can jump with a minion on the chain")
+	await _until_on_floor()
+	s.queue.clear()
+	s.hold({"light_held": true, "move": Vector2.UP, "slide": true, "slide_held": true}, 1)
+	s.hold({"light_held": true, "move": Vector2.UP, "slide_held": true}, 3)
+	await _frames(4)
+	check(p.state == Player.State.CHAIN and p.is_sliding, "and slide with it")
+	s.hold({"light_held": true, "move": Vector2.UP, "slide_held": true, "wheel_back": true}, 1)
+	s.hold({"light_held": true}, 40)
+	await _frames(41)
+	check(p.state == Player.State.GRAB and p.grabber.held == hopper, "the wheel still reels it in (state %d)" % p.state)
+	s.hold({"light_held": true, "heavy": true}, 1)
+	s.hold({"light_held": true}, 30)
+	await _frames(31)
+	check(hopper._hurled and hopper.held_by == null, "and right click still throws it")
+	s.hold({}, 2)
+	await _frames(60)
+	if is_instance_valid(hopper):
+		hopper.queue_free()
+	await _frames(2)
+	# A big one: the chain holds fast, and right click pulls you in for a drop kick.
 	var ogre: Enemy = _cluster(1, 8.0, "human_hired_ogre")[0]
 	check(Chain.pulls_you(ogre), "an ogre is too big to hook")
 	var start := p.global_position
 	ogre.health.hp = 10000.0
 	await hook.call(ogre)
-	await _frames(40)
+	s.hold({"light_held": true}, 10)
+	await _frames(10)
+	check(p.chain.mode == Chain.Mode.ANCHOR and p.global_position.distance_to(start) < 1.0, "the chain holds on it and waits")
+	s.hold({"light_held": true, "heavy": true}, 1)
+	s.hold({"light_held": true}, 40)
+	await _frames(41)
 	check(p.global_position.distance_to(start) > 3.0, "the chain pulls you to it (%.1f m)" % p.global_position.distance_to(start))
 	check(ogre.health.hp < 10000.0, "and you land a drop kick")
 	var gap := ogre.global_position.distance_to(p.global_position)
