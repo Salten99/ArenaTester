@@ -354,10 +354,8 @@ extends Resource
 @export var giant_min_damage := 18.0
 
 @export_group("Battles")
-## A fight is one big battle, not waves (user, 2026-11-09): this many enemies at once...
+## Enemies on the field at once; the rest of a wave waits its turn (WaveDirector.reserve).
 @export_range(5, 80) var battle_size := 35
-## ...and the mini boss (or champion) comes in when only this many are left.
-@export_range(0, 40) var boss_when_left := 10
 
 @export_group("Gore and hit effects")
 ## Combat feel plan (user, 2026-11-18): over-the-top blood. Every drop count below is

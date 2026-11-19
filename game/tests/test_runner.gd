@@ -2179,15 +2179,6 @@ func test_audit_fixes_2() -> void:
 	shot.player = p
 	await _frames(30)
 	check(ally.health.hp < hp, "an enemy arrow hits your warrior (%.0f -> %.0f)" % [hp, ally.health.hp])
-	# Asking a sleeping or awake unit to stay so changes nothing: a villager hiding in a house stays hidden.
-	var d: CrowdDirector = _arena.director
-	var count := d.enemies.size()
-	ally.visible = false
-	ally.set_dormant(false)
-	check(d.enemies.size() == count and not ally.visible, "waking an awake unit leaves it be (hidden stays hidden)")
-	ally.set_dormant(true)
-	ally.set_dormant(true)
-	check(d.enemies.size() == count - 1, "and sleeping twice unregisters once")
 	# A wild unit notices a rival by its real distance: one 15 m behind it is inside a 22 m aggro radius.
 	var wolf: Enemy = _arena.waves.spawn("beast_dire_wolf")
 	var raider: Enemy = _arena.waves.spawn("barb_raider")

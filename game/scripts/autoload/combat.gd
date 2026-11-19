@@ -22,14 +22,6 @@ var crowd: CrowdDirector = null
 ## Game time in seconds. Godly gift cooldowns and timed buffs use this (not the wall
 ## clock), so they pause with the game and run correctly in fast tests.
 var time := 0.0
-## The valley's water (its ValleyTerrain: rivers, lakes, rapids); null = no water
-## (the arena). Anyone deeper than about chest height swims (Player, Enemy).
-var water: Object = null
-
-
-## Water surface height above `p`, or -INF where there's no water.
-func water_surface(p: Vector3) -> float:
-	return water.water_surface(p.x, p.z) if water != null else -INF
 
 
 func _physics_process(delta: float) -> void:
@@ -117,7 +109,6 @@ func weapon_targets(center: Vector3, radius: float, exclude: Array = []) -> Arra
 func enemies_in_radius(center: Vector3, radius: float, exclude: Array = []) -> Array:
 	var out: Array = []
 	# The fight's crowd grid finds the nearby ones; without it (no arena), every enemy.
-	# Sleeping units (Enemy.set_dormant) leave the crowd: they're 160+ m away and out of reach.
 	var pool: Array = crowd.near(center, radius + 0.4, Enemy.Team.HOSTILE) if is_instance_valid(crowd) else get_tree().get_nodes_in_group("enemies")
 	for e in pool:
 		if not is_instance_valid(e) or not e.is_in_group("enemies") or e in exclude or e.is_dead():

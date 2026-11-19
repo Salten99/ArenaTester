@@ -29,9 +29,6 @@ var mini_boss := false
 ## Part of Count Fuckula's corrupted tribe (Void attacks, cleared by Light/Stone).
 var corrupted := false
 var size_scale := 1.0
-## Water monsters (rig_type "Water monster..."): they float at the surface, never
-## leave deep water, and only go after someone swimming (user, 2026-10-29).
-var water_bound := false
 ## Stays up in the air, this far above the ground, until it dives at its target.
 var flying := false
 var fly_height := 12.0
@@ -64,8 +61,6 @@ var aggro_radius := 0.0
 var roam_radius := 0.0
 ## Villagers run away from this point (a battle in their village). INF = calm.
 var flee_from := Vector3.INF
-## Fleeing villagers run into this house and hide there (hidden) until the fight ends.
-var hide_at := Vector3.INF
 var target: Node3D
 var player: Node3D
 var director: CrowdDirector
@@ -168,10 +163,9 @@ func setup(p_unit_id: String, p_player: Node3D, p_director: CrowdDirector, p_tea
 	var role := GameData.text(unit, "role", "Melee")
 	is_large = role in ["Large", "Miniboss", "Boss"] or unit_id.begins_with("champ_")
 	size_scale = 2.0 if unit_id.begins_with("champ_") else (1.7 if is_large else 1.0)
-	water_bound = GameData.text(unit, "rig_type").begins_with("Water")
 	flying = GameData.text(unit, "rig_type").begins_with("Flying")
 	peaceful = GameData.text(unit, "faction") == "Neutral"
-	if water_bound or GameData.text(unit, "rig_type").contains("real size"):
+	if GameData.text(unit, "rig_type").begins_with("Water") or GameData.text(unit, "rig_type").contains("real size"):
 		size_scale = 1.0  # built at their real size
 	_base_color = Color(0.6, 0.25, 0.25) if is_large else Color(0.55, 0.5, 0.45)
 
@@ -267,23 +261,6 @@ func set_team(t: Team) -> void:
 		_update_marker()
 
 
-## Far-away villagers pause (no physics, hidden) to keep the big valley fast.
-## Everything stops: movement, status ticks and the model's animation (hundreds of
-## far-away units otherwise cost several ms a frame).
-## Sleeping units also leave the crowd director, whose push-apart check walks its
-## whole list for every awake unit, every frame.
-func set_dormant(on: bool) -> void:
-	if on == (process_mode == Node.PROCESS_MODE_DISABLED):
-		return  # already so (events and camps ask every half second; a woken villager in hiding stays hidden)
-	process_mode = Node.PROCESS_MODE_DISABLED if on else Node.PROCESS_MODE_INHERIT
-	visible = not on
-	if director != null and not is_dead():
-		if on:
-			director.unregister(self)
-		elif not self in director.enemies:
-			director.register(self)
-
-
 ## Fallback look (capsule with a glowing visor) when the unit has no model.
 func _build_capsule(capsule: CapsuleShape3D, center_y: float) -> void:
 	var body := MeshInstance3D.new()
@@ -339,8 +316,6 @@ static var crowd_stride := 1
 const FULL_RATE_RANGE := 20.0
 var _skip_left := 0
 var _skipped := 0.0
-## This tick is a far unit's turn in a big crowd: it walks without collisions (_think).
-var _far_turn := false
 
 
 ## In the crowd: not one of the nearest crowd_full_fighters (CrowdDirector._rank_crowd), so it takes
@@ -349,7 +324,6 @@ var in_crowd := false
 
 
 func _physics_process(delta: float) -> void:
-	_far_turn = false
 	if model != null:
 		model.in_crowd = in_crowd
 	if crowd_stride > 1 and not thrown and state != State.DEAD and not _pinning and held_by == null and is_instance_valid(player) \
@@ -360,7 +334,6 @@ func _physics_process(delta: float) -> void:
 			return
 		_skip_left = crowd_stride
 		delta = _skipped
-		_far_turn = true
 	_skipped = 0.0
 	_think(delta)
 
@@ -396,11 +369,6 @@ func _think(delta: float) -> void:
 		target = null
 	var reach := GameData.num(unit, "attack_range_m", 2.0) + 0.4 * size_scale
 	var speed := GameData.num(unit, "move_speed", 5.0) * t.enemy_speed_scale * (1.0 - statuses.slow_fraction())
-	var surface := _surface_here()
-	var depth := surface - global_position.y
-	var swimming := depth > 1.2 * size_scale
-	if swimming and not water_bound:
-		speed *= 0.45  # deep water slows everyone (but the water monsters)
 	var desired := Vector3.ZERO
 	var at_player := target != null and target == player
 	if is_large and _carry_item(delta, to_target, dist):
@@ -475,9 +443,6 @@ func _think(delta: float) -> void:
 		face = Vector3(_aim_at.x - global_position.x, 0.0, _aim_at.z - global_position.z)
 	if face.length() > 0.1:
 		rotation.y = lerp_angle(rotation.y, atan2(-face.x, -face.z), clampf(10.0 * delta, 0.0, 1.0))
-	if water_bound and desired.length() > 0.1 and not _deep_water(global_position + desired.normalized() * 2.0):
-		desired = Vector3.ZERO  # the shore: stay in the water
-		_wander_to = Vector3.INF
 	velocity.x = desired.x + _knock.x
 	velocity.z = desired.z + _knock.z
 	_knock = _knock.move_toward(Vector3.ZERO, t.knockback_friction * delta * maxf(1.0, _knock.length()))
@@ -486,10 +451,6 @@ func _think(delta: float) -> void:
 		if target != null and dist < 25.0:
 			goal = target.global_position.y + 1.5  # down to bite
 		velocity.y = clampf((goal - global_position.y) * 2.0, -9.0, 9.0)
-	elif water_bound:
-		velocity.y = clampf(((surface if surface != -INF else global_position.y) - global_position.y) * 4.0, -4.0, 4.0)
-	elif swimming:
-		velocity.y = clampf((surface - 1.0 * size_scale - global_position.y) * 4.0, -4.0, 4.0)
 	else:
 		if is_on_floor():
 			_landed(_fall_speed)
@@ -499,17 +460,9 @@ func _think(delta: float) -> void:
 		velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta * _fall_mult(velocity.y)
 	var before := global_position
 	var catch_up := delta / get_physics_process_delta_time()  # > 1 after skipped ticks: cover their distance too
-	var land: Object = Combat.water
-	if _far_turn and not flying and not water_bound and not swimming and is_on_floor() and land != null and land.has_method("stand_height"):
-		# shortcut: far units in a big crowd skip collisions and follow the terrain (they can pass
-		# through houses and trees 20+ m from you); upgrade to move_and_slide if it shows in play.
-		var p := global_position + Vector3(velocity.x, 0.0, velocity.z) * delta
-		p.y = land.stand_height(p.x, p.z, global_position.y)
-		global_position = p
-	else:
-		velocity *= catch_up
-		move_and_slide()
-		velocity /= catch_up
+	velocity *= catch_up
+	move_and_slide()
+	velocity /= catch_up
 	if state == State.CHARGE and _state_time > 0.15 and is_on_wall() and _hit_a_wall():
 		_crash()
 		return
@@ -524,8 +477,8 @@ const DEATH_LAUNCH := 1.33
 
 
 func launch_from_hit(info: DamageInfo) -> void:
-	if mini_boss or water_bound or unit_id.begins_with("champ_") or GameData.text(unit, "role") == "Boss":
-		return  # water_bound: thrown onto land it could never get back
+	if mini_boss or unit_id.begins_with("champ_") or GameData.text(unit, "role") == "Boss":
+		return
 	var t: CombatTuning = GameData.tuning
 	var dir := Vector3(info.knockback_dir.x, 0.0, info.knockback_dir.z)
 	if dir.length() < 0.01 and info.source is Node3D and is_instance_valid(info.source):
@@ -653,8 +606,7 @@ func release_grab() -> void:
 	held_by = null
 	collision_layer = _held_layer
 	if state != State.DEAD:
-		var ground: float = Combat.water.stand_height(global_position.x, global_position.z, global_position.y) if Combat.water != null and Combat.water.has_method("stand_height") else global_position.y - 0.45
-		global_position.y = maxf(ground, global_position.y - 0.45)
+		global_position.y -= 0.45
 		_enter(State.STAGGER, 0.5)
 
 
@@ -806,8 +758,7 @@ func _pin_to(at: Vector3, normal: Vector3) -> void:
 				model.anim.seek(0.3, true)
 			model.set_speed(0.0)
 		rotation.y = atan2(-flat.x, -flat.z)  # its back to the wall
-		var ground: float = Combat.water.stand_height(at.x, at.z, at.y) if Combat.water != null and Combat.water.has_method("stand_height") else at.y - 1.2
-		var height := maxf(at.y - 1.05 * size_scale, ground + 0.5)  # its feet off the ground
+		var height := maxf(at.y - 1.05 * size_scale, at.y - 0.7)  # its feet off the ground
 		global_position = Vector3(at.x, height, at.z) + flat * 0.35 * size_scale
 		chest = global_position + Vector3.UP * 1.05 * size_scale
 	_show_pin_bolt(chest, flat)
@@ -985,8 +936,7 @@ func _get_up(at: Vector3) -> void:
 	if _throw_ragdoll:
 		collision_layer = 0b100 if team == Team.HOSTILE else 0b1000
 		model.unragdoll()
-		var ground: float = Combat.water.stand_height(at.x, at.z, at.y) if Combat.water != null and Combat.water.has_method("stand_height") else global_position.y
-		global_position = Vector3(at.x, ground + 0.1, at.z)
+		global_position = Vector3(at.x, global_position.y + 0.1, at.z)
 		_rehome()
 	_throw_ragdoll = false
 	velocity = Vector3.ZERO
@@ -1012,32 +962,7 @@ func _check_stuck(before: Vector3, desired: Vector3, delta: float) -> void:
 	_wander_to = Vector3.INF  # wanderers pick a new spot afterwards
 
 
-## Water deep enough to swim in (for water monsters).
-static func _deep_water(p: Vector3) -> bool:
-	return Combat.water != null and Combat.water.water_surface(p.x, p.z) - Combat.water.height(p.x, p.z) > 1.5
 
-
-## The water level under this unit (-INF on dry land), re-measured only after it moves
-## a metre: measuring every tick cost 10 ms for 500 units in the valley.
-var _surface := -INF
-var _surface_at := Vector2.INF
-
-
-func _surface_here() -> float:
-	var at := Vector2(global_position.x, global_position.z)
-	if at.distance_squared_to(_surface_at) > 1.0:
-		_surface = Combat.water_surface(global_position)
-		_surface_at = at
-	return _surface
-
-
-## True for someone in the water (a water monster's prey).
-static func _in_water(n: Node3D) -> bool:
-	return Combat.water_surface(n.global_position) - n.global_position.y > 0.8
-
-
-## Attack tokens: only a few enemies may swing at you (or at one of your warriors) at once.
-## Archers, slingers and casters: anything that hits from more than 5 m.
 func is_ranged() -> bool:
 	return GameData.num(unit, "attack_range_m", 2.0) > 5.0
 
@@ -1078,21 +1003,18 @@ func _pick_target() -> Node3D:
 	if team == Team.HOSTILE:
 		var reach := maxf(aggro_radius, 25.0) * 2.0
 		best = director.best_near(self, Team.FRIENDLY, ALLY_SIGHT, func(u: Enemy, d: float) -> float:
-			if u.is_dead() or (water_bound and not _in_water(u)):
-				return INF  # on land you're safe from them
-			return _target_score(u, d))
-		if faction != "" or water_bound:  # rival wild sides nearby, and prey knocked into the water
+			return INF if u.is_dead() else _target_score(u, d))
+		if faction != "":  # rival wild sides nearby
 			var other := director.best_near(self, Team.HOSTILE, reach, func(u: Enemy, d: float) -> float:
-				var rival := faction != "" and u.faction != "" and u.faction != faction
-				var prey := water_bound and not u.water_bound and not u.flying and _in_water(u)
-				return _target_score(u, d) if not u.is_dead() and (rival or prey) else INF)
+				var rival := u.faction != "" and u.faction != faction
+				return _target_score(u, d) if not u.is_dead() and rival else INF)
 			if other != null and (best == null or _target_score(other, global_position.distance_to(other.global_position)) < _target_score(best, global_position.distance_to(best.global_position))):
 				best = other
 		var near := INF  # how far the pick is, for noticing it: its real distance, not its score (a foe behind scores up to double)
 		if best != null:
 			near = global_position.distance_to(best.global_position)
 			best_d = _target_score(best, near)
-		if is_instance_valid(player) and not player.is_dead() and not (water_bound and not _in_water(player)):
+		if is_instance_valid(player) and not player.is_dead():
 			var d: float = global_position.distance_to(player.global_position) * 0.8
 			if not _aggroed and aggro_radius > 0.0:
 				d *= aggro_radius / _notice_distance()
@@ -1134,13 +1056,6 @@ func _idle_move(speed: float) -> Vector3:
 		if _calm_left <= 0.0:
 			flee_from = Vector3.INF
 	if civilian and flee_from != Vector3.INF:
-		if hide_at != Vector3.INF:
-			var to_house := hide_at - here
-			to_house.y = 0.0
-			if to_house.length() < 6.0:  # at the wall: in through the door
-				visible = false  # inside, hiding
-				return Vector3.ZERO
-			return to_house.normalized() * speed
 		var away := here - flee_from
 		away.y = 0.0
 		return away.normalized() * speed if away.length() < 45.0 else Vector3.ZERO

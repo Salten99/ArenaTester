@@ -34,7 +34,6 @@ var offer_gods: Array = OFFER_GODS
 
 func _ready() -> void:
 	HitStop.clear()
-	Combat.water = null
 	_prepare_run()
 	_build_level()
 	Combat.effects_root = self
@@ -68,7 +67,6 @@ func _ready() -> void:
 	waves.wave_started.connect(_on_wave_started)
 	waves.wave_cleared.connect(_on_wave_cleared)
 	waves.all_waves_cleared.connect(_on_victory)
-	waves.boss_started.connect(_on_boss_started)
 
 	hud = Hud.new()
 	hud.player = player
@@ -188,9 +186,6 @@ func _continue_waves() -> void:
 func _on_wave_started(index: int, total: int) -> void:
 	hud.show_message("Wave %d of %d" % [index + 1, total] if total > 1 else "The battle is on!", 1.5)
 
-
-func _on_boss_started(e: Enemy) -> void:
-	hud.show_message("%s joins the fight!" % GameData.text(e.unit, "display_name", "A mini boss"), 2.0)
 
 
 func _on_wave_cleared(index: int) -> void:
