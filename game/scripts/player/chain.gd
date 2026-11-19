@@ -351,15 +351,24 @@ func _slam(land: Vector3) -> void:
 
 
 ## What you pull in (user, 2026-11-19) knocks down and hurts each enemy in its path, once each,
-## as the swing does.
+## as the swing does, and knocks it aside out of the way, not back.
 func _plow() -> void:
 	var t: CombatTuning = GameData.tuning
 	var fresh: Array = Combat.enemies_in_radius(_hold_at, 1.3, _swing_hit)
 	if fresh.is_empty():
 		return
 	_swing_hit.append_array(fresh)
-	player.hit_targets(fresh, player.moveset._base(player) * t.heavy_multiplier, DamageInfo.Kind.HEAVY, t.knockback_heavy,
-		true, t.hitstop_heavy, t.shake_heavy * 0.5, [], _hold_at, "Physical", false, false, false)
+	var pull := Vector3(player.global_position.x - _hold_at.x, 0.0, player.global_position.z - _hold_at.z).normalized()
+	var side := pull.cross(Vector3.UP)
+	for e in fresh:
+		var info := player.make_hit(player.moveset._base(player) * t.heavy_multiplier, "Physical", "Melee", e, DamageInfo.Kind.HEAVY)
+		info.knockback = t.knockback_heavy
+		info.knockdown = true
+		info.no_launch = true
+		info.knockback_dir = side if (e.global_position - _hold_at).dot(side) >= 0.0 else -side  # out the side it stands on
+		info.hitstop = t.hitstop_heavy if e == fresh[0] else 0.0
+		info.shake = t.shake_heavy * 0.5 if e == fresh[0] else 0.0
+		Combat.deal(e, info)
 
 
 ## A wall (not the ground) between `a` and `b`: the ray's hit {position, normal}, or {} if none.
