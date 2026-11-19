@@ -21,10 +21,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action("debug_help"):
 		arena.hud.toggle_help()
 	elif event.is_action("debug_restart"):
-		HitStop.clear()
-		get_tree().paused = false
-		Run.in_fight = false  # the reloaded scene starts outside a fight
-		get_tree().reload_current_scene()
+		arena.restart()
 	elif get_tree().paused:
 		return
 	elif event.is_action("debug_spawn"):
@@ -32,6 +29,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			arena.waves.spawn(WaveDirector.BASIC_UNIT, player.global_position)
 	elif event.is_action("debug_spawn_large"):
 		arena.waves.spawn(WaveDirector.LARGE_UNIT, player.global_position)
+	elif (event.is_action("debug_godly_gift") or event.is_action("debug_combo_kit")) and arena is EndlessArena:
+		return  # no godly gifts in the endless arena for now
 	elif event.is_action("debug_godly_gift"):
 		var god: String = RunRng.pick(arena.offer_gods)
 		var offer: Array = player.godly_gifts.make_offer(god, 1)

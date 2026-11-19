@@ -106,6 +106,23 @@ func setup(model_path: String, weapon_path := "", model_scale := 1.0) -> bool:
 	return true
 
 
+## Puts the body's meshes (not what the hands hold) on render `layers`. The player's body goes on
+## CameraRig.BODY_LAYER, which the first-person camera leaves out, so only the weapon shows.
+func set_body_layer(layers: int) -> void:
+	if model == null:
+		return
+	for n in model.find_children("*", "VisualInstance3D", true, false):
+		var held := false
+		var up: Node = n.get_parent()
+		while up != null and up != model:
+			if up is BoneAttachment3D:
+				held = true
+				break
+			up = up.get_parent()
+		if not held:
+			(n as VisualInstance3D).layers = layers
+
+
 ## Leans the upper body up or down with your aim (radians, + is up). 0 stands straight.
 func set_aim_pitch(pitch: float) -> void:
 	if _skeleton == null or _skeleton.find_bone("chest") < 0:
@@ -352,7 +369,41 @@ func ragdoll(impulse: Vector3) -> bool:
 	ragdolls += 1
 	sim.physical_bones_start_simulation()
 	push_ragdoll(impulse)
+	if _head_pop != null:
+		_skeleton.move_child(_head_pop, -1)  # after the ragdoll poses the bones, or it would put the head back
 	return true
+
+
+var _head_pop: HeadPop
+
+
+## The head is gone (a squeeze kill, user 2026-11-19): shrunk to nothing every frame from now on,
+## with whatever it wears.
+func pop_head() -> void:
+	if _skeleton == null or _skeleton.find_bone("head") < 0 or _head_pop != null:
+		return
+	_head_pop = HeadPop.new()
+	_skeleton.add_child(_head_pop)
+
+
+func head_popped() -> bool:
+	return _head_pop != null
+
+
+## Where the head is now, or `fallback` if the rig has none.
+func head_position(fallback: Vector3) -> Vector3:
+	var i := _skeleton.find_bone("head") if _skeleton != null else -1
+	return _skeleton.to_global(_skeleton.get_bone_global_pose(i).origin) if i >= 0 else fallback
+
+
+class HeadPop:
+	extends SkeletonModifier3D
+
+	func _process_modification() -> void:
+		var bones := get_skeleton()
+		var i := bones.find_bone("head") if bones != null else -1
+		if i >= 0:
+			bones.set_bone_pose_scale(i, Vector3.ONE * 0.001)
 
 
 func push_ragdoll(impulse: Vector3) -> void:

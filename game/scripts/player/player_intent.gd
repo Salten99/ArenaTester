@@ -15,6 +15,7 @@ var sidearm := false             ## just pressed: switch to your sidearm (bow or
 var jump_held := false           ## held: flying up (god mode)
 var dodge_held := false          ## held: flying down (god mode)
 var dodge := false
+var dash := false             ## this dodge came from tapping the slide key: always a dash, never a parry
 var jump := false             ## just pressed
 var sprint := false           ## held
 var slide := false            ## just pressed

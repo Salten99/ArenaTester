@@ -14,6 +14,33 @@ func _unhandled_input(event: InputEvent) -> void:
 		_wheel_back = true
 
 
+## The slide key also dashes (the arena, user 2026-11-19): tap it to dash once, hold it
+## SLIDE_HOLD_MSEC to slide (the slide starts then, and lasts while it's held).
+var slide_dashes := false
+const SLIDE_HOLD_MSEC := 300
+var _slide_since := -1
+var _sliding := false
+
+
+func _slide_or_dash(i: PlayerIntent) -> void:
+	i.slide = false
+	i.slide_held = false
+	var now := Time.get_ticks_msec()
+	if Input.is_action_pressed("slide"):
+		if _slide_since < 0:
+			_slide_since = now
+		if now - _slide_since >= SLIDE_HOLD_MSEC:
+			i.slide = not _sliding
+			i.slide_held = true
+			_sliding = true
+		return
+	if _slide_since >= 0 and not _sliding:
+		i.dodge = true  # a tap: one dash
+		i.dash = true
+	_slide_since = -1
+	_sliding = false
+
+
 func read() -> PlayerIntent:
 	var i := PlayerIntent.new()
 	i.move = Vector2(
@@ -42,6 +69,8 @@ func read() -> PlayerIntent:
 	i.sprint = Input.is_action_pressed("sprint")
 	i.slide = Input.is_action_just_pressed("slide")
 	i.slide_held = Input.is_action_pressed("slide")
+	if slide_dashes:
+		_slide_or_dash(i)
 	i.signature = Input.is_action_just_pressed("ability_signature")
 	i.race_active = Input.is_action_just_pressed("race_active")
 	i.throw_knife = Input.is_action_just_pressed("throw_knife")

@@ -24,14 +24,18 @@ var _shoulder := 0.0  ## over the right shoulder with a bow or spell weapon (aim
 var camera: Camera3D
 var _arm: SpringArm3D
 var _trauma := 0.0
-## First person (user, 2026-11-09: T switches): only the camera moves, to just in front of your eyes;
-## your body and weapons stay as they are (user, 2026-11-10: hiding the body hid the weapons too).
+## First person (user, 2026-11-09: T switches): the camera moves to just in front of your eyes.
+## Your body's meshes sit on BODY_LAYER, which this camera then leaves out, so only what your hands
+## hold shows (user, 2026-11-19; hiding the whole body hid the weapons too, 2026-11-10).
 var first_person := false:
 	set(v):
 		first_person = v
 		if _arm != null:
 			_arm.spring_length = 0.0 if v else distance
 			camera.position.z = -FIRST_PERSON_AHEAD if v else 0.0
+			camera.cull_mask = (camera.cull_mask & ~BODY_LAYER) if v else (camera.cull_mask | BODY_LAYER)
+## The render layer of the player's body (layer 11): seen in third person, not in first.
+const BODY_LAYER := 1 << 10
 ## How far in front of the eyes the first-person camera sits, so your own head is behind it.
 const FIRST_PERSON_AHEAD := 0.3
 

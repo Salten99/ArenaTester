@@ -11,6 +11,24 @@ var held: Node3D  ## the minion in your hand, or null
 var _crush := 0.0
 var _throw := -1.0  ## s since right click started the throw (the minion lets go on the clip's release frame), -1 = not throwing
 const THROW_WINDUP := 0.15  ## s from right click to letting go (the reels: a short wind-back)
+const CRUSH_BLOOD := 4  ## a squeeze kill's blood: x blood_kill_drops
+const UP_TOSS := 0.7   ## a throw straight up goes this share of hurl_speed
+const THROW_BOOST := 1.33  ## your throws (hand and chain) fly a third faster than hurl_speed (user, 2026-11-19)
+const SHOULDER := 1.2  ## m above your feet that a held minion swings from
+const HANG := 0.75     ## how far a held minion's feet hang below the point you hold it by
+const REACH := 0.85    ## arm's length
+const PITCH_MIN := -0.6
+const PITCH_MAX := 1.45  ## nearly straight up: toss it skyward and let it fall
+## Squeeze damage (arena tactics) x your heavy hit: a minion with more health left is slammed instead.
+const SQUEEZE_HEAVIES := 1.6
+var aim_yaw := 0.0
+var aim_pitch := 0.0
+
+
+## Where you aim the held minion: your view's direction, pitch clamped to PITCH_MIN..PITCH_MAX.
+func aim_dir() -> Vector3:
+	var p := clampf(aim_pitch, PITCH_MIN, PITCH_MAX)
+	return Vector3(-sin(aim_yaw) * cos(p), sin(p), -cos(aim_yaw) * cos(p))
 
 
 func throwing() -> bool:
@@ -30,6 +48,8 @@ static func grabbable(e: Node) -> bool:
 	if not (e is Enemy) or not is_instance_valid(e) or e.is_dead() or e.held_by != null:
 		return false
 	var role := GameData.text(e.unit, "role")
+	if e.is_broken() and role != "Boss":
+		return true  # broken (arena tactics): any size can be finished
 	return not (e.is_large or e.giant or e.mini_boss or e.water_bound or e.civilian or role in ["Boss", "Champion", "Large", "Miniboss"]
 		or e.unit_id.begins_with("champ_"))
 
@@ -73,7 +93,9 @@ func grab(e: Node3D) -> void:
 ## Where the held minion hangs: at arm's length in front of you, its feet off the ground. It
 ## trembles harder as the squeeze goes on, and swings back over your shoulder as you wind up a throw.
 func hold_point() -> Vector3:
-	var front := player.global_position + player.facing * 0.85 + Vector3.UP * 0.45
+	# Held out along your aim (user, 2026-11-19): up, down and round, so a throw goes where you look.
+	var front := player.global_position + Vector3.UP * (SHOULDER - HANG) + aim_dir() * REACH
+	front.y = maxf(front.y, player.global_position.y + 0.1)  # not into the ground when you look down
 	if _throw >= 0.0:
 		var k := clampf(_throw / THROW_WINDUP, 0.0, 1.0)
 		return front.lerp(player.global_position - player.facing * 0.3 + Vector3.UP * 2.0, k)
@@ -84,6 +106,9 @@ func hold_point() -> Vector3:
 
 ## One frame of holding. False once the grab is over (crushed, hurled, dropped or lost).
 func update(delta: float, intent: PlayerIntent) -> bool:
+	aim_yaw = intent.aim_yaw
+	aim_pitch = intent.aim_pitch
+	player.facing = player.facing.slerp(Vector3(-sin(aim_yaw), 0.0, -cos(aim_yaw)), clampf(20.0 * delta, 0.0, 1.0)).normalized()
 	if not holding():
 		_throw = -1.0
 		_let_go()
@@ -107,9 +132,56 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 		return true  # items are hurled, not crushed
 	_crush += delta
 	if _crush >= GameData.tuning.crush_time:
-		crush()
+		if held is Enemy and held.tactics and held.health.hp > squeeze_damage():
+			slam()  # too tough to squeeze to death: into the ground with it
+		else:
+			crush()
 		return false
 	return true
+
+
+func squeeze_damage() -> float:
+	return player.moveset._base(player) * GameData.tuning.heavy_multiplier * SQUEEZE_HEAVIES
+
+
+const SLAM_RADIUS := 3.5
+const SLAM_PUSH := 11.0
+
+
+## Slammed into the ground at your feet (user, 2026-11-19): a heavy blow, it's left limp, and the
+## shock knocks everyone near you back.
+func slam() -> void:
+	var e := held
+	_let_go()
+	if not is_instance_valid(e) or e.is_dead():
+		return
+	var t: CombatTuning = GameData.tuning
+	e.release_grab()
+	var land := player.global_position + player.facing * 1.0
+	e.global_position = Vector3(land.x, player.global_position.y, land.z)
+	if player.visual != null:
+		player.visual.play_strike("Melee_2H_Attack_Chop", 0.12, 0.45)
+	var info := player.make_hit(squeeze_damage(), "Physical", "Melee", e, DamageInfo.Kind.HEAVY)
+	info.no_launch = true
+	info.hitstop = t.hitstop_heavy
+	info.shake = t.shake_heavy * 1.5
+	Combat.deal(e, info)
+	if not e.is_dead():
+		e.throw(Vector3.UP * 1.5, player)  # bounced off the ground, limp
+	for n in Combat.enemies_in_radius(e.global_position, SLAM_RADIUS, [e]):
+		var away: Vector3 = n.global_position - e.global_position
+		away.y = 0.0
+		var push := DamageInfo.make(0.0, "Physical", DamageInfo.Kind.CHAIN, player)
+		push.knockback = SLAM_PUSH
+		push.knockback_dir = away.normalized() if away.length() > 0.05 else player.facing
+		Combat.deal(n, push)
+		if n.has_method("stun"):
+			n.stun(0.6)
+	Vfx.ring(e.global_position + Vector3.UP * 0.05, SLAM_RADIUS, Color(0.9, 0.8, 0.6), 0.3)
+	ElementFx.area("Physical", e.global_position, SLAM_RADIUS)
+	if e.bleeds():
+		Vfx.blood(e.global_position + Vector3.UP * 0.5, Vector3.UP, t.blood_kill_drops)
+		Vfx.blood_stains(e.global_position, player.facing, t.blood_stains_per_hit * 2, 1.4)
 
 
 ## Squeezed to death: a burst of blood, and it's gone.
@@ -124,11 +196,21 @@ func crush() -> void:
 	info.no_launch = true
 	info.hitstop = t.hitstop_heavy
 	info.shake = t.shake_heavy
+	var head: Vector3 = e.global_position + Vector3.UP * 1.6 * float(e.get("size_scale") if e.get("size_scale") != null else 1.0)
+	if e.get("model") != null and e.model.has_method("head_position"):
+		head = e.model.head_position(head)
 	Combat.deal(e, info)
 	player.screen_flash(Color(0.75, 0.0, 0.0, 0.45))  # one red frame over the screen, then the burst
 	if e.bleeds():
-		Vfx.blood(e.global_position + Vector3.UP * 1.2, Vector3.UP, t.blood_kill_drops)
-		Vfx.blood_stains(e.global_position, player.facing, t.blood_stains_per_hit * 2, 1.4)
+		# The head goes (user, 2026-11-19): a fountain from the neck, a red cloud, the ground soaked all round.
+		if e.get("model") != null and e.model.has_method("pop_head"):
+			e.model.pop_head()
+		Vfx.blood(head, Vector3.UP, t.blood_kill_drops * CRUSH_BLOOD)
+		Vfx.blood(head, player.facing + Vector3.UP, t.blood_kill_drops * 2)
+		Vfx.burst(head, 1.1, Color(0.6, 0.0, 0.0, 0.85), 0.2)
+		for k in 4:
+			var spread := Vector3(cos(k * PI * 0.5), 0.0, sin(k * PI * 0.5))
+			Vfx.blood_stains(e.global_position + spread * 0.6, spread, t.blood_stains_per_hit * 2, 1.6)
 
 
 ## Thrown where you look: it flies as a big projectile (Enemy.hurl).
@@ -138,9 +220,11 @@ func hurl() -> void:
 	if not is_instance_valid(e) or e.is_dead():
 		return
 	var t: CombatTuning = GameData.tuning
-	var dir := player.facing
+	var dir := aim_dir()  # where you look, up or down too: straight up and it falls back hard (Enemy._impact)
 	e.release_grab()
-	e.hurl(dir * t.hurl_speed + Vector3.UP * t.hurl_lift, player)
+	# Straight up it goes UP_TOSS of the speed: about 12 m up, which is plenty of fall.
+	var up := clampf(dir.y, 0.0, 1.0)
+	e.hurl((dir * t.hurl_speed * lerpf(1.0, UP_TOSS, up) + Vector3.UP * t.hurl_lift * (1.0 - up)) * THROW_BOOST, player)
 	pass  # the throw clip is already playing (update) and reaches its release frame now
 
 

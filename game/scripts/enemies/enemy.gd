@@ -8,7 +8,7 @@ extends CharacterBody3D
 ## Fighters chase a target, wait for an attack token (only against the player),
 ## telegraph, strike, recover.
 
-enum State { CHASE, WAIT, WINDUP, STRIKE, RECOVER, STAGGER, DOWN, FROZEN, DEAD }
+enum State { CHASE, WAIT, WINDUP, STRIKE, RECOVER, STAGGER, DOWN, FROZEN, DEAD, CHARGE_WIND, CHARGE }
 enum Team { HOSTILE, FRIENDLY, NEUTRAL }
 
 const GRAVITY := 20.0
@@ -107,6 +107,33 @@ const DETOUR_TIME := 0.9
 var _marker: MeshInstance3D
 ## The animated model, or null when using the capsule fallback.
 var model: CharacterModel
+
+# ---------------------------------------------------------------- arena tactics (user, 2026-11-19)
+# The endless arena turns these on (WaveDirector.tactics): a posture meter that breaks into a
+# grab finisher, shields, shooters that keep their distance, witches' ground circles and elements,
+# and the berserker's charge. Off everywhere else, so the valley's units fight as before.
+var tactics := false
+var shielded := false  ## blocks light and heavy hits from the front; grab, chain, throws and hits from behind get through
+var element_status := ""  ## a witch's element: her circles carry it, and it bursts onto those near her when she dies
+var poise := 0.0  ## fills with your hits; full = broken (staggered, and a grab finishes it)
+var _poise_rest := 0.0  ## s since the last hit: posture recovers after POISE_REST
+var _broken_left := 0.0
+var _broken_tag: Label3D
+var _charge_dir := Vector3.ZERO
+var _charge_cd := 3.0
+var _charge_hit: Array = []
+const POISE_MAX := 100.0
+const POISE_BY_KIND := {DamageInfo.Kind.LIGHT: 30.0, DamageInfo.Kind.HEAVY: 70.0, DamageInfo.Kind.ABILITY: 50.0}
+const POISE_REST := 1.2
+const POISE_RECOVERY := 25.0  ## per second, after POISE_REST
+const BREAK_TIME := 2.5
+const SHIELD_ARC := 0.35  ## a hit is "from the front" when the attacker is within this dot of where it faces
+const KITE_NEAR := 7.0  ## shooters back off when you come closer than this
+const CHARGER := "barb_berserker"
+const CHARGE_WIND := 0.8
+const CHARGE_SPEED := 17.0
+const CHARGE_TIME := 1.1
+const CHARGE_COOLDOWN := 6.0
 
 
 ## Your mount as a friendly fighter: a unit built from its Mounts row (its
@@ -362,6 +389,8 @@ func _think(delta: float) -> void:
 		return
 	_state_time += delta
 	_flash_time -= delta
+	if tactics:
+		_update_poise(delta)
 	_retarget -= delta
 	if _retarget <= 0.0:
 		_retarget = randf_range(0.3, 0.5)  # uneven, so an army spawned together drifts apart instead of all re-picking in one tick
@@ -396,9 +425,16 @@ func _think(delta: float) -> void:
 			elif target == null:
 				state = State.CHASE
 				desired = _idle_move(speed)
+			elif tactics and _kites() and dist < KITE_NEAR:
+				state = State.CHASE
+				desired = -to_target.normalized() * speed  # a shooter backs off to shoot again
+			elif tactics and unit_id == CHARGER and _charge_cd <= 0.0 and at_player and dist > 5.0 and dist < 15.0:
+				_charge_dir = to_target.normalized()
+				_enter(State.CHARGE_WIND, CHARGE_WIND)
+				Vfx.ring(global_position + Vector3.UP * 0.05, 1.4, Color(1.0, 0.25, 0.1), CHARGE_WIND)
 			elif dist <= reach + 0.2 and _may_attack(at_player) and _flanked(to_target):
 				_enter(State.WINDUP, t.enemy_telegraph * (t.large_slowdown if is_large else 1.0))
-			elif at_player and dist <= t.wait_ring_distance + 0.5 and director != null and director.attackers() >= t.max_attackers:
+			elif at_player and dist <= t.wait_ring_distance + 0.5 and director != null and director.full():
 				state = State.WAIT
 				# No token free: circle the player at the waiting distance.
 				var tangent := Vector3(-to_target.z, 0.0, to_target.x).normalized() * _orbit_sign
@@ -418,6 +454,18 @@ func _think(delta: float) -> void:
 				# the sheet's attacks_per_sec sets the full cycle; enemy_recovery stays the shortest rest
 				var rest := maxf(t.enemy_recovery, 1.0 / maxf(GameData.num(unit, "attacks_per_sec", 1.0), 0.1) - t.enemy_telegraph - 0.12)
 				_enter(State.RECOVER, t.ranged_recovery if is_ranged() else rest * (t.large_slowdown if is_large else 1.0))
+		State.CHARGE_WIND:  # it roars and paws, turning with you; the run's direction locks as it goes
+			if _state_time >= _state_len:
+				if target != null:
+					_charge_dir = to_target.normalized()
+				_charge_hit = [self]
+				_enter(State.CHARGE, CHARGE_TIME)
+		State.CHARGE:
+			desired = _charge_dir * CHARGE_SPEED
+			_charge_hits()
+			if _state_time >= _state_len:
+				_charge_cd = CHARGE_COOLDOWN
+				_enter(State.RECOVER, 0.6)
 		State.RECOVER, State.STAGGER, State.DOWN, State.FROZEN:
 			if _state_time >= _state_len:
 				if director != null:
@@ -431,7 +479,9 @@ func _think(delta: float) -> void:
 		desired = _detour * maxf(desired.length(), speed * 0.5)
 	if director != null and state != State.FROZEN:
 		desired += director.separation(self) * 4.0
-	var face := to_target if target != null and state in [State.CHASE, State.WAIT, State.WINDUP] else Vector3(desired.x, 0.0, desired.z)
+	var face := to_target if target != null and state in [State.CHASE, State.WAIT, State.WINDUP, State.CHARGE_WIND] else Vector3(desired.x, 0.0, desired.z)
+	if tactics and _kites() and state == State.CHASE and target != null:
+		face = to_target  # backing off, it keeps its eyes (and sling) on you
 	if state == State.WINDUP and _aim_at != Vector3.INF:
 		face = Vector3(_aim_at.x - global_position.x, 0.0, _aim_at.z - global_position.z)
 	if face.length() > 0.1:
@@ -472,12 +522,19 @@ func _think(delta: float) -> void:
 		velocity *= catch_up
 		move_and_slide()
 		velocity /= catch_up
+	if state == State.CHARGE and _state_time > 0.15 and is_on_wall() and _hit_a_wall():
+		_crash()
+		return
 	_check_stuck(before, Vector3(desired.x, 0.0, desired.z), delta)
 
 
 ## Thrown back hard (a galloping mount): people go limp and fly, animals fly whole.
 ## Hitting a tree, house or rock hurts (_impact); alive, it gets back up after.
 ## Your heavy or magic hit sends this enemy flying. Bosses and champions stand their ground.
+## A killing blow that knocks back launches the body this much harder (user, 2026-11-19: "launched").
+const DEATH_LAUNCH := 1.33
+
+
 func launch_from_hit(info: DamageInfo) -> void:
 	if mini_boss or water_bound or unit_id.begins_with("champ_") or GameData.text(unit, "role") == "Boss":
 		return  # water_bound: thrown onto land it could never get back
@@ -491,6 +548,8 @@ func launch_from_hit(info: DamageInfo) -> void:
 		k *= info.source.moveset.launch_scale()  # each weapon class throws its own way
 	if info.explosive:
 		k *= t.explosion_launch_scale
+	if state == State.DEAD:
+		k *= DEATH_LAUNCH  # the killing blow sends it flying harder (user, 2026-11-19)
 	if info.kind == DamageInfo.Kind.HEAVY and info.category == "Missile":  # may pin it to whatever it hits
 		k *= t.pin_launch_scale
 		_pinning = true
@@ -665,7 +724,19 @@ func _hurl_blow(p: Player, targets: Array, at: Vector3) -> void:
 		return
 	var t: CombatTuning = GameData.tuning
 	p.hit_targets(targets, p.moveset._base(p) * t.heavy_multiplier, DamageInfo.Kind.HEAVY, t.knockback_heavy, false,
-		t.hitstop_heavy, t.shake_heavy, [], at)
+		t.hitstop_heavy, t.shake_heavy, [], at, "Physical", false, false)
+	Enemy.bowled_over(targets)
+
+
+const THROW_STUN := 1.5
+
+
+## Hit by a thrown body or item (arena tactics): knocked flat and stunned, posture broken.
+static func bowled_over(targets: Array) -> void:
+	for e in targets:
+		if e is Enemy and is_instance_valid(e) and e.tactics and not e.is_dead():
+			e.add_poise(POISE_MAX)
+			e.stun(THROW_STUN)
 
 
 func throw(vel: Vector3, by: Node) -> void:
@@ -829,6 +900,8 @@ func _update_throw(delta: float) -> void:
 		global_position = hips.global_position - Vector3.UP * _limp_height
 		var v: Vector3 = hips.linear_velocity
 		_impact(v.length())
+		if not dead:
+			_thrown_fall(v.y)
 		if (_throw_time > 1.2 and v.length() < 1.0) or (_throw_time > 3.0 and v.y > -2.0) or _throw_time > 10.0:
 			_get_up(hips.global_position)
 		return
@@ -839,6 +912,8 @@ func _update_throw(delta: float) -> void:
 		if get_slide_collision(i).get_normal().y < 0.5:  # a wall, a tree, a rock: not the ground
 			_throw_vel.x = 0.0
 			_throw_vel.z = 0.0
+	if not dead:
+		_thrown_fall(0.0 if is_on_floor() else _throw_vel.y)
 	if is_on_floor():
 		_throw_vel.y = 0.0
 		var h := Vector2(_throw_vel.x, _throw_vel.z).move_toward(Vector2.ZERO, 25.0 * delta)
@@ -852,6 +927,25 @@ func _update_throw(delta: float) -> void:
 
 ## A sudden stop while flying means it hit something: damage for the speed lost.
 var _fall_speed := 0.0  ## how fast it's falling (m/s), while it's in the air
+
+
+## Thrown or launched and falling (user, 2026-11-19: toss one straight up and it hurts when it lands):
+## the fastest fall is kept, and when the fall stops, every m/s past THROWN_FALL_SAFE costs fall_damage.
+## A limp body falls slower than a capsule (its damping), hence the lower safe speed than fall_safe_speed.
+const THROWN_FALL_SAFE := 6.0
+
+
+func _thrown_fall(vy: float) -> void:
+	if vy < -1.0:
+		_fall_speed = maxf(_fall_speed, -vy)
+		return
+	var s := _fall_speed
+	_fall_speed = 0.0
+	if s > THROWN_FALL_SAFE and state != State.DEAD:
+		if bleeds():
+			Vfx.blood_splat(Vector3(global_position.x, global_position.y + 0.03, global_position.z), 0.4 + s * 0.05)
+		Combat.deal(self, DamageInfo.make((s - THROWN_FALL_SAFE) * GameData.tuning.fall_damage, "Physical", DamageInfo.Kind.STATUS,
+			_thrower if is_instance_valid(_thrower) else null))
 
 
 ## Hit the ground falling at `speed` m/s: past fall_safe_speed it hurts, in proportion.
@@ -1149,6 +1243,9 @@ func _strike(reach: float, to_target: Vector3, dist: float) -> void:
 	var status := GameData.text(unit, "status_effect")
 	if status != "":
 		info.with_status(status)
+	if tactics and GameData.text(unit, "role") == "Magic":
+		_cast_circle()
+		return
 	if is_ranged():
 		_shoot(info, damage_type)
 		for k in range(1, BURSTS.get(unit_id, 1)):  # a minigun: the rest of the burst
@@ -1218,6 +1315,8 @@ func _shoot(info: DamageInfo, damage_type: String) -> void:
 
 
 func take_hit(info: DamageInfo) -> float:
+	if tactics and _blocks(info):
+		return 0.0
 	var dealt := health.take(info.amount * (GameData.tuning.ally_damage_taken if team == Team.FRIENDLY else 1.0))
 	_flash_time = 0.08
 	if model != null and bleeds() and health.max_hp > 0.0:
@@ -1232,6 +1331,10 @@ func take_hit(info: DamageInfo) -> float:
 		flee_from = info.source.global_position
 		_calm_left = 8.0
 	_aggroed = true
+	if tactics:
+		add_poise(POISE_BY_KIND.get(info.kind, 0.0))
+		if is_broken():
+			return dealt  # already reeling: hits don't cut the break short
 	if info.knockdown and not is_large:
 		_cancel_attack()
 		_enter(State.DOWN, t.knockdown_time)
@@ -1244,8 +1347,164 @@ func take_hit(info: DamageInfo) -> float:
 ## Your shield turned this enemy's blow (the Guardian's parry): it reels, open to the follow-up.
 func parried() -> void:
 	if state != State.DEAD and not thrown:
+		if tactics:
+			_break()  # a parried blow leaves it wide open: grab it to finish it
+			return
 		_cancel_attack()
 		_enter(State.STAGGER, GameData.tuning.parry_stagger * (0.5 if is_large else 1.0))
+
+
+# ---------------------------------------------------------------- arena tactics
+
+func is_broken() -> bool:
+	return _broken_left > 0.0
+
+
+## Fills the posture meter; full, it breaks.
+func add_poise(amount: float) -> void:
+	if amount <= 0.0 or is_broken() or state == State.DEAD:
+		return
+	_poise_rest = 0.0
+	poise += amount * (0.5 if is_large or mini_boss else 1.0)
+	if poise >= POISE_MAX:
+		_break()
+
+
+## Broken: it reels for BREAK_TIME with a gold mark over its head, and a grab finishes it.
+func _break() -> void:
+	if state == State.DEAD:
+		return
+	poise = 0.0
+	_broken_left = BREAK_TIME
+	if not thrown and held_by == null:
+		_cancel_attack()
+		_enter(State.STAGGER, BREAK_TIME)
+	Vfx.ring(global_position + Vector3.UP * 0.1, 1.2 * size_scale, Color(1.0, 0.8, 0.25), 0.4)
+	if _broken_tag == null:
+		_broken_tag = Label3D.new()
+		_broken_tag.text = "!"
+		_broken_tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_broken_tag.font_size = 96
+		_broken_tag.outline_size = 18
+		_broken_tag.pixel_size = 0.01
+		_broken_tag.modulate = Color(1.0, 0.82, 0.25)
+		_broken_tag.no_depth_test = true
+		add_child(_broken_tag)
+	_broken_tag.position.y = 2.4 * size_scale
+	_broken_tag.visible = true
+
+
+func _update_poise(delta: float) -> void:
+	_charge_cd -= delta
+	if _broken_left > 0.0:
+		_broken_left -= delta
+		if _broken_left <= 0.0 and _broken_tag != null:
+			_broken_tag.visible = false
+		return
+	_poise_rest += delta
+	if _poise_rest >= POISE_REST:
+		poise = maxf(0.0, poise - POISE_RECOVERY * delta)
+
+
+## Knocked flat for `seconds` (hit by a thrown body or item). Large ones only reel.
+func stun(seconds: float) -> void:
+	if state == State.DEAD or thrown or held_by != null:
+		return
+	_cancel_attack()
+	_enter(State.STAGGER if is_large else State.DOWN, seconds * (0.5 if is_large else 1.0))
+
+
+## A shield turns light and heavy blows from the front (not while it reels or lies down).
+## A heavy blow on the shield still staggers it and fills its posture.
+func _blocks(info: DamageInfo) -> bool:
+	if not shielded or not info.kind in [DamageInfo.Kind.LIGHT, DamageInfo.Kind.HEAVY] or is_broken() \
+			or state in [State.STAGGER, State.DOWN, State.FROZEN, State.DEAD] or not (info.source is Node3D) or not is_instance_valid(info.source):
+		return false
+	var to_source: Vector3 = (info.source as Node3D).global_position - global_position
+	to_source.y = 0.0
+	var fwd := Vector3(-sin(rotation.y), 0.0, -cos(rotation.y))
+	if to_source.length() < 0.05 or to_source.normalized().dot(fwd) < SHIELD_ARC:
+		return false
+	Vfx.sparks(global_position + Vector3.UP * 1.2 + fwd * 0.5, to_source + Vector3.UP * 0.5, 8)
+	Combat.shake(0.08)
+	if info.kind == DamageInfo.Kind.HEAVY:
+		add_poise(POISE_BY_KIND[DamageInfo.Kind.HEAVY])
+		if not is_broken():
+			_cancel_attack()
+			_enter(State.STAGGER, 0.6)
+	else:
+		add_poise(10.0)
+		_knock = -to_source.normalized() * 2.0
+	return true
+
+
+## Shooters (not casters) keep their distance.
+func _kites() -> bool:
+	return is_ranged() and GameData.text(unit, "role") == "Ranged"
+
+
+## The charge runs into you (a heavy knockdown blow) and bowls over enemies in its way.
+func _charge_hits() -> void:
+	if is_instance_valid(target) and not target in _charge_hit and target.global_position.distance_to(global_position) < 1.7 * size_scale:
+		_charge_hit.append(target)
+		var info := DamageInfo.make(GameData.num(unit, "damage", 14.0) * 1.5, "Physical", DamageInfo.Kind.ENEMY, self)
+		info.knockback = 12.0
+		info.knockback_dir = _charge_dir
+		info.knockdown = true
+		Combat.deal(target, info)
+		_charge_cd = CHARGE_COOLDOWN
+		_enter(State.RECOVER, 0.8)
+		return
+	if director == null:
+		return
+	for e in director.near(global_position, 1.6, Team.HOSTILE):
+		if e in _charge_hit or not is_instance_valid(e) or e.is_dead() or e.global_position.distance_to(global_position) > 1.6:
+			continue
+		_charge_hit.append(e)
+		var bump := DamageInfo.make(GameData.num(unit, "damage", 14.0), "Physical", DamageInfo.Kind.ENEMY, self)
+		bump.knockback = 8.0
+		bump.knockback_dir = (e.global_position - global_position).normalized()
+		Combat.deal(e, bump)
+		if e.has_method("stun"):
+			e.stun(1.5)
+
+
+func _hit_a_wall() -> bool:
+	for i in get_slide_collision_count():
+		var c := get_slide_collision(i)
+		if c.get_normal().y < 0.5 and not (c.get_collider() is CharacterBody3D):
+			return true
+	return false
+
+
+## The charge ends in a wall: it's dazed and open (broken), and the impact hurts.
+func _crash() -> void:
+	_charge_cd = CHARGE_COOLDOWN
+	Vfx.burst(global_position + Vector3.UP, 1.2, Color(0.9, 0.85, 0.7, 0.9), 0.15)
+	Combat.shake(0.25)
+	health.take(health.max_hp * 0.15)
+	if not is_dead():
+		_break()
+
+
+const ELEMENT_BURST_RADIUS := 4.5
+
+
+## A dead witch's element bursts out onto everyone near her (the kill is yours, so is the status).
+func _element_burst(at: Vector3) -> void:
+	var dt := GameData.text(GameData.status(element_status), "damage_type", "Physical")
+	ElementFx.area(dt, at, ELEMENT_BURST_RADIUS)
+	var by: Node = player if is_instance_valid(player) else null
+	for e in Combat.enemies_in_radius(at, ELEMENT_BURST_RADIUS):
+		Combat.apply_status(e, element_status, 2, by)
+
+
+## A witch's attack: a ring on the ground where you stand, which bursts after a moment.
+func _cast_circle() -> void:
+	if not is_instance_valid(target):
+		return
+	var at: Vector3 = target.global_position
+	WitchCircle.cast(self, at, GameData.num(unit, "damage", 12.0), element_status)
 
 
 ## Down for knockdown_time (a Stone status). Large ones and bosses keep their feet.
@@ -1306,6 +1565,10 @@ func _update_color() -> void:
 
 func _on_died() -> void:
 	state = State.DEAD
+	if _broken_tag != null:
+		_broken_tag.visible = false
+	if tactics and element_status != "":
+		_element_burst.call_deferred(global_position)
 	# Statuses stay until the body is removed, so on-kill godly gifts can still see them
 	# (e.g. Kiln Heart: "killing a burning enemy"). Ticks on a dead enemy deal nothing.
 	for g in GROUPS.values():
@@ -1320,7 +1583,7 @@ func _on_died() -> void:
 		model.set_blood(1.0)
 		Vfx.blood_pool(Vector3(global_position.x, global_position.y + 0.03, global_position.z), 1.1 * size_scale, 2.0, RAGDOLL_SECONDS, 1.4)
 	var tw := create_tween()
-	var push := Vector3(_knock.x, 0.0, _knock.z).limit_length(9.0) + Vector3.UP * 2.5
+	var push := (Vector3(_knock.x, 0.0, _knock.z).limit_length(9.0) + Vector3.UP * 2.5) * DEATH_LAUNCH
 	if _pinned:  # it stays on the wall until it's gone
 		if model != null:
 			model.set_tint(Color(0.1, 0.1, 0.1, 0.25))
@@ -1350,6 +1613,10 @@ func _update_model_look() -> void:
 	var tint := Color(0, 0, 0, 0)
 	if state == State.WINDUP:
 		tint = Color(1.0, 0.45, 0.1, 0.45 * clampf(_state_time / maxf(_state_len, 0.01), 0.0, 1.0))
+	elif state in [State.CHARGE_WIND, State.CHARGE]:
+		tint = Color(1.0, 0.15, 0.05, 0.55)  # red: it's about to run you down
+	elif is_broken():
+		tint = Color(1.0, 0.8, 0.25, 0.4)  # gold: open to a finisher
 	elif state == State.FROZEN:
 		tint = Color(0.7, 0.9, 1.0, 0.5)
 	if statuses.has("fire"):
@@ -1359,7 +1626,9 @@ func _update_model_look() -> void:
 	if _flash_time > 0.0:
 		tint = Color(1, 1, 1, 0.6)
 	model.set_tint(tint)
-	if state in [State.CHASE, State.WAIT]:
+	if state == State.CHARGE:
+		model.play("Running_A")
+	elif state in [State.CHASE, State.WAIT]:
 		var moving := Vector2(velocity.x, velocity.z).length()
 		model.play("Running_A" if moving > 3.3 or flying else ("Walking_A" if moving > 0.3 else "Idle_A"))  # wings never rest
 

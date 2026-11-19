@@ -51,6 +51,8 @@ func deal(target: Node, info: DamageInfo) -> float:
 	var died_here: bool = target.is_dead()
 	if dealt > 0.0 and _is_player(info.source):
 		Run.note("damage_dealt", dealt)
+		if target is Enemy and target.tactics and info.is_direct():
+			ElementReactions.react(target, info)  # before this hit's own statuses land
 	if target is Enemy and _launches(info):
 		target.launch_from_hit(info)
 	var statuses: StatusEffects = target.get("statuses")

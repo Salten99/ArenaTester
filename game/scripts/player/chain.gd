@@ -10,7 +10,10 @@ extends RefCounted
 ##   - let go without swinging: the chain lets go and it drops.
 ## On a Large unit or boss the chain pulls you to it instead, and you land a drop kick (a heavy).
 
-enum Mode { OFF, FLYING, HOOKED, REEL, SLAM, SWING, PULL, KICK }
+enum Mode { OFF, FLYING, HOOKED, REEL, SLAM, SWING, PULL, KICK, YANK }
+const YANK_TIME := 0.22  ## s for a yanked minion to fly into your blow
+const YANK_DAMAGE := 1.6  ## the yank's blow x a heavy hit
+const WALL_SLAM_DAMAGE := 1.4  ## swinging it into a wall: x a heavy hit
 
 var player: Player
 var mode := Mode.OFF
@@ -23,7 +26,7 @@ var _slam_from := Vector3.ZERO
 var _last_yaw := INF
 var _last_pitch := INF
 var _hold_at := Vector3.ZERO  ## where a hooked minion hangs while nothing moves it
-var _line: MeshInstance3D
+var _line: MultiMeshInstance3D
 var _kick_started := false
 const KICK_LEAD := 0.15  ## s before you reach a big one that the drop kick starts, so its strike frame lands on arrival
 
@@ -108,6 +111,11 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 				return _end()
 			if intent.wheel_back:
 				mode = Mode.REEL
+			elif intent.heavy:
+				mode = Mode.YANK  # right click: rip it toward you into a heavy blow (arena tactics, 2026-11-19)
+				_time = 0.0
+				if player.visual != null:
+					player.visual.play_strike("Melee_2H_Attack_Chop", YANK_TIME, YANK_TIME + 0.35)
 			elif pitch_rate <= -t.chain_flick_rate:
 				mode = Mode.SLAM
 				_slam_from = target.global_position
@@ -123,6 +131,19 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 			else:  # it hangs where it was hooked, sinking to the ground
 				var ground := _ground_y(_hold_at)
 				_hold_at.y = move_toward(_hold_at.y, ground, 6.0 * delta)
+		Mode.YANK:
+			var meet: Vector3 = player.global_position + player.facing * 1.3 + Vector3.UP * 1.0
+			var from := _hold_at
+			_hold_at = from.lerp(meet, clampf(delta / maxf(YANK_TIME - _time + delta, 0.001), 0.0, 1.0))
+			if _time >= YANK_TIME or _hold_at.distance_to(meet) < 0.4:
+				var e := target
+				_release_target(false)
+				_stop()
+				if is_instance_valid(e) and not e.is_dead():
+					player.hit_targets([e], player.moveset._base(player) * player.heavy_mult() * YANK_DAMAGE, DamageInfo.Kind.HEAVY,
+						t.knockback_heavy * 1.5, false, t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], e.global_position + Vector3.UP)
+					Vfx.burst(e.global_position + Vector3.UP, 1.1, Color(1.0, 0.85, 0.4, 0.9), 0.1)
+				return false
 		Mode.REEL:
 			if not intent.light_held:
 				return _end()
@@ -150,15 +171,22 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 				var e := target
 				_release_target(true)
 				var look := Vector3(-sin(intent.aim_yaw), 0.0, -cos(intent.aim_yaw))
-				e.hurl(look * t.hurl_speed + Vector3.UP * t.hurl_lift, player)
+				e.hurl((look * t.hurl_speed + Vector3.UP * t.hurl_lift) * Grabber.THROW_BOOST, player)
 				return _end()
 			_swing_angle += _swing_dir * maxf(absf(yaw_rate), t.chain_swing_spin) * delta
-			_hold_at = player.global_position + Vector3(sin(_swing_angle), 0.0, cos(_swing_angle)) * t.chain_swing_radius + Vector3.UP * 1.0
+			var swung := player.global_position + Vector3(sin(_swing_angle), 0.0, cos(_swing_angle)) * t.chain_swing_radius + Vector3.UP * 1.0
+			var wall := _wall_between(_hold_at, swung)
+			if wall.is_empty():
+				wall = _wall_between(player.global_position + Vector3.UP * 1.0, swung)
+			if not wall.is_empty():
+				_wall_slam(wall.position, wall.normal, (swung - _hold_at).normalized())
+				return false
+			_hold_at = swung
 			var fresh: Array = Combat.enemies_in_radius(_hold_at, 1.3, _swing_hit)
 			if not fresh.is_empty():
 				_swing_hit.append_array(fresh)
 				player.hit_targets(fresh, player.moveset._base(player) * t.heavy_multiplier, DamageInfo.Kind.HEAVY, t.knockback_heavy,
-					false, t.hitstop_heavy, t.shake_heavy * 0.5, [], _hold_at)
+					false, t.hitstop_heavy, t.shake_heavy * 0.5, [], _hold_at, "Physical", false, false)
 		Mode.PULL:
 			var to: Vector3 = target.global_position - player.global_position
 			if not _kick_started and to.length() <= t.chain_kick_reach + t.chain_pull_speed * KICK_LEAD:
@@ -191,7 +219,7 @@ func pull_velocity() -> Vector3:
 
 ## Where a hooked minion is now (Enemy._follow_hand), or INF when it isn't on the chain.
 func point_for(e: Node3D) -> Vector3:
-	return _hold_at if e == target and mode in [Mode.HOOKED, Mode.REEL, Mode.SLAM, Mode.SWING] else Vector3.INF
+	return _hold_at if e == target and mode in [Mode.HOOKED, Mode.REEL, Mode.SLAM, Mode.SWING, Mode.YANK] else Vector3.INF
 
 
 ## Ends it from outside (a dodge, death): a hooked minion drops.
@@ -214,7 +242,7 @@ func _slam(land: Vector3) -> void:
 	e.global_position = land
 	var near: Array = Combat.enemies_in_radius(land, t.hurl_burst_radius, [e])
 	player.hit_targets(([e] if e is Enemy else []) + near, player.moveset._base(player) * t.heavy_multiplier, DamageInfo.Kind.HEAVY, t.knockback_heavy,
-		true, t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], land)
+		true, t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], land, "Physical", false, false)
 	if e is Throwable:
 		e._shatter()  # an item breaks where it lands
 	ElementFx.area("Physical", land, t.hurl_burst_radius)
@@ -223,13 +251,50 @@ func _slam(land: Vector3) -> void:
 		Vfx.blood_stains(land, player.facing, t.blood_stains_per_hit * 2, 1.4)
 
 
+## A wall (not the ground) between `a` and `b`: the ray's hit {position, normal}, or {} if none.
+func _wall_between(a: Vector3, b: Vector3) -> Dictionary:
+	if a.distance_to(b) < 0.01 or not player.is_inside_tree():
+		return {}
+	var q := PhysicsRayQueryParameters3D.create(a, b, 0b001)
+	q.exclude = [player.get_rid()]
+	var hit := player.get_world_3d().direct_space_state.intersect_ray(q)
+	return hit if not hit.is_empty() and hit.normal.y < 0.5 else {}
+
+
+## The swung minion smashes into a wall (user, 2026-11-19): a heavy blow, and it drops limp off the
+## wall in a ragdoll, bouncing back toward you.
+func _wall_slam(at: Vector3, normal: Vector3, moving: Vector3) -> void:
+	var t: CombatTuning = GameData.tuning
+	var e := target
+	_release_target(true)
+	_stop()
+	if not is_instance_valid(e):
+		return
+	e.global_position = at + normal * 0.5 - Vector3.UP * 1.0
+	if e is Enemy:
+		var info := player.make_hit(player.moveset._base(player) * t.heavy_multiplier * WALL_SLAM_DAMAGE, "Physical", "Melee", e, DamageInfo.Kind.HEAVY)
+		info.no_launch = true
+		info.hitstop = t.hitstop_heavy
+		info.shake = t.shake_heavy
+		Combat.deal(e, info)
+		if e.bleeds():
+			Vfx.blood(at, normal, t.blood_kill_drops)
+			Vfx.blood_stains(e.global_position, moving, t.blood_stains_per_hit * 2, 1.4)
+		e.throw(normal * 4.0 + Vector3.UP * 2.0, player)  # dead or alive, the body goes limp off the wall
+		Enemy.bowled_over(Combat.enemies_in_radius(at, 1.5, [e]))
+	else:
+		e.hurl(moving * 2.0, player)  # an item: it breaks on the wall
+	Vfx.burst(at, 1.0, Color(0.9, 0.85, 0.75, 0.9), 0.12)
+	Combat.shake(t.shake_heavy)
+
+
 func _release_target(_flying: bool) -> void:
 	if is_instance_valid(target) and target.has_method("release_grab"):
 		target.release_grab()
 
 
 func _end() -> bool:
-	if mode in [Mode.HOOKED, Mode.REEL, Mode.SLAM, Mode.SWING]:
+	if mode in [Mode.HOOKED, Mode.REEL, Mode.SLAM, Mode.SWING, Mode.YANK]:
 		_release_target(false)
 	_stop()
 	return false
@@ -243,7 +308,7 @@ func _stop() -> void:
 
 
 func _target_point() -> Vector3:
-	if mode in [Mode.HOOKED, Mode.REEL, Mode.SLAM, Mode.SWING]:
+	if mode in [Mode.HOOKED, Mode.REEL, Mode.SLAM, Mode.SWING, Mode.YANK]:
 		return _hold_at + Vector3.UP * 1.0
 	return target.global_position + Vector3.UP * (target.aim_height() if target.has_method("aim_height") else 1.0)
 
@@ -255,15 +320,32 @@ func _ground_y(at: Vector3) -> float:
 
 
 # ---------------------------------------------------------------- the chain you see
-# shortcut: a thin steel bar stretched from hand to hook; upgrade to a chain-link model when the user makes one.
+# Chunky steel links from hand to hook, each turned a quarter from the last (user, 2026-11-19: the thin
+# bar vanished under the retro look's big pixels). Swap in a link model when the user makes one.
+const LINK_SPACING := 0.1   ## m from one link to the next
+const LINK_WIDTH := 0.05    ## the ring's outer radius, m (user, 2026-11-19: thinner)
 
 func _show_line(on: bool) -> void:
 	if on and _line == null and player.is_inside_tree():
-		_line = MeshInstance3D.new()
-		var bar := BoxMesh.new()
-		bar.size = Vector3(0.05, 0.05, 1.0)
-		_line.mesh = bar
-		_line.material_override = Vfx.material(Color(0.55, 0.56, 0.6))
+		var link := TorusMesh.new()
+		link.outer_radius = LINK_WIDTH
+		link.inner_radius = LINK_WIDTH * 0.55
+		link.rings = 12
+		link.ring_segments = 6
+		var steel := StandardMaterial3D.new()
+		steel.albedo_color = Color(0.78, 0.8, 0.86)
+		steel.metallic = 0.7
+		steel.roughness = 0.35
+		steel.emission_enabled = true  # a faint glow so it reads against dark ground and fog
+		steel.emission = Color(0.35, 0.37, 0.42)
+		link.material = steel
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = link
+		mm.instance_count = ceili((GameData.tuning.chain_range + 8.0) / LINK_SPACING)
+		mm.visible_instance_count = 0
+		_line = MultiMeshInstance3D.new()
+		_line.multimesh = mm
 		_line.top_level = true
 		_line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		player.add_child(_line)
@@ -274,7 +356,9 @@ func _show_line(on: bool) -> void:
 
 
 func _update_line() -> void:
-	if _line == null or not _line.visible or not is_instance_valid(target):
+	# Not `not _line.visible`: the chain hides itself on its first frame (length 0, still in your hand),
+	# and skipping hidden chains kept it hidden for good.
+	if _line == null or mode == Mode.OFF or not is_instance_valid(target):
 		return
 	var a := hand()
 	var b := _target_point()
@@ -285,4 +369,16 @@ func _update_line() -> void:
 		_line.visible = false
 		return
 	_line.visible = true
-	_line.global_transform = Transform3D(Basis.looking_at(b - a, Vector3.UP if absf((b - a).normalized().y) < 0.99 else Vector3.RIGHT).scaled(Vector3(1, 1, length)), (a + b) * 0.5)
+	_line.global_transform = Transform3D.IDENTITY
+	var dir := (b - a) / length
+	var along := Basis.looking_at(dir, Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT)
+	var mm := _line.multimesh
+	var count := mini(ceili(length / LINK_SPACING), mm.instance_count)
+	var flat := Basis(Vector3.BACK, 0.0)
+	var turned := Basis(Vector3.BACK, PI * 0.5)
+	for i in count:
+		# The torus's ring lies in its XZ plane, so the chain (local Z) runs along it; stretched along Z
+		# into an oval link, every other link turned a quarter about the chain.
+		var ring := along * (turned if i % 2 == 1 else flat) * Basis.from_scale(Vector3(1.0, 1.0, 1.6))
+		mm.set_instance_transform(i, Transform3D(ring, a + dir * (i + 0.5) * minf(LINK_SPACING, length / count)))
+	mm.visible_instance_count = count

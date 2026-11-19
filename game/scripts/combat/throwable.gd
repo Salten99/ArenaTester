@@ -134,7 +134,8 @@ func _strike(targets: Array) -> void:
 	if _thrower is Player and is_instance_valid(_thrower):
 		var p: Player = _thrower
 		p.hit_targets(targets, p.moveset._base(p) * t.heavy_multiplier, DamageInfo.Kind.HEAVY, t.knockback_heavy, false,
-			t.hitstop_heavy, t.shake_heavy, [], global_position)
+			t.hitstop_heavy, t.shake_heavy, [], global_position, "Physical", false, false)
+		Enemy.bowled_over(targets)
 		return
 	for u in targets:  # a Large enemy's throw: a heavy enemy blow
 		var info := DamageInfo.make(_enemy_damage() * t.item_throw_damage_mult, "Physical", DamageInfo.Kind.ENEMY,
@@ -158,8 +159,13 @@ func _shatter() -> void:
 	remove_from_group("throwables")
 	_strike(Combat.enemies_in_radius(global_position, 1.6, _hit) if _thrower is Player else _foes_near(1.6))
 	var from := global_position - _vel.normalized()
-	Vfx.burst(global_position, 1.4, Color(0.6, 0.55, 0.45, 0.6), 0.35)
-	Combat.shake(0.12)
+	# A third bigger, with more pieces (user, 2026-11-19).
+	Vfx.burst(global_position, 1.4 * DEBRIS_SCALE, Color(0.6, 0.55, 0.45, 0.6), 0.35)
+	Combat.shake(0.12 * DEBRIS_SCALE)
+	var color := Color(0.5, 0.48, 0.45) if kind == "boulder" else Color(0.38, 0.26, 0.15)
+	for i in DEBRIS_CHUNKS:
+		Vfx.chunk(global_position + Vector3.UP * 0.3, Vector3(randf_range(-4, 4), randf_range(3, 6), randf_range(-4, 4)) * DEBRIS_SCALE,
+			color, (0.18 if kind == "boulder" else 0.1) * randf_range(0.7, 1.3))
 	if kind in ["barrel", "crate"] and is_instance_valid(_model) and ResourceLoader.exists(Breakable._broken_path(kind)):
 		var root := get_parent()
 		var keep := _model.global_transform
@@ -171,10 +177,11 @@ func _shatter() -> void:
 				b.smash(from)
 		queue_free()
 		return
-	var color := Color(0.5, 0.48, 0.45) if kind == "boulder" else Color(0.38, 0.26, 0.15)
-	for i in 5:
-		Vfx.chunk(global_position + Vector3.UP * 0.3, Vector3(randf_range(-4, 4), randf_range(3, 6), randf_range(-4, 4)), color, 0.18 if kind == "boulder" else 0.1)
 	queue_free()
+
+
+const DEBRIS_SCALE := 1.33  ## how far and wide a thrown item's debris flies
+const DEBRIS_CHUNKS := 9    ## pieces it breaks into (5 before, 2026-11-19), on top of a barrel's or crate's own broken model
 
 
 func _build_model() -> Node3D:

@@ -309,8 +309,9 @@ func _on_wave_cleared(index: int) -> void:
 func _on_victory() -> void:
 	if encounter_id != "":
 		return  # encounter mode finishes in _on_wave_cleared
-	hud.show_message("The arena is cleared!  F9 to play again.", 0.0)
+	hud.show_message("The arena is cleared!", 0.0)
 	_announce_unlocks(Run.end(true))
+	hud.show_action("Play again", restart)
 
 
 func _on_player_died() -> void:
@@ -320,8 +321,17 @@ func _on_player_died() -> void:
 		_announce_unlocks(Run.end(false))
 		hud.show_action("Back to the start screen", Flow.goto_director)
 		return
-	hud.show_message("You fell.  F9 to try again.", 0.0)
+	hud.show_message("You fell.", 0.0)
 	_announce_unlocks(Run.end(false))
+	hud.show_action("Try again", restart)
+
+
+## Starts this scene over (the Try again button, and F9 in debug builds).
+func restart() -> void:
+	HitStop.clear()
+	get_tree().paused = false
+	Run.in_fight = false  # the reloaded scene starts outside a fight
+	get_tree().reload_current_scene()
 
 
 func _announce_unlocks(unlocked: Array) -> void:

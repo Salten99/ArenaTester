@@ -283,7 +283,8 @@ func _physics_process(delta: float) -> void:
 
 	_crosshair = intent.crosshair
 	if visual != null:
-		visual.set_aim_pitch(intent.aim_pitch if aims_with_body() and (mount == null or not mount.riding) else 0.0)
+		var held_aim := state == State.GRAB  # holding a minion or item, your upper body aims it (user, 2026-11-19)
+		visual.set_aim_pitch(intent.aim_pitch if (aims_with_body() or held_aim) and (mount == null or not mount.riding) else 0.0)
 	var move_dir := _world_dir(intent.move, intent.aim_yaw)
 	var riding := mount != null and mount.riding
 	_update_swimming()
@@ -334,7 +335,7 @@ func _physics_process(delta: float) -> void:
 		_mount_key(intent, riding)
 	elif intent.dodge and riding:
 		pass  # dodge does nothing while riding (user, 2026-11-08): you stay on
-	elif intent.dodge and parries():
+	elif intent.dodge and (parries() or (parry_for_all and not intent.dash and not using_sidearm and move_dir.length() < 0.1)):
 		if state != State.PARRY and stamina >= t.parry_stamina_cost:
 			_start_parry(intent.aim_yaw)
 	elif intent.dodge and state != State.DODGE and stamina >= t.dodge_stamina_cost:
@@ -555,7 +556,14 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 	if (free or riding) and Vector2(velocity.x, velocity.z).length() > 0.5 and move_dir.length() > 0.1:
 		var turn := 6.0 if riding else 14.0  # mounts turn wider
 		facing = _turn_toward(move_dir, turn * delta)
+	if free and not riding and _first_person():
+		# First person (user, 2026-11-19): you face where you look and strafe, so a swing lands on what's in view.
+		facing = _turn_toward(Vector3(-sin(intent.aim_yaw), 0.0, -cos(intent.aim_yaw)), 20.0 * delta)
 	_finish_move(delta)
+
+
+func _first_person() -> bool:
+	return is_instance_valid(Combat.camera_rig) and Combat.camera_rig.get("first_person") == true and Combat.camera_rig.get("target") == self
 
 
 ## Turns `facing` toward `dir` by the fraction `amount` (works for any turn,
@@ -831,6 +839,9 @@ func _can_grab() -> bool:
 ## Grabs the minion in reach, if there is one; else fires the chain at what's in the crosshair.
 func _try_grab(intent: PlayerIntent = null) -> bool:
 	var e := grabber.target()
+	if e is Enemy and (e as Enemy).is_broken():
+		_finisher(e)
+		return true
 	if e == null:
 		var far: Node3D = chain.find_target(intent) if intent != null else null
 		if far == null:
@@ -917,6 +928,8 @@ func _can_sprint() -> bool:
 
 
 func spend_stamina(amount: float) -> void:
+	if no_stamina:
+		return  # the arena: no stamina for now (user, 2026-11-19), a pure fight and movement ground
 	stamina = maxf(0.0, stamina - amount)
 	_stamina_used_msec = Combat.now_msec()
 
@@ -925,10 +938,10 @@ func spend_stamina(amount: float) -> void:
 ## first once per enemy ("target" phase), then once for the swing ("swing" phase).
 ## Used by every weapon moveset.
 func hit_targets(targets: Array, base: float, kind: DamageInfo.Kind, knockback: float, knockdown: bool,
-		hitstop: float, shake: float, events: Array, impact: Vector3, damage_type := "Physical", explosive := false) -> void:
+		hitstop: float, shake: float, events: Array, impact: Vector3, damage_type := "Physical", explosive := false, god_blast := true) -> void:
 	if kind == DamageInfo.Kind.HEAVY:  # a charged heavy hits harder and knocks farther (user, 2026-11-05)
 		knockback *= 1.0 + heavy_charge * GameData.tuning.heavy_charge_knockback
-		if damage_type == "Physical":  # your god's explosion where a weapon heavy lands, hit or miss (user, 2026-11-08); a spell's has its own
+		if damage_type == "Physical" and god_blast:  # not for thrown bodies and items (user, 2026-11-19)  # your god's explosion where a weapon heavy lands, hit or miss (user, 2026-11-08); a spell's has its own
 			ElementFx.area(element(), impact, 2.0)  # yours (fire_explosion.tscn ...) as built, else a burst in its color
 	var landed: Array = []
 	for e in targets:
@@ -1182,7 +1195,49 @@ func enemies_in_arc(reach: float, half_angle_deg: float) -> Array:
 
 # ---------------------------------------------------------------- dodge and abilities
 
+# ---------------------------------------------------------------- arena tactics (user, 2026-11-19)
+## The endless arena turns these on: a dodge just as a blow lands slows time and powers up your
+## next hits; the dodge key with no direction parries, whatever your weapon.
+var perfect_dodge := false
+var parry_for_all := false
+var no_stamina := false  ## nothing costs stamina
+var _perfect_done := false
+const PERFECT_DODGE_WINDOW := 0.2  ## s from the dodge's start
+const PERFECT_DODGE_SLOW := 0.35   ## real s of slow motion
+const PERFECT_DODGE_BONUS := 60.0  ## damage % for PERFECT_DODGE_BUFF s
+const PERFECT_DODGE_BUFF := 2.0
+
+
+func _perfect_dodge() -> void:
+	_perfect_done = true
+	HitStop.slow(PERFECT_DODGE_SLOW, 0.3)
+	stats.add_timed("perfect_dodge", "damage_pct", PERFECT_DODGE_BONUS, PERFECT_DODGE_BUFF)
+	Vfx.ring(global_position + Vector3.UP * 0.1, 2.2, Color(0.5, 0.85, 1.0), 0.35)
+	_flash(Color(0.55, 0.85, 1.0))
+	stamina = minf(max_stamina, stamina + GameData.tuning.dodge_stamina_cost)  # the dodge was free
+	Run.note("perfect_dodges", 1)
+
+
+## A grab on a broken enemy (its gold "!"): finished on the spot, whatever its size.
+func _finisher(e: Enemy) -> void:
+	var to: Vector3 = e.global_position - global_position
+	_face_yaw(atan2(-to.x, -to.z))
+	if visual != null:
+		visual.play_strike("Melee_Unarmed_Attack_Punch_A", GRAB_CLAMP, GRAB_CLAMP + 0.1)
+	HitStop.slow(0.25, 0.25)
+	var info := DamageInfo.make(e.health.hp + 1.0, "Physical", DamageInfo.Kind.HEAVY, self)
+	info.knockback = GameData.tuning.knockback_heavy
+	info.knockback_dir = to.normalized() if to.length() > 0.05 else facing
+	info.shake = GameData.tuning.shake_heavy
+	Combat.deal(e, info)
+	screen_flash(Color(1.0, 0.8, 0.3, 0.35))
+	Vfx.ring(e.global_position + Vector3.UP * 0.1, 2.0, Color(1.0, 0.8, 0.25), 0.35)
+	health.heal(health.max_hp * 0.05)  # a little back for every finisher
+	Run.note("finishers", 1)
+
+
 func _start_dodge(dir: Vector3) -> void:
+	_perfect_done = false
 	spend_stamina(GameData.tuning.dodge_stamina_cost)
 	_dodge_dir = dir.normalized()
 	facing = _dodge_dir
@@ -1314,6 +1369,9 @@ var _last_hurt_msec := -100000
 
 func take_hit(info: DamageInfo) -> float:
 	if is_invulnerable():
+		if perfect_dodge and state == State.DODGE and _state_time <= PERFECT_DODGE_WINDOW and not _perfect_done \
+				and info.kind == DamageInfo.Kind.ENEMY:
+			_perfect_dodge()
 		return 0.0
 	if state == State.GRAB and grabber.shields(info):
 		return 0.0  # the minion in your hand takes the blow
@@ -1396,6 +1454,7 @@ func _build_visuals() -> void:
 	_body = ModelRegistry.for_race(race_id, class_id())
 	if m.setup(_body, ModelRegistry.weapon_model(weapon_id, race_id)):
 		visual = m
+		visual.set_body_layer(CameraRig.BODY_LAYER)  # first person shows only what you hold
 		visual.play("Melee_2H_Idle")
 		return
 	m.queue_free()

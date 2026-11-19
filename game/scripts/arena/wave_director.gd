@@ -56,6 +56,14 @@ var reserve: Array = []
 var reserve_at := Vector3.INF
 ## Reinforcements wait while this many fight (0 = the tuning's battle_size).
 var battle_size := 0
+## Arena tactics (the endless arena): hostile units get Enemy.tactics, a "#shield" token a shield,
+## and a witch one of WITCH_ELEMENTS.
+var tactics := false
+const SHIELD_TAG := "#shield"
+const WITCH_ELEMENTS := ["fire", "ice", "poison", "water"]
+## Health by hits (the endless arena): a hostile unit listed here gets hit_damage x its count.
+var hit_damage := 0.0
+var hits_to_kill := {}
 var _wave_size := 0
 var _alive_check := 0.0
 
@@ -98,8 +106,15 @@ func next_wave() -> void:
 
 ## `token` is a unit id.
 func spawn(token: String, near: Vector3 = Vector3.INF, team := Enemy.Team.HOSTILE, mini_boss := false, army := 1.0) -> Enemy:
+	var shield := token.ends_with(SHIELD_TAG)  # "barb_raider#shield": a raider with a shield (arena tactics)
+	token = token.trim_suffix(SHIELD_TAG)
 	var e := Enemy.new()
 	e.setup(token, player, director, team)
+	if tactics and team == Enemy.Team.HOSTILE:
+		e.tactics = true
+		e.shielded = shield
+		if GameData.text(e.unit, "role") == "Magic":
+			e.element_status = RunRng.pick(WITCH_ELEMENTS)
 	if mini_boss:
 		e.make_mini_boss()
 	e.peaceful = false  # called into a fight, it fights
@@ -110,6 +125,15 @@ func spawn(token: String, near: Vector3 = Vector3.INF, team := Enemy.Team.HOSTIL
 	arena.add_child(e)
 	if team == Enemy.Team.HOSTILE:
 		members.append(e)
+		if hit_damage > 0.0 and hits_to_kill.has(token):
+			e.health.setup(hit_damage * float(hits_to_kill[token]))
+		if e.shielded and e.model != null:
+			e.model.set_offhand(ModelRegistry.own(Player.SHIELD))
+		if e.element_status != "":  # a witch wears her element
+			var aura := ElementFx.aura(GameData.text(GameData.status(e.element_status), "damage_type", "Physical"), 0.7)
+			if aura != null:
+				e.add_child(aura)
+				aura.emitting = true
 	var near_player := near != Vector3.INF
 	var origin := near if near_player else center
 	var pos := Vector3.INF

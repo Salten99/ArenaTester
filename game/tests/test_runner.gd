@@ -60,7 +60,7 @@ func _ready() -> void:
 		"test_void_mark", "test_all_movesets",
 		"test_save_resume_keeps_build", "test_clock_pauses_in_fights", "test_end_to_end_run",
 		"test_arena_plays_an_encounter", "test_weapon_choice",
-		"test_valley_terrain", "test_battle_sizing", "test_valley_befriend_battle", "test_tribe_welcomes", "test_village_raid_and_sites", "test_valley_wilds", "test_mount", "test_valley_water", "test_islands", "test_new_races", "test_element_effects", "test_home_biomes", "test_controls_rebind", "test_stamina", "test_world_events", "test_pitched_battle", "test_checklist_viewer", "test_mount_keeps_your_pace", "test_race_preview", "test_shelved_races", "test_main_weapon_and_sidearm", "test_spyglass_bestiary_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throwing_knife", "test_big_villages", "test_batch_2026_11_09", "test_hollow_tower_climb", "test_menus_wait_their_turn", "test_saves_survive", "test_open_offers_come_back", "test_jungle", "test_myths", "test_giants", "test_caves_and_towers", "test_dungeons", "test_native_animals", "test_exploration_life", "test_pin_to_wall", "test_aiming", "test_god_mode_no_mount", "test_glide", "test_paired_claws", "test_retro_look", "test_stealth", "test_fog_of_war", "test_roads_and_caravans", "test_custom_battle", "test_practice_picks", "test_war_chest", "test_compass_and_crowds", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_mount_stats", "test_mount_orders", "test_camp_stealth", "test_wild_sides", "test_end_of_run_exit", "test_race_carousel", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_item_field", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves",
+		"test_valley_terrain", "test_battle_sizing", "test_valley_befriend_battle", "test_tribe_welcomes", "test_village_raid_and_sites", "test_valley_wilds", "test_mount", "test_valley_water", "test_islands", "test_new_races", "test_element_effects", "test_home_biomes", "test_controls_rebind", "test_stamina", "test_world_events", "test_pitched_battle", "test_checklist_viewer", "test_mount_keeps_your_pace", "test_race_preview", "test_shelved_races", "test_main_weapon_and_sidearm", "test_spyglass_bestiary_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throwing_knife", "test_big_villages", "test_batch_2026_11_09", "test_hollow_tower_climb", "test_menus_wait_their_turn", "test_saves_survive", "test_open_offers_come_back", "test_jungle", "test_myths", "test_giants", "test_caves_and_towers", "test_dungeons", "test_native_animals", "test_exploration_life", "test_pin_to_wall", "test_aiming", "test_god_mode_no_mount", "test_glide", "test_paired_claws", "test_retro_look", "test_stealth", "test_fog_of_war", "test_roads_and_caravans", "test_custom_battle", "test_practice_picks", "test_war_chest", "test_compass_and_crowds", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_mount_stats", "test_mount_orders", "test_camp_stealth", "test_wild_sides", "test_end_of_run_exit", "test_race_carousel", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_item_field", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -4683,6 +4683,8 @@ func test_chain_grab() -> void:
 	var foe: Enemy = _cluster(1, 8.0)[0]
 	await hook.call(foe)
 	check(p.state == Player.State.CHAIN and p.chain.mode == Chain.Mode.HOOKED and foe.held_by == p, "a held light attack hooks a minion 8 m away")
+	var links: int = p.chain._line.multimesh.visible_instance_count if p.chain._line != null else 0
+	check(p.chain._line != null and p.chain._line.visible and links >= 30, "you see the chain: %d links from hand to hook" % links)
 	s.hold({"light_held": true, "wheel_back": true}, 1)
 	s.hold({"light_held": true}, 40)
 	await _frames(41)
@@ -5036,6 +5038,278 @@ func test_anim_library() -> void:
 	DirAccess.remove_absolute(OS.get_user_data_dir() + "/anim_notes_test.json")
 
 
+func test_arena_menu() -> void:
+	# The endless arena's menus: a loadout of weapons and elements, and Esc to pause and back.
+	check(ArenaMenu.weapons().size() >= 2 and ArenaMenu.elements().size() >= 2, "weapons and elements to choose from")
+	_arena.queue_free()
+	await _frames(1)
+	_arena = ENDLESS.instantiate()
+	_arena.auto_start = false
+	add_child(_arena)
+	await _frames(2)
+	var a: EndlessArena = _arena
+	check(a.menu != null and not a.hud._godly_gifts.visible, "the arena has its menu and shows no godly gifts")
+	var level := Run.state.level
+	a.give_xp(100000.0)
+	check(Run.state.level == level and Run.state.pending_level_ups == 0 and not a.hud.is_choosing(), "no XP or level-up upgrades in the arena")
+	var esc := InputEventAction.new()
+	esc.action = "release_mouse"
+	esc.pressed = true
+	a.menu._unhandled_input(esc)
+	check(a.menu.is_open() and get_tree().paused, "Esc pauses")
+	a.menu._unhandled_input(esc)
+	check(not a.menu.is_open() and not get_tree().paused, "Esc again resumes")
+	a.menu.open_loadout(a.player.god_id, a.player.weapon_id)
+	check(a.menu.is_open() and get_tree().paused, "the loadout menu pauses the fight")
+	a.menu.close()
+
+
+func test_arena_tactics() -> void:
+	# The endless arena's combat (user, 2026-11-19): posture breaks and finishers, shields, perfect
+	# dodges, parry for all, witch circles, element reactions, traps, thrown bodies, pickups.
+	_arena.queue_free()
+	await _frames(1)
+	_arena = ENDLESS.instantiate()
+	_arena.auto_start = false
+	add_child(_arena)
+	await _frames(2)
+	await _until_on_floor()
+	var a: EndlessArena = _arena
+	var p: Player = a.player
+	var ahead := func(e: Enemy, d := 1.6) -> void:
+		e.global_position = p.global_position + p.facing * d
+	var hit := func(e: Node, kind: DamageInfo.Kind, amount := 10.0) -> float:
+		var info := DamageInfo.make(amount, "Physical", kind, p)
+		return Combat.deal(e, info)
+	check(EndlessArena.wave_units(1).has(WaveDirector.BASIC_UNIT + WaveDirector.SHIELD_TAG), "shield bearers join from the second wave")
+
+	# Posture: hits fill it, full breaks it, and a grab finishes a broken enemy.
+	var e: Enemy = a.waves.spawn(WaveDirector.BASIC_UNIT)
+	e.health.setup(10000.0)
+	ahead.call(e)
+	await _frames(2)
+	check(e.tactics and not e.is_broken(), "arena enemies use tactics")
+	for i in 4:
+		hit.call(e, DamageInfo.Kind.LIGHT)
+	check(e.is_broken(), "four light hits break its posture (poise %.0f)" % e.poise)
+	check(p._try_grab(), "a grab on a broken enemy is a finisher")
+	check(e.is_dead(), "the finisher kills it outright")
+	check(Engine.time_scale < 1.0, "a finisher slows time for a moment")
+	HitStop.clear()  # its slow motion runs on the real clock, which barely moves in a headless test
+
+	# Thrown bodies bowl enemies over; the berserker crashing into a wall is left open.
+	var b: Enemy = a.waves.spawn(WaveDirector.BASIC_UNIT)
+	await _frames(1)
+	Enemy.bowled_over([b])
+	check(b.is_broken() and b.state == Enemy.State.DOWN, "hit by a thrown body: down and broken")
+	b.queue_free()
+	var zerk: Enemy = a.waves.spawn(Enemy.CHARGER)
+	await _frames(1)
+	zerk._crash()
+	check(zerk.is_broken(), "a berserker that charges into a wall is broken")
+	zerk.queue_free()
+
+	# Shields block from the front only.
+	var s: Enemy = a.waves.spawn(WaveDirector.BASIC_UNIT + WaveDirector.SHIELD_TAG)
+	s.health.setup(10000.0)
+	ahead.call(s, 2.0)
+	await _frames(1)
+	s.set_physics_process(false)  # hold still: it mustn't turn while we test the facing
+	var to_p := p.global_position - s.global_position
+	s.rotation.y = atan2(-to_p.x, -to_p.z)
+	check(s.shielded and is_zero_approx(hit.call(s, DamageInfo.Kind.LIGHT)), "a shield turns a blow from the front")
+	s.rotation.y += PI
+	check(hit.call(s, DamageInfo.Kind.LIGHT) > 0.0, "and not from behind")
+	s.queue_free()
+
+	# Element reactions: your element (Fire, the forge god) ignites poison; a heavy shatters ice.
+	var r: Enemy = a.waves.spawn(WaveDirector.BASIC_UNIT)
+	r.health.setup(10000.0)
+	ahead.call(r, 3.0)
+	await _frames(1)
+	Combat.apply_status(r, "poison", 1, null)
+	hit.call(r, DamageInfo.Kind.LIGHT)
+	check(p.element() == "Fire" and not r.statuses.has("poison"), "Fire on a poisoned enemy ignites the poison")
+	Combat.apply_status(r, "ice", 1, null)
+	var before := r.health.hp
+	var dealt: float = hit.call(r, DamageInfo.Kind.HEAVY, 20.0)
+	check(not r.statuses.has("ice") and before - r.health.hp > dealt * 1.5, "a heavy shatters ice for double damage (%.0f lost)" % (before - r.health.hp))
+	r.queue_free()
+
+	# A witch's circle bursts where you stood; she has an element.
+	var w: Enemy = a.waves.spawn(EndlessArena.CASTER)
+	w.global_position = p.global_position + Vector3(8, 0, 8)
+	await _frames(1)
+	w.set_physics_process(false)
+	check(w.element_status in WaveDirector.WITCH_ELEMENTS, "a witch carries an element (%s)" % w.element_status)
+	var hp := p.health.hp
+	var circle := WitchCircle.cast(w, p.global_position, 10.0, w.element_status)
+	await _frames(int(WitchCircle.DELAY * 60.0) + 6)
+	check(p.health.hp < hp and not is_instance_valid(circle), "standing in a witch's circle hurts")
+	p.health.heal(1000.0)
+	p.statuses.clear()
+	w.queue_free()
+
+	# A perfect dodge slows time and powers up your hits; the dodge key standing still parries.
+	var dmg := p.stats.get_stat("damage_pct")
+	p._start_dodge(p.facing)
+	var blow := DamageInfo.make(10.0, "Physical", DamageInfo.Kind.ENEMY, null)
+	check(is_zero_approx(p.take_hit(blow)) and p.stats.get_stat("damage_pct") > dmg, "a perfect dodge powers up your hits")
+	HitStop.clear()
+	await _frames(40)
+	var sc := _scripted()
+	sc.press("dodge")
+	await _frames(2)
+	check(p.state == Player.State.PARRY, "the dodge key with no direction parries, any weapon (state %d)" % p.state)
+	await _frames(40)
+
+	# Traps: a body thrown into the spikes dies; the health orb heals.
+	var spikes: ArenaHazard = get_tree().get_nodes_in_group("arena_hazards").filter(func(h): return h.kind == "spikes")[0]
+	var t: Enemy = a.waves.spawn(WaveDirector.BASIC_UNIT)
+	await _frames(1)
+	t.throw(Vector3.UP * 2.0, p)
+	t.global_position = spikes.global_position + Vector3.UP * 0.5
+	await _frames(3)
+	check(t.is_dead(), "thrown into the spikes, it dies")
+	p.health.hp = 10.0
+	ArenaPickup.make(a, p.global_position - Vector3.UP)
+	await _frames(3)
+	check(p.health.hp > 10.0, "the health orb heals")
+
+
+func test_grab_aim_and_slams() -> void:
+	# User, 2026-11-19: first person shows only the weapon; a held minion is aimed up, down and round
+	# and tossed skyward it takes fall damage; a squeeze too weak to kill slams it down instead, a
+	# squeeze kill takes the head; a chained minion swung into a wall goes limp.
+	_arena.queue_free()
+	await _frames(1)
+	_arena = ENDLESS.instantiate()
+	_arena.auto_start = false
+	add_child(_arena)
+	await _frames(2)
+	await _until_on_floor()
+	var a: EndlessArena = _arena
+	var p: Player = a.player
+	var rig: CameraRig = a.camera_rig
+	var body_meshes: Array = p.visual.model.find_children("*", "MeshInstance3D", true, false)
+	check(rig.first_person and (rig.camera.cull_mask & CameraRig.BODY_LAYER) == 0, "first person leaves the body's layer out")
+	check(body_meshes.any(func(m): return m.layers == CameraRig.BODY_LAYER) and body_meshes.any(func(m): return m.layers & 1),
+		"the body is on its own layer, the weapon stays on the seen one")
+	rig.first_person = false
+	check(rig.camera.cull_mask & CameraRig.BODY_LAYER, "third person shows the body again")
+	rig.first_person = true
+
+	var intent := PlayerIntent.new()
+	intent.light_held = true
+	var grab := func(e: Enemy) -> void:
+		e.global_position = p.global_position + p.facing * 1.0
+		await _frames(1)
+		p.grabber.grab(e)
+		p._set_state(Player.State.GRAB)
+	# Aimed straight up: held overhead, thrown skyward, it falls back hard.
+	var up: Enemy = a.waves.spawn(WaveDirector.BASIC_UNIT)
+	up.health.setup(10000.0)
+	await grab.call(up)
+	intent.aim_yaw = 0.0
+	intent.aim_pitch = 1.4
+	p.grabber.update(1.0 / 60.0, intent)
+	check(p.grabber.hold_point().y > p.global_position.y + 1.2, "looking up holds it overhead")
+	p.grabber.hurl()
+	p._set_state(Player.State.FREE)
+	for i in 60:  # up and back down (a ragdoll falls slower than a capsule)
+		await _frames(10)
+		if up.health.hp < 10000.0:
+			break
+	check(up.health.hp < 10000.0, "tossed straight up, it takes fall damage (%.0f)" % (10000.0 - up.health.hp))
+	up.queue_free()
+	intent.aim_pitch = 0.0
+
+	# Too much health left to squeeze: slammed into the ground, the crowd pushed back.
+	var tough: Enemy = a.waves.spawn(WaveDirector.BASIC_UNIT)
+	tough.health.setup(10000.0)
+	var near: Enemy = a.waves.spawn(WaveDirector.BASIC_UNIT)
+	near.health.setup(10000.0)
+	await grab.call(tough)
+	near.global_position = p.global_position + p.facing * 2.5
+	p.grabber._crush = GameData.tuning.crush_time
+	p.grabber.update(1.0 / 60.0, intent)
+	check(not tough.is_dead() and tough.health.hp < 10000.0 and tough.thrown, "a tough one is slammed down, hurt and limp")
+	check(near.state == Enemy.State.DOWN or near._knock.length() > 1.0, "the slam pushes the others back")
+	p._set_state(Player.State.FREE)
+	tough.queue_free()
+	near.queue_free()
+	await _frames(2)
+	# Weak enough: crushed, and the head goes.
+	var weak: Enemy = a.waves.spawn(WaveDirector.BASIC_UNIT)
+	await grab.call(weak)
+	weak.health.hp = 1.0
+	p.grabber._crush = GameData.tuning.crush_time
+	p.grabber.update(1.0 / 60.0, intent)
+	check(weak.is_dead() and weak.model.head_popped(), "a squeeze kill takes its head")
+	p._set_state(Player.State.FREE)
+	HitStop.clear()
+
+	# Chained and swung into a wall: a heavy blow, and it goes limp.
+	var swung: Enemy = a.waves.spawn(WaveDirector.BASIC_UNIT)
+	swung.health.setup(10000.0)
+	swung.global_position = p.global_position + p.facing * 4.0
+	await _frames(1)
+	p.chain.target = swung
+	p.chain.mode = Chain.Mode.SWING
+	swung.grab_by(p)
+	p.chain._wall_slam(swung.global_position + Vector3.UP, -p.facing, p.facing)
+	check(swung.thrown and swung.health.hp < 10000.0 and p.chain.mode == Chain.Mode.OFF, "swung into a wall: hurt, limp, and the chain lets go")
+	check(Chain.LINK_WIDTH <= 0.06, "the chain is thin")
+
+
+func test_training_ground() -> void:
+	# User, 2026-11-19: no stamina in the arena; the slide key taps to dash and holds to slide.
+	_arena.queue_free()
+	await _frames(1)
+	_arena = ENDLESS.instantiate()
+	_arena.auto_start = false
+	add_child(_arena)
+	await _frames(2)
+	var a: EndlessArena = _arena
+	var p: Player = a.player
+	var full := p.stamina
+	p.spend_stamina(50.0)
+	check(p.no_stamina and is_equal_approx(p.stamina, full) and not a.hud._stamina_bar.visible, "nothing costs stamina, and its bar is gone")
+	var input: PlayerInput = p.input_source
+	check(input.slide_dashes, "the arena's slide key dashes too")
+	Input.action_press("slide")
+	var i1 := input.read()
+	Input.action_release("slide")
+	var i2 := input.read()
+	check(not i1.slide and not i1.dodge and i2.dodge and i2.dash and not i2.slide, "a tap dashes, once, on release")
+	Input.action_press("slide")
+	input.read()
+	OS.delay_msec(PlayerInput.SLIDE_HOLD_MSEC + 30)
+	var held := input.read()
+	var still := input.read()
+	Input.action_release("slide")
+	var after := input.read()
+	check(held.slide and held.slide_held and not still.slide and still.slide_held and not after.dodge, "held, it slides (no dash when let go)")
+	check(Enemy.DEATH_LAUNCH > 1.3 and Grabber.THROW_BOOST > 1.3 and Throwable.DEBRIS_SCALE > 1.3, "killing blows launch, throws and debris fly a third farther")
+
+
+func test_kill_reported_once() -> void:
+	# The Fire + Lightning duo finishes a burning enemy inside the lightning hit's own deal():
+	# that kill must be reported once (it used to be twice: double XP and kill score).
+	var p: Player = _arena.player
+	p.godly_gifts.add_godly_gift("duo_forge_storm")
+	var e: Enemy = _cluster(1)[0]
+	await _frames(2)
+	Combat.apply_status(e, "fire", 1, null)
+	e.health.hp = 20.0
+	var count := [0]
+	var on_kill := func(t, _i): if t == e: count[0] += 1
+	Combat.killed.connect(on_kill)
+	Combat.deal(e, DamageInfo.make(5.0, "Lightning", DamageInfo.Kind.LIGHT, p))
+	Combat.killed.disconnect(on_kill)
+	check(e.is_dead() and count[0] == 1, "a kill by a gift inside a hit is reported once (dead %s, reported %d)" % [e.is_dead(), count[0]])
+
+
 func test_endless_waves() -> void:
 	# Endless survival: each cleared wave brings a bigger one, kills are counted, and it never ends.
 	check(EndlessArena.wave_units(1).size() > EndlessArena.wave_units(0).size(), "each wave is bigger than the last")
@@ -5048,14 +5322,34 @@ func test_endless_waves() -> void:
 	add_child(_arena)
 	await _frames(2)
 	var a: EndlessArena = _arena
+	check(a.camera_rig.first_person, "the arena starts in first person")
 	a._continue_waves()
-	await _frames(2)
+	await _frames(40)
 	var first: int = EndlessArena.wave_units(0).size()
-	check(a.waves.wave == 0 and a.waves.alive() == first, "wave 1 brings %d (got %d)" % [first, a.waves.alive()])
-	for e in get_tree().get_nodes_in_group("enemies"):
-		Combat.deal(e, DamageInfo.make(9999.0, "Physical", DamageInfo.Kind.GODLY_GIFT, a.player))
-	await _frames(30)
+	check(a.waves.wave == 0 and a.waves.alive() == mini(EndlessArena.ON_FIELD, first) and a.waves.alive() + a.waves.reserve.size() == first,
+		"wave 1's %d walk in %d at a time (%d in, %d waiting)" % [first, EndlessArena.ON_FIELD, a.waves.alive(), a.waves.reserve.size()])
+	for i in 6:  # kill whoever's in, and the next ones as they come
+		for e in get_tree().get_nodes_in_group("enemies"):
+			Combat.deal(e, DamageInfo.make(9999.0, "Physical", DamageInfo.Kind.GODLY_GIFT, a.player))
+		await _frames(30)
 	check(a.kills == first, "every kill is counted (%d of %d)" % [a.kills, first])
+	check(EndlessArena.SHOOTER in EndlessArena.wave_units(0) and EndlessArena.CASTER in EndlessArena.wave_units(EndlessArena.CASTER_FROM),
+		"waves bring shooters, and casters later")
+	check(a.director.attacker_limit() == EndlessArena.ATTACKERS, "fewer enemies swing at you at once")
+	var raider: Enemy = a.waves.spawn(WaveDirector.BASIC_UNIT)
+	var hit := a.light_hit_damage()
+	var hits := ceili(raider.health.max_hp / hit)
+	check(hits >= 3 and hits <= 4, "a raider takes 3-4 light hits (%d: %.0f hp, %.0f a hit)" % [hits, raider.health.max_hp, hit])
+	raider.queue_free()
 	check(not a.hud.is_choosing(), "no godly gift menu between waves")
-	await _frames(int(GameData.tuning.time_between_waves * 60.0) + 10)
-	check(a.waves.wave == 1 and a.waves.alive() == EndlessArena.wave_units(1).size(), "wave 2 follows, bigger (%d)" % a.waves.alive())
+	await _frames(int(EndlessArena.WAVE_GAP * 60.0) + 10)
+	check(get_tree().get_nodes_in_group("arena_pickups").size() == 1, "a health orb waits between waves")
+	check(a.waves.wave == 1 and a.waves.alive() + a.waves.reserve.size() == EndlessArena.wave_units(1).size(), "wave 2 follows, bigger (%d)" % (a.waves.alive() + a.waves.reserve.size()))
+	# Pacing: one fighter closes in at a time, and a shooter may fire beside it.
+	var d: CrowdDirector = a.director
+	var f1: Enemy = a.waves.spawn(WaveDirector.BASIC_UNIT)
+	var f2: Enemy = a.waves.spawn(WaveDirector.BASIC_UNIT)
+	var sh: Enemy = a.waves.spawn(EndlessArena.SHOOTER)
+	await _frames(1)
+	d._holders.clear()
+	check(d.request_token(f1) and not d.request_token(f2) and d.request_token(sh) and d.full(), "one fighter at a time, and a shooter beside it")

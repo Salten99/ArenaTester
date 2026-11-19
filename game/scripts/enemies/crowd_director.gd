@@ -8,6 +8,12 @@ var _holders: Array = []
 ## Attackers per friendly warrior (the player's limit is max_attackers in the tuning).
 const ALLY_ATTACKERS := 2
 var _ally_holders := {}  # target instance id -> [attackers]
+## Enemies that may attack you at once; 0 = the tuning's max_attackers (the endless arena sets it).
+var max_attackers := 0
+
+
+func attacker_limit() -> int:
+	return max_attackers if max_attackers > 0 else GameData.tuning.max_attackers
 
 
 func register(e: Node) -> void:
@@ -40,7 +46,16 @@ func request_token(e: Node) -> bool:
 	_holders = _holders.filter(func(h): return is_instance_valid(h) and not h.is_dead())
 	if e in _holders:
 		return true
-	if _holders.size() >= GameData.tuning.max_attackers:
+	if max_attackers > 0:
+		# The arena's pacing (user, 2026-11-19): max_attackers fighters close in, and shooters
+		# take their own turns beside them (max_ranged_attackers), so one melee foe at a time.
+		var shooting: bool = e.is_ranged()
+		var same := _holders.filter(func(h): return h.is_ranged() == shooting).size()
+		if same >= (GameData.tuning.max_ranged_attackers if shooting else max_attackers):
+			return false
+		_holders.append(e)
+		return true
+	if _holders.size() >= attacker_limit():
 		return false
 	# Shooters and casters hit from range and can't be crowded out, so fewer of
 	# them may fire at you at once (first playtest: they did most of the damage).
@@ -73,6 +88,13 @@ func release(e: Node) -> void:
 
 func attackers() -> int:
 	return _holders.size()
+
+
+## True when no more fighters may close in on you: the rest wait on the ring.
+func full() -> bool:
+	if max_attackers > 0:
+		return _holders.filter(func(h): return is_instance_valid(h) and not h.is_ranged()).size() >= max_attackers
+	return attackers() >= attacker_limit()
 
 
 ## Push-apart vector so enemies don't stack on top of each other. Only units in
