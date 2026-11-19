@@ -14,6 +14,8 @@ const START_WEAPON := "warhammer"
 ## Gods whose godly gifts are offered, in turn, after each wave.
 const OFFER_GODS := ["forge_god", "storm_god"]
 
+## The arena model's look: the user's grass and stone pictures (shaders/arena_ground.gdshader).
+const ARENA_GROUND := preload("res://materials/arena_ground.tres")
 ## The level the fight happens in (the gladiator arena from sam-movement).
 ## Clear it to fall back to the plain box arena built in code.
 @export var world_scene: PackedScene = preload("res://scenes/gladiator_arena.tscn")
@@ -118,6 +120,15 @@ func _build_level() -> void:
 		var world := world_scene.instantiate()
 		add_child(world)
 		CharacterModel.use_vertex_colors(world)
+		# The user's grass and stone pictures on the arena model (tune them in materials/arena_ground.tres).
+		for m in world.find_children("arena", "MeshInstance3D", true, false):
+			var ground: ShaderMaterial = ARENA_GROUND
+			ground.set_shader_parameter("grit", RetroLook.grit())
+			ground.set_shader_parameter("grit_size", RetroLook.GRIT_SIZE * RetroLook.GRIT_TEXEL)
+			for pic in ["grass", "stone"]:
+				var avg := ValleyWorld._average((ground.get_shader_parameter(pic) as Texture2D).get_image())
+				ground.set_shader_parameter(pic + "_gain", Vector3(1.0 / avg.r, 1.0 / avg.g, 1.0 / avg.b))
+			(m as MeshInstance3D).material_override = ground
 	else:
 		_build_world()
 	# Things to throw in the practice arena (combat feel plan, 2026-11-18).

@@ -1,0 +1,14 @@
+[gd_resource type="ShaderMaterial" load_steps=4 format=3]
+
+[ext_resource type="Shader" path="res://shaders/arena_ground.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" path="res://textures/grass.png" id="2_grass"]
+[ext_resource type="Texture2D" path="res://textures/stone_masonry.png" id="3_stone"]
+
+[resource]
+shader = ExtResource("1_shader")
+shader_parameter/grass = ExtResource("2_grass")
+shader_parameter/stone = ExtResource("3_stone")
+shader_parameter/grit_size = 1.92
+shader_parameter/grass_size = 2.0
+shader_parameter/stone_size = 3.0
+shader_parameter/stone_color = Color(0.86, 0.79, 0.66, 1)

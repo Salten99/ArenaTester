@@ -60,7 +60,7 @@ func _ready() -> void:
 		"test_void_mark", "test_all_movesets",
 		"test_save_resume_keeps_build", "test_clock_pauses_in_fights", "test_end_to_end_run",
 		"test_arena_plays_an_encounter", "test_weapon_choice",
-		"test_valley_terrain", "test_battle_sizing", "test_valley_befriend_battle", "test_tribe_welcomes", "test_village_raid_and_sites", "test_valley_wilds", "test_mount", "test_valley_water", "test_islands", "test_new_races", "test_element_effects", "test_home_biomes", "test_controls_rebind", "test_stamina", "test_world_events", "test_pitched_battle", "test_checklist_viewer", "test_mount_keeps_your_pace", "test_race_preview", "test_shelved_races", "test_main_weapon_and_sidearm", "test_spyglass_bestiary_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throwing_knife", "test_big_villages", "test_batch_2026_11_09", "test_hollow_tower_climb", "test_menus_wait_their_turn", "test_saves_survive", "test_open_offers_come_back", "test_jungle", "test_myths", "test_giants", "test_caves_and_towers", "test_dungeons", "test_native_animals", "test_exploration_life", "test_pin_to_wall", "test_aiming", "test_god_mode_no_mount", "test_glide", "test_paired_claws", "test_retro_look", "test_stealth", "test_fog_of_war", "test_roads_and_caravans", "test_custom_battle", "test_practice_picks", "test_war_chest", "test_compass_and_crowds", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_mount_stats", "test_mount_orders", "test_camp_stealth", "test_wild_sides", "test_end_of_run_exit", "test_race_carousel", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_item_field", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground",
+		"test_valley_terrain", "test_battle_sizing", "test_valley_befriend_battle", "test_tribe_welcomes", "test_village_raid_and_sites", "test_valley_wilds", "test_mount", "test_valley_water", "test_islands", "test_new_races", "test_element_effects", "test_home_biomes", "test_controls_rebind", "test_stamina", "test_world_events", "test_pitched_battle", "test_checklist_viewer", "test_mount_keeps_your_pace", "test_race_preview", "test_shelved_races", "test_main_weapon_and_sidearm", "test_spyglass_bestiary_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throwing_knife", "test_big_villages", "test_batch_2026_11_09", "test_hollow_tower_climb", "test_menus_wait_their_turn", "test_saves_survive", "test_open_offers_come_back", "test_jungle", "test_myths", "test_giants", "test_caves_and_towers", "test_dungeons", "test_native_animals", "test_exploration_life", "test_pin_to_wall", "test_aiming", "test_god_mode_no_mount", "test_glide", "test_paired_claws", "test_retro_look", "test_stealth", "test_fog_of_war", "test_roads_and_caravans", "test_custom_battle", "test_practice_picks", "test_war_chest", "test_compass_and_crowds", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_mount_stats", "test_mount_orders", "test_camp_stealth", "test_wild_sides", "test_end_of_run_exit", "test_race_carousel", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_item_field", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -5476,3 +5476,19 @@ func test_endless_waves() -> void:
 	await _frames(1)
 	d._holders.clear()
 	check(d.request_token(f1) and not d.request_token(f2) and d.request_token(sh) and d.full(), "one fighter at a time, and a shooter beside it")
+
+
+func test_arena_textures() -> void:
+	# User, 2026-11-19: their grass picture on the arena floor, their stone picture on its walls.
+	_arena.queue_free()
+	await _frames(1)
+	_arena = ENDLESS.instantiate()
+	_arena.auto_start = false
+	add_child(_arena)
+	await _frames(2)
+	var looks := _arena.find_children("arena", "MeshInstance3D", true, false).map(func(m): return m.material_override)
+	var mat := looks[0] as ShaderMaterial if looks.size() == 1 else null
+	check(mat != null and mat.get_shader_parameter("grass").resource_path == "res://textures/grass.png"
+		and mat.get_shader_parameter("stone").resource_path == "res://textures/stone_masonry.png"
+		and mat.get_shader_parameter("grit") != null and mat.get_shader_parameter("grass_gain") != Vector3.ONE,
+		"the arena model wears the grass and stone pictures, each shading its own color")
