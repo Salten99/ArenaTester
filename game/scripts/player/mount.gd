@@ -8,22 +8,16 @@ extends Node3D
 ##     aren't just launching enemies) they're thrown back (Enemy.throw: limp, hurt by what they hit).
 ##   - Just before it reaches someone it plays its attack (mount_butt_lead), so the head
 ##     comes down as they're hit.
-##   - Space jumps (mount_jump_velocity): at a gallop you clear narrow river stretches.
-##   - In deep water the mount swims with you (slowly).
+##   - Space jumps (mount_jump_velocity).
 ##   - You can still swing your weapon (light and heavy) and use abilities; no slide.
 ##   - Hits land on the mount first (its hp from the sheet). If it drops to 0 you're
 ##     thrown off, and it needs THROWN_COOLDOWN seconds before you can call it again.
 ## Races without a mount model (the centaur) just gallop: the speed and charge, no model.
-##
-## On foot in the valley your mount walks with you and fights beside you (user,
-## 2026-10-29): a FRIENDLY unit (Enemy.setup_companion) that follows you, butts
-## the nearest enemy for half its charge_damage, and shares the mount's health.
-## Riding puts it away; if it falls you can't ride or call it for THROWN_COOLDOWN.
 
 ## Seconds before a thrown-off mount can be called again.
 const THROWN_COOLDOWN := 25.0
 var _gallop_time := 0.0  ## how long you've been at a full gallop without slowing
-## Mount health back per second while you're on foot (it walking beside you or not).
+## Mount health back per second while you're on foot.
 const REGEN := 4.0
 ## Trampling: who's in front of you within this range, and how often one enemy can be hit.
 const TRAMPLE_RANGE := 2.2
@@ -32,26 +26,10 @@ const TRAMPLE_REPEAT := 0.8
 const CAMERA_DISTANCE := 8.5
 ## A dead mount lies this long before it sinks away.
 const CORPSE_SECONDS := 4.0
-## A companion farther than this from you (you rode off, fast travel) catches up at once.
-const COMPANION_LEASH := 60.0
-
-var companion: Enemy
 
 var player: Player
 var data: Dictionary
 var riding := false
-## Orders on foot (user, 2026-11-16, after Far Cry Primal); a tap of the mount key calls it back:
-##   - hold the mount key: it leaves, out of sight (away);
-##   - through the spyglass, tap the mount key on an enemy: it goes for that one (mark, shown
-##     by a gold arrow over it); anywhere else: it goes there and waits out of fights (staying, spot).
-var staying := false
-var spot := Vector3.INF  ## where a staying mount waits (INF: where it stopped)
-var away := false
-var mark: Enemy
-## Your mount fades this much when it's between the camera and you or what you aim at.
-const FADE := 0.7
-var _fade := 0.0
-var _size := -1.0  ## the walking mount's rough radius (m), measured once
 var hp := 0.0
 var max_hp := 0.0
 var cooldown := 0.0
@@ -80,7 +58,7 @@ func has_mount() -> bool:
 
 
 func can_ride() -> bool:
-	return has_mount() and cooldown <= 0.0 and not player.is_dead() and not player.flying and not player.no_mount
+	return has_mount() and cooldown <= 0.0 and not player.is_dead() and not player.flying
 
 
 ## Gets on or off.
@@ -93,8 +71,6 @@ func toggle() -> void:
 
 func ride() -> void:
 	riding = true
-	_clear_orders()
-	_put_away_companion()
 	if not _look.is_empty():
 		beast = BeastModel.new()
 		add_child(beast)
@@ -194,21 +170,14 @@ func absorb(amount: float) -> float:
 func _physics_process(delta: float) -> void:
 	cooldown = maxf(0.0, cooldown - delta)
 	if not riding:
-		_update_companion()
-		if companion != null:  # it heals walking beside you too, or a hurt mount never does
-			companion.health.heal(clampf(max_hp - companion.health.hp, 0.0, REGEN * delta))
-			hp = companion.health.hp
-		else:
-			hp = minf(max_hp, hp + REGEN * delta)
+		hp = minf(max_hp, hp + REGEN * delta)
 		return
 	var moving := Vector2(player.velocity.x, player.velocity.z).length()
 	_gallop_time = _gallop_time + delta if moving >= speed(true) * 0.85 else 0.0
 	_butt_left = maxf(0.0, _butt_left - delta)
 	if beast != null:
-		if not player.is_on_floor() and not player.swimming:
+		if not player.is_on_floor():
 			beast.play("Jump_Idle")
-		elif player.swimming:
-			beast.play("Walking_A")
 		elif _butt_left <= 0.0:
 			beast.play("Running_A" if moving > speed(false) * 0.8 else ("Walking_A" if moving > 0.5 else "Idle_A"))
 	if player.visual != null and player.state == Player.State.FREE:
@@ -220,7 +189,7 @@ func _physics_process(delta: float) -> void:
 		_trampled[id] -= delta
 		if _trampled[id] <= 0.0:
 			_trampled.erase(id)
-	if moving > speed(false) * 0.9 and not player.swimming:
+	if moving > speed(false) * 0.9:
 		_headbutt(moving)
 		_trample()
 
@@ -255,159 +224,6 @@ func _trample() -> void:
 		var t: CombatTuning = GameData.tuning
 		if Vector2(player.velocity.x, player.velocity.z).length() >= speed(true) * 0.85 and _gallop_time >= t.mount_throw_after:
 			e.throw(info.knockback_dir * t.mount_throw_speed * attack_force() / 14.0 + Vector3.UP * t.mount_throw_lift, player)
-
-
-# ---------------------------------------------------------------- walking beside you
-
-## Only in the valley (the practice arena and tests keep the old way), with a model to show.
-func _wants_companion() -> bool:
-	return has_mount() and not _look.is_empty() and cooldown <= 0.0 and not player.is_dead() \
-		and player.is_inside_tree() and player.get_parent() is Valley and hp > 0.0 and not away
-
-
-func _update_companion() -> void:
-	if player.flying or player.no_mount or player.get_parent().get("cinematic") == true:  # god mode: no mount (user, 2026-11-01); it waits outside caves and towers; not in a clip
-		_put_away_companion()
-		return
-	if companion != null and (not is_instance_valid(companion) or companion.is_dead()):
-		companion = null
-		hp = 0.0
-		cooldown = THROWN_COOLDOWN  # it fell: give it time to recover
-		return
-	if companion == null:
-		if _wants_companion():
-			_call_companion()
-		return
-	hp = companion.health.hp
-	_fade_if_in_the_way()
-	if not staying and not has_mark() and companion.global_position.distance_to(player.global_position) > COMPANION_LEASH:
-		companion.global_position = player.global_position + beside_you() + Vector3.UP * 0.5
-
-
-## Hold the mount key: it leaves until a tap calls it back.
-func send_away() -> void:
-	if riding:
-		return
-	_put_away_companion()
-	away = true
-	_say("Your mount leaves. Tap %s to call it back." % Controls.binding_text("mount"))
-
-
-## The mount key tapped through the spyglass: go for `target` if it's someone to fight, else go to `at` and wait.
-func order(target: Node3D, at: Vector3) -> void:
-	if riding or companion == null:
-		return
-	if target is Enemy and target.team != Enemy.Team.FRIENDLY and not target.civilian and not target.is_dead():
-		_clear_orders()
-		_set_mark(target)
-		_say("Your mount goes for the %s." % GameData.text(target.unit, "display_name", "enemy"))
-	elif at != Vector3.INF:
-		_clear_orders()
-		staying = true
-		spot = at
-		_say("Your mount goes there and waits. Tap %s to call it back." % Controls.binding_text("mount"))
-
-
-## True while it has an order (left, waiting, or after a marked enemy): a tap calls it back.
-func has_orders() -> bool:
-	return away or staying or has_mark()
-
-
-func has_mark() -> bool:
-	return is_instance_valid(mark) and not mark.is_dead()
-
-
-## A tap after an order: it comes back to your side.
-func come_back() -> void:
-	_clear_orders()
-	_say("Your mount comes back to you.")
-
-
-func _clear_orders() -> void:
-	staying = false
-	away = false
-	spot = Vector3.INF
-	_set_mark(null)
-
-
-## The gold arrow over the enemy your mount goes for.
-func _set_mark(e: Enemy) -> void:
-	if is_instance_valid(mark) and mark.has_node("MountMark"):
-		mark.get_node("MountMark").queue_free()
-	mark = e
-	if e == null:
-		return
-	var tag := Label3D.new()
-	tag.name = "MountMark"
-	tag.text = "▼"
-	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	tag.no_depth_test = true
-	tag.font_size = 64
-	tag.outline_size = 10
-	tag.modulate = Color(1.0, 0.8, 0.2)
-	tag.position.y = e.aim_height() * 2.0 + 1.0
-	e.add_child(tag)
-
-
-func _say(text: String) -> void:
-	var hud = player.get_parent().get("hud") if player.is_inside_tree() else null
-	if hud != null:
-		hud.show_message(text, 2.0)
-
-
-## Fades the walking mount when it's between the camera and you, or what you're looking at.
-func _fade_if_in_the_way() -> void:
-	var cam := player.get_viewport().get_camera_3d() if player.is_inside_tree() else null
-	if cam == null or companion.model == null:
-		return
-	if _size < 0.0:
-		var box := AABB()
-		for m: MeshInstance3D in companion.model.find_children("*", "MeshInstance3D", true, false):
-			var b: AABB = m.global_transform * m.get_aabb()
-			box = b if box.size == Vector3.ZERO else box.merge(b)
-		_size = maxf(box.size.x, box.size.z) * 0.4 + 0.3
-	var eye := cam.global_position
-	var me := player.global_position + Vector3.UP * 1.2
-	var ahead := me + -cam.global_transform.basis.z * 12.0
-	var body := companion.global_position + Vector3.UP * minf(_size, 1.5)
-	var blocking := in_the_way(body, eye, me, _size) or in_the_way(body, eye, ahead, _size)
-	_fade = move_toward(_fade, FADE if blocking else 0.0, get_physics_process_delta_time() * 4.0)
-	for m: MeshInstance3D in companion.model.find_children("*", "MeshInstance3D", true, false):
-		m.transparency = _fade
-
-
-## True if a body of radius `radius` at `p` is on the line of sight from `eye` to `to`.
-static func in_the_way(p: Vector3, eye: Vector3, to: Vector3, radius: float) -> bool:
-	var q := Geometry3D.get_closest_point_to_segment(p, eye, to)
-	return q.distance_to(p) < radius and q.distance_to(to) > 0.5
-
-
-## Where your mount walks, relative to you: to your right, a little behind.
-func beside_you() -> Vector3:
-	var f := player.facing
-	return Vector3(-f.z, 0.0, f.x) * GameData.tuning.mount_follow_gap - f
-
-
-func _call_companion() -> void:
-	var arena: Node = player.get_parent()
-	companion = Enemy.new()
-	companion.setup_companion(data, _look, player, arena.get("director"))
-	arena.add_child(companion)
-	companion.global_position = player.global_position + beside_you() + Vector3.UP * 0.5
-	companion.health.max_hp = max_hp  # the sheet's hp x mount_health_mult, as when riding: else a whole mount looked half hurt (blood)
-	companion.health.hp = hp
-	if companion.model != null:
-		companion.model.set_god_colors(str(_look.model).get_file().get_basename(), player.god_id)
-
-
-func _put_away_companion() -> void:
-	staying = false
-	_fade = 0.0
-	_size = -1.0
-	if companion != null and is_instance_valid(companion):
-		hp = companion.health.hp
-		companion.queue_free()
-	companion = null
 
 
 func _camera(distance: float) -> void:

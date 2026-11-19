@@ -51,8 +51,23 @@ static func attach_building(model: Node3D, shape: CollisionShape3D, size: Vector
 	model.add_child(b)
 
 
+## The props' models (barrels, crates, rocks) and their broken versions.
+const PROPS := "res://models/gen/world/"
+
+
 static func _broken_path(prop: String) -> String:
-	return ValleyWorld.VILLAGE + prop + "_broken.glb"
+	return PROPS + prop + "_broken.glb"
+
+
+## `node`'s transform relative to `top` (top's own transform not included).
+static func local_transform(node: Node, top: Node) -> Transform3D:
+	var t := Transform3D.IDENTITY
+	var cur := node
+	while cur != null and cur != top:
+		if cur is Node3D:
+			t = (cur as Node3D).transform * t
+		cur = cur.get_parent()
+	return t
 
 
 func _ready() -> void:
@@ -260,7 +275,7 @@ func smash(from: Vector3) -> void:
 	var holder := _model.get_parent()
 	var xf := _model.global_transform
 	for m: MeshInstance3D in broken.find_children("*", "MeshInstance3D", true, false):
-		var local := ValleyWorld.local_transform(m, broken)
+		var local := local_transform(m, broken)
 		var basis := xf.basis * local.basis  # rotation and the prop's scale go on the mesh: bodies stay unscaled
 		var body := RigidBody3D.new()
 		body.collision_layer = CharacterModel.RAGDOLL_LAYER

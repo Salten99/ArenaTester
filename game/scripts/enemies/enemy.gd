@@ -26,8 +26,6 @@ var is_large := false
 var giant := false
 ## The fight's mini boss: tougher (mini_boss_hp_mult) and bigger.
 var mini_boss := false
-## Your mount walking beside you (Mount): its look, from ModelRegistry.for_mount.
-var companion_look := {}
 ## Part of Count Fuckula's corrupted tribe (Void attacks, cleared by Light/Stone).
 var corrupted := false
 var size_scale := 1.0
@@ -136,21 +134,6 @@ const CHARGE_TIME := 1.1
 const CHARGE_COOLDOWN := 6.0
 
 
-## Your mount as a friendly fighter: a unit built from its Mounts row (its
-## health, speed and half its charge damage per butt). Call before adding to the tree.
-func setup_companion(row: Dictionary, look: Dictionary, p_player: Node3D, p_director: CrowdDirector) -> void:
-	setup("", p_player, p_director, Team.FRIENDLY)
-	unit_id = "mount_" + str(row.get("mount_id", ""))
-	unit = {"unit_id": unit_id, "display_name": row.get("display_name", "Mount"), "role": "Melee",
-		"hp": GameData.num(row, "hp", 150.0), "damage": GameData.num(row, "charge_damage", 25.0) * 0.5,
-		"damage_type": "Physical", "move_speed": GameData.num(row, "sprint_mps", 12.0), "attack_range_m": 2.2,
-		"charge_damage": GameData.num(row, "charge_damage", 25.0), "attack_force": GameData.num(row, "attack_force", 14.0)}
-	companion_look = look
-	is_large = false
-	size_scale = 1.0
-
-
-## Call after setup, before adding to the tree.
 ## A wild animal grown to a monstrous size, a mini boss (user, 2026-11-03). After setup, before adding to the tree.
 func make_giant() -> void:
 	var t: CombatTuning = GameData.tuning
@@ -208,8 +191,6 @@ func _ready() -> void:
 	var living := unit.has("race_id") and not corrupted
 	var look := ModelRegistry.for_tribe(unit_id) if living else ModelRegistry.for_unit(unit_id)
 	var beast: Dictionary = ModelRegistry.for_beast(unit_id) if unit_id.begins_with("beast_") or unit_id.begins_with("animal_") or ModelRegistry.BEASTS.has(unit_id) else {}
-	if not companion_look.is_empty():
-		beast = companion_look
 	if not beast.is_empty():
 		var b := BeastModel.new()
 		_visual.add_child(b)
@@ -250,17 +231,23 @@ func _ready() -> void:
 	add_child(health)
 	add_child(statuses)
 	statuses.aura_size = size_scale
-	_boosted = team == Team.FRIENDLY and companion_look.is_empty()  # your mount keeps its own health
+	_boosted = team == Team.FRIENDLY
 	var person := team == Team.HOSTILE and model != null and not (model is BeastModel) 		and not GameData.text(unit, "role", "Melee") in ["Melee", "Ranged", "Magic"]  # minions stay weak (pivot, 2026-11-18)
 	health.setup(GameData.num(unit, "hp", 25.0) * (GameData.tuning.ally_health_mult if _boosted else 1.0)
-		* (EncounterSystem.mini_boss_mult(unit_id) if mini_boss else 1.0) * (GameData.tuning.humanoid_health_mult if person else 1.0) * health_mult)
+		* (_mini_boss_mult(unit_id) if mini_boss else 1.0) * (GameData.tuning.humanoid_health_mult if person else 1.0) * health_mult)
 	health.died.connect(_on_died)
 	_orbit_sign = 1.0 if RunRng.chance(50.0) else -1.0
 	if director != null:
 		director.register(self)
 
 
-## Switches side (a village's guards join you, or turn on you).
+## A mini boss's health multiplier: a Miniboss or Boss row already has its own health.
+static func _mini_boss_mult(token: String) -> float:
+	var role := GameData.text(GameData.unit(token), "role")
+	return 1.0 if role in ["Miniboss", "Boss"] or token.begins_with("champ_") else GameData.tuning.mini_boss_hp_mult
+
+
+## Switches side.
 func set_team(t: Team) -> void:
 	for g in GROUPS.values():
 		if is_in_group(g):
@@ -434,7 +421,7 @@ func _think(delta: float) -> void:
 				_charge_dir = to_target.normalized()
 				_enter(State.CHARGE_WIND, CHARGE_WIND)
 				Vfx.ring(global_position + Vector3.UP * 0.05, 1.4, Color(1.0, 0.25, 0.1), CHARGE_WIND)
-			elif dist <= reach + 0.2 and _may_attack(at_player) and _flanked(to_target):
+			elif dist <= reach + 0.2 and _may_attack(at_player):
 				_enter(State.WINDUP, t.enemy_telegraph * (t.large_slowdown if is_large else 1.0))
 			elif at_player and dist <= t.wait_ring_distance + 0.5 and director != null and director.full():
 				state = State.WAIT
@@ -444,7 +431,7 @@ func _think(delta: float) -> void:
 				desired = (tangent * 0.35 + radial).limit_length(1.0) * speed * 0.6
 			else:
 				state = State.CHASE
-				desired = _flank_move(to_target, reach) * speed
+				desired = to_target.normalized() * speed
 		State.WINDUP:
 			if is_ranged() and _aim_at == Vector3.INF and target != null and _state_len - _state_time <= t.ranged_aim_lock:
 				_aim_at = target.global_position + Vector3.UP  # stop tracking: the shot goes where you were
@@ -495,8 +482,7 @@ func _think(delta: float) -> void:
 	velocity.z = desired.z + _knock.z
 	_knock = _knock.move_toward(Vector3.ZERO, t.knockback_friction * delta * maxf(1.0, _knock.length()))
 	if flying:
-		var ground: float = Combat.water.stand_height(global_position.x, global_position.z, global_position.y) if Combat.water != null and Combat.water.has_method("stand_height") else global_position.y - fly_height
-		var goal: float = maxf(ground, surface) + fly_height
+		var goal: float = _floor_below() + fly_height
 		if target != null and dist < 25.0:
 			goal = target.global_position.y + 1.5  # down to bite
 		velocity.y = clampf((goal - global_position.y) * 2.0, -9.0, 9.0)
@@ -739,6 +725,15 @@ static func bowled_over(targets: Array) -> void:
 		if e is Enemy and is_instance_valid(e) and e.tactics and not e.is_dead():
 			e.add_poise(POISE_MAX)
 			e.stun(THROW_STUN)
+
+
+## The floor under this unit (a ray straight down), or its own height if there is none.
+func _floor_below() -> float:
+	if not is_inside_tree():
+		return global_position.y
+	var q := PhysicsRayQueryParameters3D.create(global_position, global_position + Vector3.DOWN * 60.0, 0b001)
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	return hit.position.y if hit else global_position.y - fly_height
 
 
 ## Gravity is heavier on the way down (enemy_fall_gravity_mult).
@@ -1114,17 +1109,8 @@ func _pick_target() -> Node3D:
 				_aggroed = false  # you got away: give up and head home
 				return null
 		return best
-	var leash: bool = not companion_look.is_empty() and is_instance_valid(player)
-	if leash and (player as Player).mount.has_mark():
-		return (player as Player).mount.mark  # the one you marked through the spyglass, however far
-	if leash and (player as Player).mount.staying:
-		return null  # told to wait somewhere: out of the fight
 	return director.best_near(self, Team.HOSTILE, ALLY_SIGHT, func(u: Enemy, d: float) -> float:
-		if u.is_dead():
-			return INF
-		if leash and u.global_position.distance_to(player.global_position) > GameData.tuning.mount_leash:
-			return INF  # your mount stays at your side: only what's close to you
-		return _target_score(u, d))
+		return INF if u.is_dead() else _target_score(u, d))
 
 
 ## How good a target `u` is, `d` metres away: lower is better. Must stay >= d
@@ -1161,8 +1147,6 @@ func _idle_move(speed: float) -> Vector3:
 	if team == Team.FRIENDLY and post == Vector3.INF and is_instance_valid(player):
 		var to_p: Vector3 = player.global_position - here
 		to_p.y = 0.0
-		if not companion_look.is_empty():
-			return _pace_with_player(to_p, speed)
 		return to_p.normalized() * speed if to_p.length() > 7.0 else Vector3.ZERO
 	if post == Vector3.INF:
 		return Vector3.ZERO
@@ -1183,55 +1167,6 @@ func _idle_move(speed: float) -> Vector3:
 	return to_post.normalized() * speed * 0.6 if to_post.length() > 1.5 else Vector3.ZERO
 
 
-## Your mount fights from the far side of its target, away from the camera, so it isn't in
-## your view (user, 2026-11-08, after Far Cry Primal). Everyone else goes straight in.
-func _away_from_camera(to_target: Vector3) -> Vector3:
-	var cam := get_viewport().get_camera_3d()
-	if companion_look.is_empty() or cam == null:
-		return Vector3.ZERO
-	var away := global_position + to_target - cam.global_position
-	away.y = 0.0
-	return away.normalized()
-
-
-## True once your mount is beside or behind its target (seen from the camera); always for others.
-func _flanked(to_target: Vector3) -> bool:
-	var away := _away_from_camera(to_target)
-	return away == Vector3.ZERO or (-to_target.normalized()).dot(away) > -0.3
-
-
-## The way to go: straight at the target, or for your mount round it to the far side.
-func _flank_move(to_target: Vector3, reach: float) -> Vector3:
-	var away := _away_from_camera(to_target)
-	if away == Vector3.ZERO:
-		return to_target.normalized()
-	var to_spot := to_target + away * reach * 0.8
-	if _flanked(to_target) or to_target.length() > reach * 3.0:
-		return to_spot.normalized()
-	var side := Vector3(-to_target.z, 0.0, to_target.x).normalized()  # near side: circle round, not through
-	if side.dot(to_spot) < 0.0:
-		side = -side
-	return (side + to_target.normalized() * 0.3).normalized()
-
-
-## Your mount on foot keeps your pace (user, 2026-11-01): it walks when you walk and gallops
-## when you sprint. It keeps to your side, out from between you and the camera.
-func _pace_with_player(to_p: Vector3, speed: float) -> Vector3:
-	var m: Mount = (player as Player).mount
-	if m.staying:  # told to wait somewhere: it goes there first
-		var to_spot := m.spot - global_position if m.spot != Vector3.INF else Vector3.ZERO
-		to_spot.y = 0.0
-		return to_spot.normalized() * speed if to_spot.length() > 1.5 else Vector3.ZERO
-	var pace: Vector3 = (player as CharacterBody3D).velocity
-	pace.y = 0.0
-	var t: CombatTuning = GameData.tuning
-	var to_spot: Vector3 = to_p + (player as Player).mount.beside_you()
-	var gap := to_spot.length() - 1.0
-	if gap <= 0.0:
-		return pace.limit_length(speed)
-	return to_spot.normalized() * minf(speed, maxf(pace.length(), t.move_speed) + gap * 0.5)
-
-
 func _strike(reach: float, to_target: Vector3, dist: float) -> void:
 	if dist > reach + 0.5 or not is_instance_valid(target):
 		return
@@ -1242,11 +1177,6 @@ func _strike(reach: float, to_target: Vector3, dist: float) -> void:
 	var info := DamageInfo.make(GameData.num(unit, "damage", 8.0), damage_type, DamageInfo.Kind.ENEMY, self)
 	info.knockback = 6.0 if is_large else 3.0
 	info.knockback_dir = to_target.normalized()
-	if not companion_look.is_empty() and Vector2(velocity.x, velocity.z).length() > GameData.num(unit, "move_speed", 12.0) * 0.6:
-		# Your mount at a charge hits like a heavy attack (user, 2026-11-05): its full charge, a knockdown.
-		info.amount = GameData.num(unit, "charge_damage", 25.0)
-		info.knockback = GameData.num(unit, "attack_force", 14.0)
-		info.knockdown = true
 	var status := GameData.text(unit, "status_effect")
 	if status != "":
 		info.with_status(status)

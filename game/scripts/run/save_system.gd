@@ -1,39 +1,9 @@
 class_name SaveSystem
 extends RefCounted
-## Reads and writes the run save and the meta profile as JSON in user://.
-##
-## Rules (DECISIONS 5a/5b): a run is saved on quit and at checkpoints (crash
-## protection), and the save is deleted when the run ends, so it can never undo a
-## death. The meta profile persists forever.
+## Reads and writes the profile (unlocks, bestiary, settings) as JSON in user://.
 
-## Where saves go. Tests point these at test files so they never touch real saves.
-static var RUN_PATH := "user://run_save.json"
+## Where it goes. Tests point it at a test file so they never touch the real profile.
 static var PROFILE_PATH := "user://profile.json"
-
-
-static func save_run(state: RunState, checkpoint := "") -> bool:
-	state.checkpoint = checkpoint
-	return _write(RUN_PATH, state.to_dict())
-
-
-static func has_run() -> bool:
-	return FileAccess.file_exists(RUN_PATH) or FileAccess.file_exists(RUN_PATH + ".tmp")
-
-
-## Loads the saved run; it stays on disk, so a crash while the valley builds loses nothing.
-## Null if none or broken (a broken one is removed, or Continue would never work).
-static func load_run() -> RunState:
-	var d = _read(RUN_PATH)
-	if d is Dictionary:
-		return RunState.from_dict(d)
-	delete_run()
-	return null
-
-
-static func delete_run() -> void:
-	for path in [RUN_PATH, RUN_PATH + ".tmp"]:  # a leftover .tmp would bring a finished run back
-		if FileAccess.file_exists(path):
-			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 
 static func save_profile(data: Dictionary) -> bool:

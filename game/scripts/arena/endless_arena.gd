@@ -163,5 +163,5 @@ func _on_killed(target: Node, info: DamageInfo) -> void:
 func _on_player_died() -> void:
 	Playtest.death()
 	hud.show_message("You fell on wave %d with %d kills." % [waves.wave + 1, kills], 0.0)
-	Run.end(false)
+	Run.end()
 	hud.show_action("Try again", restart)

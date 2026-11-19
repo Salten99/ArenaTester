@@ -1,11 +1,7 @@
 class_name Arena
 extends Node3D
-## The fight scene. The Valley extends it (fights happen in the valley); on its
-## own it's the Practice arena or runs one encounter (tests).
-##
-## Milestone 0: one arena, the player pledged to the Lord of the Forge, waves of
-## barbarians, and godly gifts from the Lord of the Forge (Forge) and the Storm Caller (Storm) between waves.
-## Everything is built in code so the scene file stays a single node.
+## The fight scene: the practice arena (waves with godly gifts between them; tests use it) and
+## the base of EndlessArena. Everything is built in code so the scene file stays a single node.
 
 const ARENA_SIZE := 60.0
 const START_GOD := "forge_god"
@@ -32,12 +28,8 @@ var director: CrowdDirector
 var waves: WaveDirector
 var hud: Hud
 var _offer_index := 0
-## Gods whose gifts are offered in turn (Practice sets it from the god you picked).
+## Gods whose gifts are offered in turn (set from the god you picked).
 var offer_gods: Array = OFFER_GODS
-## The run encounter this fight is for ("" = practice arena with its own short run).
-var encounter_id := ""
-## True while a god's godly gift choice is open after an encounter.
-var _offering_god := false
 
 
 func _ready() -> void:
@@ -64,7 +56,6 @@ func _ready() -> void:
 	player.global_position = player_start
 	player.died.connect(_on_player_died)
 	player.apply_run_state(Run.state)
-	Run.player = player
 	camera_rig.target = player
 	camera_rig.snap_to_target()
 	Combat.camera_rig = camera_rig
@@ -95,17 +86,12 @@ func _ready() -> void:
 	_begin()
 
 
-## Makes sure a run exists and picks the encounter (overridden by the Valley).
+## A fresh fight state, with the god and weapon picked in the arena menu (Flow), so XP and level-ups work.
 func _prepare_run() -> void:
-	encounter_id = Flow.pending_encounter if Run.active else ""
-	if encounter_id == "":
-		# Practice: Milestone 0 runs inside its own short run, so XP and level-ups work.
-		# The god and class come from the start screen's Practice picker (Flow.goto_practice).
-		var god := Flow.practice_god if Flow.practice_god != "" else START_GOD
-		var weapon := Flow.practice_weapon if Flow.practice_weapon != "" else START_WEAPON
-		Run.start_new(START_RACE, god, run_seed, 0.34, weapon)
-		Run.practice = true
-		offer_gods = _practice_offer_gods(god)
+	var god := Flow.practice_god if Flow.practice_god != "" else START_GOD
+	var weapon := Flow.practice_weapon if Flow.practice_weapon != "" else START_WEAPON
+	Run.start_new(START_RACE, god, run_seed, weapon)
+	offer_gods = _practice_offer_gods(god)
 
 
 ## Whose godly gifts the Practice arena offers after each wave, for the god you picked.
@@ -114,7 +100,7 @@ func _practice_offer_gods(god: String) -> Array:
 	return [god] + OFFER_GODS.filter(func(g): return g != god)
 
 
-## Builds the level the player stands in (overridden by the Valley).
+## Builds the level the player stands in.
 func _build_level() -> void:
 	if world_scene != null:
 		var world := world_scene.instantiate()
@@ -126,7 +112,7 @@ func _build_level() -> void:
 			ground.set_shader_parameter("grit", RetroLook.grit())
 			ground.set_shader_parameter("grit_size", RetroLook.GRIT_SIZE * RetroLook.GRIT_TEXEL)
 			for pic in ["grass", "stone"]:
-				var avg := ValleyWorld._average((ground.get_shader_parameter(pic) as Texture2D).get_image())
+				var avg := _average((ground.get_shader_parameter(pic) as Texture2D).get_image())
 				ground.set_shader_parameter(pic + "_gain", Vector3(1.0 / avg.r, 1.0 / avg.g, 1.0 / avg.b))
 			(m as MeshInstance3D).material_override = ground
 	else:
@@ -137,107 +123,12 @@ func _build_level() -> void:
 		Throwable.make(Throwable.KINDS[i % 4], self, Vector3(cos(a), 0.0, sin(a)) * 9.0, a)
 
 
-## Starts play once everything exists (overridden by the Valley).
+## Starts play once everything exists.
 func _begin() -> void:
-	if encounter_id != "":
-		_start_encounter()
-	elif auto_start:
+	if auto_start:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		hud.show_message("Pledged to %s. Choose your first godly gift." % GameData.text(GameData.row("gods", Run.state.god_id), "display_name", Run.state.god_id), 3.0)
 		_offer_next()
-
-
-## Warriors fighting on your side in this encounter (the Valley brings some).
-func _friendly_count() -> int:
-	return 0
-
-
-## True when this fight belongs to a run (death ends the run, wins go back to the valley).
-func _in_run() -> bool:
-	return encounter_id != ""
-
-
-func _physics_process(delta: float) -> void:
-	Run.tick(delta)  # only the run's play time moves during fights; the valley clock waits
-
-
-# ---------------------------------------------------------------- encounter mode
-
-func _start_encounter() -> void:
-	var plan := EncounterSystem.plan(Run.state, encounter_id, _friendly_count())
-	EncounterSystem.start(Run.state, encounter_id)
-	Playtest.fight_started(encounter_id)
-	waves.health_mult = 1.0  # enemies keep their sheet health (pivot, 2026-11-18)
-	waves.plan_waves = _one_battle(plan.get("waves", []), plan.get("reserve", []))
-	waves.overlap = GameData.tuning.wave_overlap
-	waves.boss = plan.get("boss", "")  # after the last wave: a mini boss, or the champion
-	waves.second_boss = plan.get("second_boss", "")
-	var def := GameData.row("encounters", Run.state.encounters[encounter_id].def)
-	waves.corrupted = str(Run.state.encounters[encounter_id].get("source", GameData.text(def, "enemy_source"))).begins_with("Evil")  # a raid by the Count's army too
-	if not Run.god_offered.is_connected(_on_god_offered):
-		Run.god_offered.connect(_on_god_offered)
-	if not hud.god_chosen.is_connected(_on_god_chosen):
-		hud.god_chosen.connect(_on_god_chosen)
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	hud.show_message("%s: %s" % [GameData.text(def, "display_name"), GameData.text(def, "objective")], 3.0)
-	get_tree().create_timer(GameData.tuning.time_between_waves, false).timeout.connect(_continue_waves)
-
-
-## The plan's waves as one big battle of battle_size enemies (user, 2026-11-09). Their health
-## is scaled so the whole fight still holds as much as the plan meant.
-## A fight needing more than battle_size enemies keeps battle_size on the field and sends the rest
-## in as the others fall (WaveDirector.reserve).
-func _one_battle(planned: Array, reserve: Array = []) -> Array:
-	waves.army_mult = 1.0
-	var all: Array = []
-	for w in planned:
-		all.append_array(w)
-	all.append_array(reserve)
-	if all.is_empty():
-		return []
-	var size: int = GameData.tuning.battle_size
-	if all.size() > size:
-		waves.reserve = all.slice(size)
-		return [all.slice(0, size)]
-	waves.army_mult = float(all.size()) / size
-	var army: Array = []
-	for i in size:
-		army.append(all[i % all.size()])
-	return [army]
-
-
-func _finish_encounter(won: bool) -> void:
-	var was_final := encounter_id == "final_battle"
-	Playtest.fight_ended(encounter_id, won)
-	Run.finish_encounter(encounter_id, won)
-	if was_final and won:
-		hud.show_message("Count Fuckula's tribe is broken. You won the run!", 0.0)
-		_announce_unlocks(Run.last_result.get("unlocked", []))
-		hud.show_action("Back to the start screen", Flow.goto_director)
-	elif not _offering_god:
-		_return_to_valley()
-
-
-## After an encounter (and its god choice): back to exploring.
-func _return_to_valley() -> void:
-	hud.show_action("Return to the valley", Flow.goto_valley)
-
-
-func _on_god_offered(god_id: String) -> void:
-	_offering_god = true
-	hud.offer_god(god_id, player.godly_gifts.make_offer(god_id))
-
-
-func _on_god_chosen(choice: String) -> void:
-	_offering_god = false
-	Run.state.pending_god = ""
-	_offer_level_up.call_deferred()
-	if choice != "":
-		player.godly_gifts.add_godly_gift(choice)
-		hud.show_message("Gained %s" % _godly_gift_name(choice), 1.5)
-	Run.checkpoint("after_god_choice")
-	if encounter_id != "":  # an offer left open from last session comes with no fight to leave
-		_return_to_valley()
 
 
 func _offer_next() -> void:
@@ -303,12 +194,6 @@ func _on_boss_started(e: Enemy) -> void:
 
 
 func _on_wave_cleared(index: int) -> void:
-	if encounter_id != "":
-		if index + 1 >= waves.total():
-			_finish_encounter(true)
-		else:
-			get_tree().create_timer(GameData.tuning.time_between_waves, false).timeout.connect(_continue_waves)
-		return
 	if index + 1 >= GameData.tuning.wave_sizes.size():
 		_on_victory()
 	elif GameData.tuning.godly_gift_after_each_wave:
@@ -318,22 +203,15 @@ func _on_wave_cleared(index: int) -> void:
 
 
 func _on_victory() -> void:
-	if encounter_id != "":
-		return  # encounter mode finishes in _on_wave_cleared
 	hud.show_message("The arena is cleared!", 0.0)
-	_announce_unlocks(Run.end(true))
+	Run.end()
 	hud.show_action("Play again", restart)
 
 
 func _on_player_died() -> void:
 	Playtest.death()
-	if _in_run():
-		hud.show_message("You fell. The run is over.", 0.0)
-		_announce_unlocks(Run.end(false))
-		hud.show_action("Back to the start screen", Flow.goto_director)
-		return
 	hud.show_message("You fell.", 0.0)
-	_announce_unlocks(Run.end(false))
+	Run.end()
 	hud.show_action("Try again", restart)
 
 
@@ -341,15 +219,7 @@ func _on_player_died() -> void:
 func restart() -> void:
 	HitStop.clear()
 	get_tree().paused = false
-	Run.in_fight = false  # the reloaded scene starts outside a fight
 	get_tree().reload_current_scene()
-
-
-func _announce_unlocks(unlocked: Array) -> void:
-	for u in unlocked:
-		var row := GameData.row(u.kind, u.id)
-		var name_key := "display_name"
-		hud.show_message("Unlocked: %s" % GameData.text(row, name_key, u.id), 3.0)
 
 
 func _godly_gift_name(id: String) -> String:
@@ -372,8 +242,7 @@ func _build_world() -> void:
 	e.sky = sky
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	e.ambient_light_energy = 0.8
-	e.tonemap_mode = Environment.TONE_MAPPER_LINEAR  # Retro look: plain colors
-	ValleyWorld._ps2_glow(e)
+	e.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.environment = e
 	add_child(env)
 
@@ -411,3 +280,14 @@ func _box(pos: Vector3, size: Vector3, color: Color) -> void:
 	body.add_child(mesh)
 	add_child(body)
 	body.position = pos
+
+
+## The average color of a picture (linear), to even out the ground textures' brightness.
+static func _average(img: Image) -> Color:
+	if img.is_compressed():
+		img.decompress()
+	var sum := Color(0, 0, 0)
+	for y in img.get_height():
+		for x in img.get_width():
+			sum += img.get_pixel(x, y).srgb_to_linear()
+	return sum / float(img.get_width() * img.get_height())

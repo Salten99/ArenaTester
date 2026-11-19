@@ -47,7 +47,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		player.flying = player.god_mode
 		if player.flying and player.mount != null and player.mount.riding:
 			player.mount.dismount()
-		arena.hud.show_message("God mode: can't be hurt, fly with Space / Ctrl (Shift: fast). F12: the final battle." if player.god_mode else "God mode off.", 3.0)
+		arena.hud.show_message("God mode: can't be hurt, fly with Space / Ctrl (Shift: fast)." if player.god_mode else "God mode off.", 3.0)
 	elif event.is_action("debug_final_battle"):
 		if arena.has_method("debug_final_battle"):
 			arena.debug_final_battle()

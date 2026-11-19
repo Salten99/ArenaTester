@@ -3,7 +3,7 @@
 Solo hobby side project: Godot 4.7, a mythical gladiator arena horde fighter. Endless survival in one arena, a close third-person camera. Its purpose is to work out movement, combat feel, animations and effects; what works here goes back to Pantheon Valley (`C:\Users\samue\Desktop\GodsGame`). The user makes the models; Claude writes the code and explains it in plain terms (the user is new to Godot).
 
 ## Origin
-Copied from Pantheon Valley's `game/` folder on 2026-11-19 (Pantheon Valley commit `ed3b96e`). The valley, races, raids and run code are still in the copy and still tested; they can be removed once the arena no longer needs them.
+Copied from Pantheon Valley's `game/` folder on 2026-11-19 (Pantheon Valley commit `ed3b96e`). The valley, world, run-flow and save code was removed on 2026-11-19; the arena is the whole game now.
 
 ## Working rules
 - Main scene: `game/scenes/endless_arena.tscn` (`scripts/arena/endless_arena.gd`, built on `Arena`).

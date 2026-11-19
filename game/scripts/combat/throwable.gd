@@ -110,7 +110,7 @@ func _physics_process(delta: float) -> void:
 	var q := PhysicsRayQueryParameters3D.create(global_position, next + _vel.normalized() * 0.4, 0b001)
 	var hit := space.intersect_ray(q)
 	global_position = hit.position if hit else next
-	_strike(Combat.enemies_in_radius(global_position, 1.1, _hit) if _thrower is Player else _foes_near(1.2))
+	_strike(Combat.enemies_in_radius(global_position, 1.1, _hit) if is_instance_valid(_thrower) and _thrower is Player else _foes_near(1.2))
 	if hit or _air > 4.0:
 		_shatter()
 
@@ -131,7 +131,7 @@ func _strike(targets: Array) -> void:
 		return
 	_hit.append_array(targets)
 	var t: CombatTuning = GameData.tuning
-	if _thrower is Player and is_instance_valid(_thrower):
+	if is_instance_valid(_thrower) and _thrower is Player:
 		var p: Player = _thrower
 		p.hit_targets(targets, p.moveset._base(p) * t.heavy_multiplier, DamageInfo.Kind.HEAVY, t.knockback_heavy, false,
 			t.hitstop_heavy, t.shake_heavy, [], global_position, "Physical", false, false)
@@ -157,7 +157,7 @@ func _shatter() -> void:
 	_broken = true
 	_flying = false
 	remove_from_group("throwables")
-	_strike(Combat.enemies_in_radius(global_position, 1.6, _hit) if _thrower is Player else _foes_near(1.6))
+	_strike(Combat.enemies_in_radius(global_position, 1.6, _hit) if is_instance_valid(_thrower) and _thrower is Player else _foes_near(1.6))
 	var from := global_position - _vel.normalized()
 	# A third bigger, with more pieces (user, 2026-11-19).
 	Vfx.burst(global_position, 1.4 * DEBRIS_SCALE, Color(0.6, 0.55, 0.45, 0.6), 0.35)
@@ -188,9 +188,9 @@ func _build_model() -> Node3D:
 	var own := OWN + kind + ".glb"
 	var path := own if ResourceLoader.exists(own) else ""
 	if path == "" and kind in ["barrel", "crate"]:
-		path = ValleyWorld.VILLAGE + kind + ".glb"
+		path = Breakable.PROPS + kind + ".glb"
 	if path == "" and kind == "boulder":
-		path = ValleyWorld.VILLAGE + "rock_b.glb"
+		path = Breakable.PROPS + "rock_b.glb"
 	var model: Node3D
 	if path != "" and ResourceLoader.exists(path):
 		model = (load(path) as PackedScene).instantiate()

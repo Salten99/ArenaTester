@@ -51,13 +51,12 @@ var _waiting_choices: Array = []  ## [[kind, title, ids, texts]] offered while a
 const HELP := """WASD move  ·  Shift sprint  ·  Space jump  ·  Mouse side button slide  ·  Ctrl dodge
 LMB light combo  ·  RMB heavy slam
 Q special  ·  E movement  ·  R ultimate  ·  V race skill  ·  G throwing knife  ·  C or wheel: sidearm  ·  Z spyglass  ·  T first person
-P god mode  ·  X ride your mount  ·  1/2/3 pick a godly gift
-Valley:  F start an encounter  ·  M or Tab map  ·  Esc pause menu
+P god mode  ·  X ride your mount  ·  1/2/3 pick a godly gift  ·  Esc menu
 
 Debug:  F1 this help  ·  F2 spawn 10 raiders  ·  F3 spawn a warlord  ·  F4 random godly gift
 F5 combo kit (Fire and Lightning godly gifts and their duo godly gift)
-F6 god mode (fly: Space / Ctrl)  ·  F7 kill all  ·  F8 skip to next wave  ·  F9 restart  ·  F10 teleport to the next encounter (valley)  ·  F12 the final battle (valley)
-F11 playtest numbers (fight lengths, time to first fight, deaths; also logged to playtest_log.txt)"""
+F6 god mode (fly: Space / Ctrl)  ·  F7 kill all  ·  F8 skip to next wave  ·  F9 restart
+F11 playtest numbers (deaths, kills, frame time; deaths also logged to playtest_log.txt)"""
 
 
 func _ready() -> void:
@@ -210,7 +209,7 @@ func _process(delta: float) -> void:
 	_hp_bar.max_value = player.health.max_hp
 	_hp_bar.value = player.health.hp
 	if Run.active:
-		_level_label.text = "Level %d   ·   %d / %d XP   ·   %d supplies%s" % [Run.state.level, Run.state.xp, LevelSystem.xp_to_next(Run.state.level), Run.state.supplies, _mount_text()]
+		_level_label.text = "Level %d   ·   %d / %d XP%s" % [Run.state.level, Run.state.xp, LevelSystem.xp_to_next(Run.state.level), _mount_text()]
 	_hp_label.text = "%s of %s   %d / %d" % [GameData.text(GameData.race(player.race_id), "display_name"),
 		GameData.text(GameData.god(player.god_id), "display_name"), ceili(player.health.hp), ceili(player.health.max_hp)]
 	_stamina_bar.max_value = player.max_stamina

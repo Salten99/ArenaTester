@@ -8,8 +8,6 @@ extends CharacterBody3D
 
 signal died
 signal stamina_changed(current: float, maximum: float)
-## Tried to swim water only the Frogfolk can cross (rapids, deep lakes).
-signal water_blocked
 
 enum State { FREE, LIGHT, HEAVY, DODGE, CAST, PARRY, DEAD, GRAB, CHAIN }
 
@@ -47,25 +45,11 @@ const CAST_CLIP := 0.4  ## ...while its animation plays this long
 var input_source: Object  ## anything with read() -> PlayerIntent
 ## The race's mount (X to ride).
 var mount: Mount
-## In deep water: slow, floating, no attacks (see Combat.water).
-var swimming := false
-var _surface := -INF
-var _blocked_cooldown := 0.0
-## The current's push, fixed when you enter rapids or a deep lake, so it always
-## drives you back the way you came (even past the middle).
-var _current := Vector2.ZERO
-## Frogfolk swim this much faster than everyone else.
-const SWIM_ENTER := 1.3  ## water deeper than this at your feet: you swim...
-const SWIM_EXIT := 0.8   ## ...until it's shallower than this
-const SWIM_FLOAT := 1.05 ## how far below the surface your feet float
 var is_large := false
 var god_mode := false
 ## Thrown off a dying mount: limp (ragdoll) for THROWN_TIME, then you get up.
 const THROWN_TIME := 2.0
-## Holding the mount key this long on foot tells your mount to stay; a tap rides (or calls it back).
-const MOUNT_HOLD := 0.4
 var _sidearm_out := false  ## switched to your bow (C or the wheel), until you switch back
-var _mount_hold := -1.0  ## seconds the mount key has been held on foot, -1 when it isn't
 var _thrown_left := 0.0
 ## God mode (F6) also flies: Space up, Ctrl down, Shift fast. No gravity.
 var flying := false
@@ -98,8 +82,6 @@ var _body := ""  ## the model file `visual` was built from
 var moveset: WeaponMoveset = WeaponMoveset.new()
 var _weapon_hits := 0
 var _low_health_fired := false
-## In a cave or at a tower (LootSpots): your mount stays outside.
-var no_mount := false
 var _knock := Vector3.ZERO
 var is_sliding := false
 var is_crouching := false
@@ -168,7 +150,7 @@ func setup(p_race: String, p_god: String, p_weapon := "", p_sidearm := "") -> vo
 
 
 ## Makes the player match a run's saved state: race, pledged god, godly gifts,
-## level-ups and health. Used on fight start and resume.
+## and level-ups. Used on fight start.
 func apply_run_state(state: RunState) -> void:
 	if state.race_id != race_id or state.god_id != god_id:
 		setup(state.race_id, state.god_id, state.weapon_id, state.sidearm_id)
@@ -176,9 +158,6 @@ func apply_run_state(state: RunState) -> void:
 		equip(state.weapon_id, state.sidearm_id)
 	godly_gifts.load_from(state)
 	LevelSystem.apply_all(state, stats)
-	if state.hp >= 0.0:
-		health.hp = clampf(state.hp, 1.0, health.max_hp)
-		health.changed.emit(health.hp, health.max_hp)
 
 
 ## Level-ups and godly gifts change max health and stamina: keep the current fraction.
@@ -278,8 +257,8 @@ func _physics_process(delta: float) -> void:
 	if Combat.now_msec() - _stamina_used_msec > t.stamina_regen_delay * 1000.0:
 		stamina = minf(max_stamina, stamina + t.stamina_regen * stats.mult("stamina_regen_pct") * delta)
 	stamina_changed.emit(stamina, max_stamina)
-	# Out of a fight, wounds heal once you haven't been hit for a moment.
-	if not Run.in_fight and health.hp < health.max_hp and Combat.now_msec() - _last_hurt_msec > t.rest_regen_delay * 1000.0:
+	# Wounds heal once you haven't been hit for a moment.
+	if health.hp < health.max_hp and Combat.now_msec() - _last_hurt_msec > t.rest_regen_delay * 1000.0:
 		health.heal(health.max_hp * t.rest_regen_pct / 100.0 * delta)
 
 	_crosshair = intent.crosshair
@@ -289,22 +268,9 @@ func _physics_process(delta: float) -> void:
 		visual.set_aim_pitch(intent.aim_pitch if (aims_with_body() or held_aim) and (mount == null or not mount.riding) else 0.0)
 	var move_dir := _world_dir(intent.move, intent.aim_yaw)
 	var riding := mount != null and mount.riding
-	_update_swimming()
-	if swimming:
-		# No fighting in deep water: swim to a bank or a bridge.
-		intent.light = false
-		intent.heavy = false
-		intent.dodge = false
-		intent.signature = false
-		intent.movement = false
-		intent.ultimate = false
-		intent.race_active = false
-		intent.throw_knife = false
-		if state in [State.LIGHT, State.HEAVY, State.CAST]:
-			_set_state(State.FREE)
 	if flying:
 		intent.dodge = false  # Ctrl flies down instead
-	spying = intent.spyglass_held and not swimming
+	spying = intent.spyglass_held
 	# C or the wheel switches to your bow and back; your class keeps its one melee weapon
 	# (user, 2026-11-09). Holding an attack is just an attack. Changes between attacks, never mid-swing.
 	if state == State.CHAIN:  # the wheel reels the chain in, it doesn't switch weapons
@@ -313,7 +279,7 @@ func _physics_process(delta: float) -> void:
 	if intent.sidearm or intent.switch_weapon:
 		_sidearm_out = not _sidearm_out
 	if state == State.FREE and _sidearm_out != using_sidearm:
-		_use_sidearm(_sidearm_out and not swimming)
+		_use_sidearm(_sidearm_out)
 	var light_now := intent.light
 	# Hold light attack to grab (combat feel plan, 2026-11-18): a held click waits grab_hold_time,
 	# then grabs a minion in reach or swings; let go sooner and it swings right away.
@@ -333,8 +299,8 @@ func _physics_process(delta: float) -> void:
 	elif intent.light and intent.light_held and _can_grab() and (state == State.FREE or (state == State.LIGHT and _hit_done)):
 		_light_hold = 0.0
 		light_now = false
-	if mount != null and state == State.FREE and (intent.mount or _mount_hold >= 0.0):
-		_mount_key(intent, riding)
+	if mount != null and state == State.FREE and intent.mount:
+		mount.toggle()
 	elif intent.dodge and riding:
 		pass  # dodge does nothing while riding (user, 2026-11-08): you stay on
 	elif intent.dodge and (parries() or (parry_for_all and not intent.dash and not using_sidearm and move_dir.length() < 0.1)):
@@ -372,7 +338,6 @@ func _physics_process(delta: float) -> void:
 
 	_update_state(delta, intent)
 	_move(delta, intent, move_dir)
-	_unstick()
 	_update_animation()
 
 
@@ -436,9 +401,6 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 		velocity = move_dir.normalized() * fly
 		velocity.y = fly * 0.7 * (float(intent.jump_held) - float(intent.dodge_held))
 		_finish_move(delta)
-		return
-	if swimming:
-		_swim(delta, intent, move_dir)
 		return
 	if abilities.levitating():  # the Fire ultimate's boot jets hold you up, eased toward its top
 		velocity = Vector3(0.0, (abilities.hover_y - global_position.y) * 10.0, 0.0)
@@ -538,7 +500,7 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 			velocity.x = move_dir.x * t.crouch_speed
 			velocity.z = move_dir.z * t.crouch_speed
 		else:
-			var base_speed: float = mount.speed(sprinting) * _road_factor() if riding else (t.sprint_speed if sprinting else t.move_speed)
+			var base_speed: float = mount.speed(sprinting) if riding else (t.sprint_speed if sprinting else t.move_speed)
 			var target := base_speed * speed_mult * factor
 			var current := Vector2(velocity.x, velocity.z).length()
 			if move_dir.length() > 0.0 and factor > 0.0:
@@ -585,59 +547,6 @@ func _turn_toward(dir: Vector3, amount: float) -> Vector3:
 	var to := atan2(dir.x, dir.z)
 	var a := lerp_angle(from, to, clampf(amount, 0.0, 1.0))
 	return Vector3(sin(a), 0.0, cos(a))
-
-
-func _update_swimming() -> void:
-	_surface = Combat.water_surface(global_position)
-	if _surface == -INF:
-		swimming = false
-		return
-	var depth := _surface - global_position.y
-	if not swimming and depth > SWIM_ENTER:
-		swimming = true
-		is_sliding = false
-		is_crouching = false
-	elif swimming and depth < SWIM_EXIT:
-		swimming = false
-
-
-## Floating at the surface, slow strokes toward where you steer. Space hops you
-## up a bank. Riding? Your mount swims with you, a little faster.
-func _swim(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
-	var t: CombatTuning = GameData.tuning
-	var fast := intent.sprint and _can_sprint()
-	if fast:
-		spend_stamina(t.swim_sprint_stamina * delta)
-	var speed := (t.swim_sprint_speed if fast else t.swim_speed) * stats.mult("move_speed_pct")
-	if race_id == ValleyTerrain.SWIMMER_RACE:  # the Frogfolk swim as fast as they run (user, 2026-10-29)
-		speed = (t.sprint_speed if fast else t.move_speed) * stats.mult("move_speed_pct")
-	if mount != null and mount.riding:
-		speed *= t.swim_mount_factor
-	var target_y := _surface - SWIM_FLOAT
-	velocity.y = clampf((target_y - global_position.y) * 4.0, -4.0, 4.0)
-	if intent.jump:
-		velocity.y = 5.0
-	var want := move_dir.normalized() * speed if move_dir.length() > 0.1 else Vector3.ZERO
-	# Rapids and deep lakes: a current pushes everyone but the Frogfolk back out.
-	var push := Vector2.ZERO
-	if Combat.water != null:
-		push = Combat.water.current_push(global_position.x, global_position.z, race_id)
-	if push == Vector2.ZERO:
-		_current = Vector2.ZERO
-	elif _current == Vector2.ZERO:
-		_current = push
-	push = _current
-	_blocked_cooldown -= delta
-	if push != Vector2.ZERO:
-		want = Vector3(push.x, 0.0, push.y) * (speed + 4.0)
-		if _blocked_cooldown <= 0.0:
-			_blocked_cooldown = 4.0
-			water_blocked.emit()
-	velocity.x = move_toward(velocity.x, want.x, 12.0 * delta)
-	velocity.z = move_toward(velocity.z, want.z, 12.0 * delta)
-	if move_dir.length() > 0.1:
-		facing = _turn_toward(move_dir, 6.0 * delta)
-	_finish_move(delta)
 
 
 ## Adds knockback, moves, and turns the body to face `facing`.
@@ -762,16 +671,6 @@ func floor_below(x: float, z: float, from_y: float) -> float:
 	return hit.position.y if hit else -INF
 
 
-## Safety net: if anything ever pushes you under the valley's ground, pop back up.
-func _unstick() -> void:
-	if Combat.water == null or not Combat.water.has_method("height"):
-		return
-	var ground: float = Combat.water.height(global_position.x, global_position.z)
-	if global_position.y < ground - 0.6:
-		global_position.y = ground + 0.3
-		velocity.y = 0.0
-
-
 func _finish_move(delta: float) -> void:
 	velocity += _knock
 	_knock = _knock.move_toward(Vector3.ZERO, GameData.tuning.knockback_friction * delta * 2.0)
@@ -782,14 +681,6 @@ func _finish_move(delta: float) -> void:
 	if body != null:
 		var low := 0.6 if (is_sliding or is_crouching) else 1.0
 		body.scale.y = lerpf(body.scale.y, low, clampf(12.0 * delta, 0.0, 1.0))
-
-
-## Roads (ValleyTerrain.roads) are quicker on a mount (user, 2026-11-05).
-func _road_factor() -> float:
-	var land: Object = Combat.water
-	if land != null and land.has_method("near_road") and land.near_road(global_position.x, global_position.z, 1.0):
-		return GameData.tuning.road_mount_speed
-	return 1.0
 
 
 ## True while sliding or crouching (the camera lowers).
@@ -874,7 +765,7 @@ var _light_hold := -1.0  ## seconds light attack has been held since its press (
 
 ## Whether a held light attack may become a grab: your melee weapon out, on foot.
 func _can_grab() -> bool:
-	return not using_sidearm and not swimming and not (mount != null and mount.riding)
+	return not using_sidearm and not (mount != null and mount.riding)
 
 
 ## Grabs the minion in reach, if there is one; else fires the chain at what's in the crosshair.
@@ -916,32 +807,6 @@ func _start_heavy(aim_yaw: float) -> void:
 	_face_yaw(aim_yaw)
 	_set_state(State.HEAVY)
 	_raise_visual(_heavy_windup())
-
-
-## The mount key (user, 2026-11-16, after Far Cry Primal): riding, a press gets off. On foot,
-## a tap rides (or, after an order, calls it back), a hold sends it away, and a tap through the
-## spyglass sends it at the enemy you look at, or to the spot.
-func _mount_key(i: PlayerIntent, riding: bool) -> void:
-	if riding:
-		mount.toggle()
-		return
-	if i.mount and spying:
-		var hud = get_parent().get("hud")
-		mount.order(hud.spied if hud != null else null, i.crosshair)
-		return
-	if i.mount:
-		_mount_hold = 0.0
-	if i.mount_held:
-		_mount_hold += get_physics_process_delta_time()
-		if _mount_hold >= MOUNT_HOLD:
-			_mount_hold = -1.0
-			mount.send_away()
-		return
-	_mount_hold = -1.0  # let go: a tap
-	if mount.has_orders():
-		mount.come_back()
-	else:
-		mount.toggle()
 
 
 func _do_light_hit() -> void:
@@ -1300,7 +1165,7 @@ var _aim_ring: MeshInstance3D
 func _update_aim(intent: PlayerIntent) -> void:
 	if not _aiming:
 		return
-	if is_dead() or swimming or state == State.DODGE or abilities.ready_in("Ultimate") > 0.0:
+	if is_dead() or state == State.DODGE or abilities.ready_in("Ultimate") > 0.0:
 		_stop_aiming()
 		return
 	var point := aim_target(intent.aim_point)
@@ -1547,7 +1412,7 @@ func _update_animation() -> void:
 	# The body split (combat feel plan, 2026-11-18): moving during any move, the legs keep walking.
 	var flat_speed := Vector2(velocity.x, velocity.z).length()
 	var acting := state in [State.LIGHT, State.HEAVY, State.CAST, State.PARRY, State.GRAB] 		or (state == State.CHAIN and chain.mode not in [Chain.Mode.PULL, Chain.Mode.KICK])
-	if acting and flat_speed > 0.6 and is_on_floor() and not swimming and not (mount != null and mount.riding):
+	if acting and flat_speed > 0.6 and is_on_floor() and not (mount != null and mount.riding):
 		visual.set_split(_legs_clip(flat_speed))
 	else:
 		visual.set_split("")
@@ -1572,12 +1437,9 @@ func _update_animation() -> void:
 					visual.play("Melee_2H_Attack_Spinning")
 		State.FREE:
 			var speed := Vector2(velocity.x, velocity.z).length()
-			visual.flapping = not is_on_floor() and not swimming and not (mount != null and mount.riding)  # winged races beat their wings
+			visual.flapping = not is_on_floor() and not (mount != null and mount.riding)  # winged races beat their wings
 			if mount != null and mount.riding:
 				return  # the mount poses the rider
-			if swimming:
-				visual.play("Walking_B")  # a stand-in stroke until your own swim animation exists
-				return
 			if _jump_charging and is_on_floor():
 				visual.play("Crouching")
 			elif is_crouching:

@@ -1,6 +1,6 @@
 extends Node
-## Loads the JSON exported from Game_Data_Template.xlsx (tools/export_data.py)
-## and the combat tuning resource. Read-only during play.
+## Loads the game data (data/*.json, edited by hand) and the combat tuning resource.
+## Read-only during play.
 
 const DATA_DIR := "res://data/"
 const TUNING_PATH := "res://tuning/combat_tuning.tres"
@@ -10,9 +10,7 @@ const ID_KEYS := {
 	"races": "race_id", "gods": "god_id", "weapons": "weapon_id", "god_abilities": "ability_id", "godly_gifts": "godly_gift_id",
 	"duo_godly_gifts": "duo_id", "status_effects": "status_id", "level_up_options": "upgrade_id",
 	"tribe_members": "member_id", "army_units": "unit_id", "champions": "champion_id",
-	"evil_tribe": "setting_id", "mounts": "mount_id", "barbarians_beasts": "unit_id",
-	"barbarian_camps": "camp_id", "encounters": "encounter_id", "valley_regions": "region_id",
-	"home_base_buildings": "building_id", "starting_options": "option_id",
+	"mounts": "mount_id", "barbarians_beasts": "unit_id",
 }
 
 var tables := {}  # table name -> Array[Dictionary]
@@ -32,7 +30,7 @@ func _ready() -> void:
 ## Empty this list to bring them back.
 const SHELVED_RACES := ["owl", "elephant", "dragon", "fennec"]
 ## Milestone 1's roster (user, 2026-11-09, Council VIII: "less options for the characters").
-## Races you can't start as any more; they still live in the valley as tribes.
+## Races you can't start as any more.
 const START_HIDDEN_RACES := ["gnome", "gnoll", "centaur", "treekin", "ratfolk", "cat"]
 ## The races you can start as for now (user, 2026-11-16: the dwarf only, the rest built once it's done).
 ## The start screen's ring shows the other start races blacked out and locked. Add a race_id to open it.
@@ -112,7 +110,7 @@ func god(id: String) -> Dictionary:
 
 
 func race(id: String) -> Dictionary:
-	return EvilTribe.HORDE_ROW if id == EvilTribe.HORDE else row("races", id)
+	return row("races", id)
 
 
 func weapon(id: String) -> Dictionary:
