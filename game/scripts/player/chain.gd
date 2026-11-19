@@ -373,6 +373,8 @@ func _plow() -> void:
 		info.hitstop = t.hitstop_heavy if e == fresh[0] else 0.0
 		info.shake = t.shake_heavy * 0.5 if e == fresh[0] else 0.0
 		Combat.deal(e, info)
+		if is_instance_valid(e) and not e.is_large:  # it flies off to the side, limp (a big one is only shoved)
+			e.throw(info.knockback_dir * t.chain_plow_knockback + Vector3.UP * t.launch_lift, player)
 
 
 ## A wall (not the ground) between `a` and `b`: the ray's hit {position, normal}, or {} if none.

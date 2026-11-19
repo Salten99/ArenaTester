@@ -4743,9 +4743,9 @@ func test_chain_grab() -> void:
 	s.hold({"light_held": true}, 40)
 	await _frames(41)
 	check(p.state == Player.State.GRAB and p.grabber.held == foe, "the wheel reels it into your hand (state %d)" % p.state)
-	check(in_way.health.hp < in_way_hp and in_way.state == Enemy.State.DOWN, "and it knocks down and hurts the one in its path (state %d)" % in_way.state)
+	check(in_way.health.hp < in_way_hp and (in_way.state == Enemy.State.DOWN or in_way.thrown), "and it knocks down and hurts the one in its path (state %d)" % in_way.state)
 	var shoved: Vector3 = in_way.global_position - in_way_from
-	check(shoved.dot(right) > 1.0 and shoved.dot(right) > absf(shoved.dot(p.facing)), "knocked aside, not back (%.1f m aside, %.1f m along)" % [shoved.dot(right), shoved.dot(p.facing)])
+	check(shoved.dot(right) > 3.0 and shoved.dot(right) > absf(shoved.dot(p.facing)), "knocked aside, not back (%.1f m aside, %.1f m along)" % [shoved.dot(right), shoved.dot(p.facing)])
 	s.hold({}, 2)
 	await _frames(3)
 	foe.queue_free()  # out of the way: a minion at your feet would be grabbed by hand next
