@@ -627,15 +627,17 @@ func test_spells() -> void:
 	await _frames(int(t.spell_release_delay * hz) + 6)
 	check(ahead.health.hp < ahead.health.max_hp and behind.health.hp == behind.health.max_hp, "Thunder Crash strikes ahead of you")
 	_free_all([ahead, behind])
-	# Lightning Beam (E, user 2026-11-20): from a magic circle before your forehead, straight where you aim, for lightning_beam_time.
+	# Lightning Beam (E, user 2026-11-20): lunges and fires like the Fire Lance, from a circle before your chest, for lightning_beam_time.
+	var cast_from: Vector3 = p.global_position
 	p.facing = Vector3.FORWARD
 	var line := [_dummy(Vector3(0, 0, -6)), _dummy(Vector3(0, 0, -25))]
 	var off := [_dummy(Vector3(0, 0, 5)), _dummy(Vector3(6, 0, -4))]
 	p.abilities.cast("Movement", p, Vector3.FORWARD)
 	await _frames(int(AbilityRunner.LUNGE_TIME * hz) + 4)
 	check(p.abilities.beaming() and _hurt(line) == 2 and _hurt(off) == 0, "Lightning Beam strikes all along the line ahead, nothing behind or beside (%d of 2)" % _hurt(line))
-	var brow: Vector3 = p.abilities._brow(p, p.facing)
-	check(get_tree().get_nodes_in_group("magic_circle").any(func(c): return c.global_position.distance_to(brow) < 0.5), "it fires from a magic circle before your forehead")
+	check(cast_from.distance_to(p.global_position) > t.lance_lunge_m - 0.5, "it lunges you forward like the Fire Lance")
+	var chest: Vector3 = p.abilities._beam_from({}, p, p.facing)
+	check(get_tree().get_nodes_in_group("magic_circle").any(func(c): return c.global_position.distance_to(chest) < 0.5), "it fires from a magic circle before your chest")
 	await _frames(int(t.lightning_beam_time * hz) + 4)
 	check(not p.abilities.beaming(), "and stops after %.1f s" % t.lightning_beam_time)
 	_free_all(line + off)

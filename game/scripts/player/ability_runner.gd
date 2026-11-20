@@ -10,7 +10,7 @@ extends Node
 ##   hits_or_projectiles > 1  -> repeated hits on the nearest enemy (radius 0)
 ##   shape Cone               -> the Fire Lance: lunge forward (lance_lunge_m), then a beam
 ##                               range_m long, radius_m wide each side, following your aim a moment
-##   shape Beam               -> the Lightning beam: the same beam without the lunge, lightning_beam_time long
+##   shape Beam               -> the Lightning beam: the same lunge and beam, lightning_beam_time long
 ##   shape Rings, Strike, Fan, Cage, Slide, Freeze, Slab, Crush, Magma -> the arena's spells (spells.gd)
 ## Abilities count as Magic damage.
 
@@ -284,21 +284,20 @@ func _strike(a: Dictionary, player: Node, e: Node, center: Vector3, explosive :=
 	Combat.deal(e, info)
 
 
-## Lunge forward (a Fire Lance in the Movement slot), then the beam bursts out where you land. A
-## Beam (the Lightning beam, user 2026-11-20) doesn't lunge: it fires from the circle for lightning_beam_time.
+## Lunge forward (in the Movement slot), then the beam bursts out where you land. The Lightning
+## beam (shape Beam) moves and fires just like the Fire Lance (user, 2026-11-20), for lightning_beam_time.
 func _lance(a: Dictionary, player: Node, dir: Vector3, reach: float, half_width: float) -> void:
 	dir = Vector3(dir.x, 0.0, dir.z).normalized()
 	var lance := GameData.text(a, "shape") == "Cone"
 	var airborne: bool = player is CharacterBody3D and not player.is_on_floor()
-	var lunge: float = GameData.tuning.lance_lunge_m if a.get("slot") == "Movement" and lance and not airborne else 0.0
+	var lunge: float = GameData.tuning.lance_lunge_m if a.get("slot") == "Movement" and not airborne else 0.0
 	invulnerable = lunge > 0.0
 	var start: Vector3 = player.global_position
-	# A magic circle opens before you as you lunge (user, 2026-11-19): the Fire Lance's in front of
-	# your chest (2026-11-20), the Lightning beam's before your forehead. The beam fires out of it.
+	# A magic circle opens in front of your chest as you lunge (user, 2026-11-19/20). The beam fires out of it.
 	var t: CombatTuning = GameData.tuning
 	var time := t.lance_beam_time if lance else t.lightning_beam_time
 	_beam = {"a": a, "player": player, "reach": reach, "width": maxf(half_width, 0.5), "circle": null, "lance": lance,
-		"fx": null, "on": false, "left": time, "hit": {}, "spin": 0.0, "flicker": 0.0, "flies": airborne and lance, "push": Vector3.ZERO}
+		"fx": null, "on": false, "left": time, "hit": {}, "spin": 0.0, "flicker": 0.0, "flies": airborne, "push": Vector3.ZERO}
 	_beam.circle = UltimateFx.circle(GameData.text(a, "damage_type", "Fire"), _beam_from(_beam, player, dir), dir,
 		t.lance_circle_diameter * 0.5, LUNGE_TIME + time)
 	if lance and _beam.circle != null:  # darker red (user, 2026-11-20)
@@ -312,11 +311,8 @@ func _lance(a: Dictionary, player: Node, dir: Vector3, reach: float, half_width:
 	tw.tween_callback(_start_beam)
 
 
-## Where beam `b` fires from: the Fire Lance's circle lance_chest_ahead in front of your chest, the
-## Lightning beam's before your forehead.
-func _beam_from(b: Dictionary, player: Node, dir: Vector3) -> Vector3:
-	if not b.lance:
-		return _brow(player, dir)
+## Where beam `b` fires from: its circle lance_chest_ahead in front of your chest.
+func _beam_from(_b: Dictionary, player: Node, dir: Vector3) -> Vector3:
 	return (player.global_position as Vector3) + Vector3.UP * 1.25 + dir * GameData.tuning.lance_chest_ahead
 
 

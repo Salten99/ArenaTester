@@ -670,7 +670,7 @@
   "god_id": "storm_god",
   "slot": "Movement",
   "display_name": "Lightning Beam",
-  "description": "A magic circle opens before your forehead and a lightning beam shoots from it for half a second, 30 m long, following your aim and striking every enemy it touches.",
+  "description": "Lunge forward: a magic circle opens before your chest and a lightning beam shoots from it for half a second, 30 m long, following your aim and striking every enemy it touches.",
   "damage_type": "Lightning",
   "base_damage": 20,
   "cooldown_s": 6,
