@@ -51,6 +51,7 @@ var _stamina_used_msec := -100000
 var heavy_charge := 0.0
 var _heavy_hit_at := 0.0
 var _fall_speed := 0.0  ## how fast you're falling (m/s), for the landing dust
+var _ghost_at := 0.0  ## when in the dash the next after-image is left (s)
 var max_stamina := 100.0
 
 var _god: Dictionary
@@ -321,6 +322,9 @@ func _update_state(delta: float, intent: PlayerIntent) -> void:
 			if _hit_done and _state_time >= _heavy_hit_at + _heavy_recovery():
 				_set_state(State.FREE)
 		State.DODGE:
+			if visual != null and _state_time >= _ghost_at:
+				Vfx.ghost(visual, t.dash_ghost_color, t.dash_ghost_fade)
+				_ghost_at += t.dash_ghost_every
 			if _state_time >= t.dodge_duration:
 				collision_mask = 0b101
 				_set_state(State.FREE)
@@ -1004,6 +1008,7 @@ func _start_dodge(dir: Vector3) -> void:
 	_perfect_done = false
 	spend_stamina(GameData.tuning.dodge_stamina_cost)
 	_dodge_dir = dir.normalized()
+	_ghost_at = 0.0
 	facing = _dodge_dir
 	_queued_light = false
 	collision_mask = 0b001  # pass through enemies while dodging

@@ -314,6 +314,35 @@ static func material(color: Color) -> StandardMaterial3D:
 	return _materials[key]
 
 
+## An after-image (the dash, user 2026-11-20): the body's pose right now, frozen, see-through in `color`,
+## fading out over `fade` s. Only skinned meshes (the body), so what the hands hold and the shadow stay out.
+static func ghost(model: Node3D, color: Color, fade: float) -> void:
+	var root := _root()
+	if root == null or model == null:
+		return
+	var mat := StandardMaterial3D.new()  # its own, so it can fade
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = color
+	var tw: Tween = null
+	for m: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+		var skin := m.get_skin_reference()
+		if skin == null or not m.is_visible_in_tree():  # not bound to a skeleton: not the body
+			continue
+		var g := MeshInstance3D.new()
+		g.name = "Ghost"
+		# Headless (the tests) never registers the skeleton, so there's no pose to bake: the rest pose then.
+		g.mesh = m.bake_mesh_from_current_skeleton_pose() if skin.get_skeleton().is_valid() else m.mesh
+		g.material_override = mat
+		g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(g, true)  # readable names: Ghost, Ghost2...
+		g.global_transform = m.global_transform
+		if tw == null:
+			tw = g.create_tween()
+			tw.tween_property(mat, "albedo_color:a", 0.0, fade)
+		tw.finished.connect(g.queue_free)
+
+
 static func _spawn(mesh: Mesh, color: Color, pos: Vector3) -> MeshInstance3D:
 	var root := _root()
 	if root == null:

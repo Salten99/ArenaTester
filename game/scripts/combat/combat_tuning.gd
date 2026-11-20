@@ -82,6 +82,10 @@ extends Resource
 ## Invulnerable for this long at the start of a dodge.
 @export_range(0.0, 1.0, 0.01) var dodge_iframes := 0.2
 @export_range(0.0, 100.0, 1.0) var dodge_stamina_cost := 25.0
+## The dash's after-images: one left behind every this many seconds, fading out over dash_ghost_fade.
+@export_range(0.01, 0.5, 0.01) var dash_ghost_every := 0.05
+@export_range(0.05, 2.0, 0.05) var dash_ghost_fade := 0.3
+@export var dash_ghost_color := Color(0.55, 0.8, 1.0, 0.45)
 ## The Guardian parries on the dodge key (shield up). A hit from the front in the
 ## first parry_window seconds is parried; later in the raise it lands as normal.
 @export_range(0.05, 1.0, 0.01) var parry_window := 0.25

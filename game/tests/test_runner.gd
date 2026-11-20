@@ -1066,6 +1066,14 @@ func test_pixelfx_effects() -> void:
 		if played.call("landing") > 0:
 			break
 	check(played.call("landing") == 1, "a hard landing kicks up dust")
+	var ghosts := func() -> int:
+		return Combat.effects_root.find_children("*Ghost*", "MeshInstance3D", false, false).size()
+	p._start_dodge(p.facing)
+	await _frames(10)
+	var left: int = ghosts.call()
+	check(left >= 2, "a dash leaves after-images of your body (%d)" % left)
+	await _frames(60)
+	check(ghosts.call() == 0, "and they fade away")
 
 
 func test_bestiary_and_wings() -> void:
