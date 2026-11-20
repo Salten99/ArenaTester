@@ -14,6 +14,7 @@ const SEGMENT := preload("res://models/fx/flame_dragon_segment.glb")
 @export var side := Vector3.RIGHT  # which way it weaves
 @export var phase := 0.0  # each weaves to its own beat
 @export var coils := 2.0  # how many times it weaves on the way
+@export var duration := 1.35  # seconds from the circle to the ground
 @export var time := 0.0  # below 0: still waiting in the circle
 
 var pieces: Array[Node3D] = []  # the head first, then the body to the tail
@@ -62,7 +63,7 @@ static func build(parent: Node3D, n: int, size: float, element: String, every: i
 
 
 ## Slower through tight bends, faster down the straights (user, 2026-11-20): each step of the curve
-## gets time for its length, and more for how sharply it bends; the flight still takes ult_dragon_time.
+## gets time for its length, and more for how sharply it bends; the flight still takes `duration`.
 func _build_pace() -> void:
 	var t: CombatTuning = GameData.tuning
 	var pts: Array[Vector3] = []
@@ -99,13 +100,12 @@ func point_at(u: float) -> Vector3:
 
 
 func _physics_process(delta: float) -> void:
-	var t: CombatTuning = GameData.tuning
 	time += delta
 	if time < 0.0:
 		return
 	var n := pieces.size()
 	var gap := 0.6 / n  # the body is 0.6 of the path long
-	var f := time / t.ult_dragon_time
+	var f := time / duration
 	var head_u := u_for(pow(f, 1.4)) if f < 1.0 else 1.0 + (f - 1.0) * 1.2  # gathers speed into the dive
 	if head_u >= 1.0 and not _landed:
 		_landed = true

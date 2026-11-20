@@ -229,6 +229,9 @@ extends Resource
 @export_range(0.0, 6.0, 0.25) var ult_dragon_coils := 2.0
 ## Each dragon weaves its own number of times (user, 2026-11-20): ult_dragon_coils, give or take this.
 @export_range(0.0, 4.0, 0.25) var ult_dragon_coils_spread := 1.25
+## The other four dragons land up to this much (of ult_dragon_time) sooner or later than the middle
+## one (user, 2026-11-20), never after the spell ends (you come back down).
+@export_range(0.0, 1.0, 0.05) var ult_dragon_land_spread := 0.3
 @export_range(0.0, 2.0, 0.05) var ult_dragon_wave_up := 0.6  ## its up-and-down weave, this much of the side-to-side (0.3 until 2026-11-20)
 ## How much slower it goes through bends than down straights (0 = the same speed everywhere).
 @export_range(0.0, 30.0, 0.5) var ult_dragon_bend_slow := 15.0  # 12 until 2026-11-20 (user: 25% sharper)

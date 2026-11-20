@@ -176,13 +176,17 @@ func _fire_ultimate(a: Dictionary, player: Node, spot: Vector3, radius: float) -
 		var w := t.ult_dragon_wander
 		var d := FireDragon.new()
 		d.p0 = at
-		d.p1 = at + ahead * flat.length() * 0.2 + Vector3.UP * 5.0 + out * 4.0 + _wander(w)
-		d.p2 = spot + Vector3.UP * 9.0 - ahead * 2.0 + out * 3.0 + _wander(w)
+		d.p1 = at + ahead * flat.length() * 0.2 + Vector3.UP * 5.0 + out * 5.0 + _wander(w)  # out * 4 and 3 until 2026-11-20 (user: 25% more spread)
+		d.p2 = spot + Vector3.UP * 9.0 - ahead * 2.0 + out * 3.75 + _wander(w)
 		d.p3 = spot
 		d.side = right if randf() < 0.5 else -right  # weaves left first or right first
 		d.phase = randf() * TAU
 		d.coils = maxf(0.5, t.ult_dragon_coils + randf_range(-t.ult_dragon_coils_spread, t.ult_dragon_coils_spread))
-		d.time = -t.ult_dragon_delay  # all together, so they land as one
+		d.time = -t.ult_dragon_delay  # all out together
+		# The middle one lands on time (it deals the blast); the others a bit sooner or later, before you come down.
+		var most := _hover_left - t.ult_dragon_delay
+		var s := t.ult_dragon_land_spread
+		d.duration = t.ult_dragon_time if i == 2 else minf(t.ult_dragon_time * randf_range(1.0 - s, 1.0 + s), most)
 		d.landed.connect(_dragon_lands.bind(a, player, spot, radius, i == 2))
 		root.add_child(d)
 	Combat.shake(t.shake_light)

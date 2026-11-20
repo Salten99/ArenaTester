@@ -473,12 +473,14 @@ func test_fire_ultimate() -> void:
 	await _frames(int((t.ult_dragon_delay + t.ult_dragon_time * 0.5 - t.ult_lift_time) * hz))
 	var dragons: Array = get_tree().get_nodes_in_group("fire_dragons")
 	check(dragons.size() == 5, "a flame dragon out of each circle (%d)" % dragons.size())
-	var flying := dragons.filter(func(d): return d.pieces[0].visible and d.pieces[0].global_position.y > spot.y + 3.0)
+	var flying := dragons.filter(func(d): return d.pieces[0].visible and d.pieces[0].global_position.y > spot.y + 1.0)  # each at its own pace
 	check(flying.size() == 5, "all five snake through the air (%d)" % flying.size())
 	check(dragons.all(func(d): return d.pieces.size() == t.ult_dragon_segments), "each with a long body behind its head")
 	check(dragons.all(func(d): return (d.p3 as Vector3).is_equal_approx(spot)), "all headed for the one spot")
 	var pushes: Array = range(20).map(func(_n): return p.abilities._wander(t.ult_dragon_wander))
 	check(pushes.all(func(v): return absf(v.x) <= t.ult_dragon_wander and v.y >= -t.ult_dragon_wander * 0.4) and pushes[0] != pushes[1], "each dragon's way there is random, within ult_dragon_wander")
+	check(dragons.all(func(d): return d.duration <= t.ult_lift_time + t.ult_dragon_time + 0.3) and dragons.any(func(d): return not is_equal_approx(d.duration, t.ult_dragon_time)),
+		"they land at different times, all before the spell ends")
 	var paces: Array = range(11).map(func(j): return dragons[0].u_for(j / 10.0))
 	check(paces[0] == 0.0 and paces[10] == 1.0 and range(10).all(func(j): return paces[j + 1] > paces[j]) and paces != range(11).map(func(j): return j / 10.0),
 		"its pace changes with the bends of its curve, still from the circle to the ground (%s)" % str(paces))
