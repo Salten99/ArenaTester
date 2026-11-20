@@ -15,3 +15,10 @@ Copied from Pantheon Valley's `game/` folder on 2026-11-19 (Pantheon Valley comm
 - Godot gotchas: a parse error in a headless scene makes Godot idle until the timeout. Values from untyped Arrays/Dictionaries need explicit types. A new `class_name` needs `godot --headless --path game --import` before tests.
 - Coding style: Ponytail, full level (the smallest complete change, reuse what exists).
 - Never invent names, except places. Gods go by titles (for example, Lord of the Forge).
+
+## Model routing
+1. Delegate search, reading, and mechanical edits to the scout agent.
+2. Handle normal implementation in the main session (Sonnet).
+3. Escalate to the architect agent only for the cases in its description.
+4. If output quality is insufficient, raise effort (/effort medium or high) before escalating to a larger model.
+5. For large features, suggest the user run /model opusplan (Opus plans, Sonnet executes).
