@@ -13,6 +13,7 @@ const SEGMENT := preload("res://models/fx/flame_dragon_segment.glb")
 @export var p3: Vector3  # the ground
 @export var side := Vector3.RIGHT  # which way it weaves
 @export var phase := 0.0  # each weaves to its own beat
+@export var coils := 2.0  # how many times it weaves on the way
 @export var time := 0.0  # below 0: still waiting in the circle
 
 var pieces: Array[Node3D] = []  # the head first, then the body to the tail
@@ -93,7 +94,7 @@ func point_at(u: float) -> Vector3:
 	var t: CombatTuning = GameData.tuning
 	var p := p0.bezier_interpolate(p1, p2, p3, u)
 	var weave := sin(u * PI) * t.ult_dragon_wave
-	var turn := u * TAU * t.ult_dragon_coils + phase
+	var turn := u * TAU * coils + phase
 	return p + side * sin(turn) * weave + Vector3.UP * cos(turn) * weave * t.ult_dragon_wave_up
 
 

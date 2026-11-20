@@ -181,6 +181,7 @@ func _fire_ultimate(a: Dictionary, player: Node, spot: Vector3, radius: float) -
 		d.p3 = spot
 		d.side = right if randf() < 0.5 else -right  # weaves left first or right first
 		d.phase = randf() * TAU
+		d.coils = maxf(0.5, t.ult_dragon_coils + randf_range(-t.ult_dragon_coils_spread, t.ult_dragon_coils_spread))
 		d.time = -t.ult_dragon_delay  # all together, so they land as one
 		d.landed.connect(_dragon_lands.bind(a, player, spot, radius, i == 2))
 		root.add_child(d)
