@@ -25,7 +25,6 @@ var defs := {}        # slot -> ability row
 var remaining := {}   # slot -> seconds left on cooldown
 var invulnerable := false
 var _beam := {}  # the Fire Lance's (or Lightning beam's) beam while it's on (user, 2026-11-19)
-var _dragons := []  # the Fire ultimate's flame dragons while they fly
 var hover_y := 0.0  # the Fire ultimate's lift: the height you hang at, for _hover_left s more
 var _hover_left := 0.0
 var spells := Spells.new()  # the shapes that aren't a plain blast (spells.gd)
@@ -46,8 +45,6 @@ func _physics_process(delta: float) -> void:
 	_hover_left = maxf(0.0, _hover_left - delta)
 	if not _beam.is_empty():
 		_update_beam(delta)
-	for d: Dictionary in _dragons.duplicate():
-		_update_dragon(d, delta)
 
 
 func ready_in(slot: String) -> float:
@@ -164,6 +161,9 @@ func _fire_ultimate(a: Dictionary, player: Node, spot: Vector3, radius: float) -
 	_hover_left = t.ult_lift_time + t.ult_dragon_delay + t.ult_dragon_time + 0.3
 	var top := _brow(player, Vector3.ZERO) + Vector3.UP * (t.ult_arc_height + t.ult_lift_height)  # the arc's middle
 	var lasts := t.ult_dragon_delay + t.ult_dragon_time * 1.6
+	var root: Node = Vfx._root()
+	if root == null:  # no effects layer: the dive still has to land
+		root = self
 	for i in 5:  # 20..160 degrees round, like a rainbow over you
 		var ang := deg_to_rad(lerpf(20.0, 160.0, i / 4.0))
 		var out := right * cos(ang) + Vector3.UP * sin(ang)  # from the arc's center out to this circle
@@ -172,10 +172,16 @@ func _fire_ultimate(a: Dictionary, player: Node, spot: Vector3, radius: float) -
 			func(): UltimateFx.circle("Fire", at, ahead, t.ult_arc_circle_size * (1.3 if i == 2 else 1.0), lasts))
 		# A dragon out of each circle (user, 2026-11-20): they fan out, then all dive into the one spot.
 		# The middle one deals the blast; the others land with it.
-		_dragons.append({"a": a, "player": player, "spot": spot, "radius": radius, "right": right, "phase": i * 0.7,
-			"time": -t.ult_dragon_delay, "main": i == 2,  # all together, so they land as one
-			"p0": at, "p1": at + ahead * flat.length() * 0.2 + Vector3.UP * 5.0 + out * 4.0,
-			"p2": spot + Vector3.UP * 9.0 - ahead * 2.0 + out * 3.0, "p3": spot, "landed": false, "body": []})
+		var d := FireDragon.new()
+		d.p0 = at
+		d.p1 = at + ahead * flat.length() * 0.2 + Vector3.UP * 5.0 + out * 4.0
+		d.p2 = spot + Vector3.UP * 9.0 - ahead * 2.0 + out * 3.0
+		d.p3 = spot
+		d.side = right
+		d.phase = i * 0.7
+		d.time = -t.ult_dragon_delay  # all together, so they land as one
+		d.landed.connect(_dragon_lands.bind(a, player, spot, radius, i == 2))
+		root.add_child(d)
 	Combat.shake(t.shake_light)
 
 
@@ -184,105 +190,19 @@ func levitating() -> bool:
 	return _hover_left > 0.0
 
 
-## Where the dragon's body is at `u` (0 the circle, 1 the ground): a curve out, up and down onto the
-## spot, weaving side to side (and a little up and down) in between.
-func _dragon_at(d: Dictionary, u: float) -> Vector3:
-	var t: CombatTuning = GameData.tuning
-	var p: Vector3 = (d.p0 as Vector3).bezier_interpolate(d.p1, d.p2, d.p3, u)
-	var weave := sin(u * PI) * t.ult_dragon_wave
-	var turn: float = u * TAU * t.ult_dragon_coils + d.phase  # each weaves to its own beat
-	return p + (d.right as Vector3) * sin(turn) * weave + Vector3.UP * cos(turn) * weave * 0.3
-
-
-func _update_dragon(d: Dictionary, delta: float) -> void:
-	var t: CombatTuning = GameData.tuning
-	d.time += delta
-	if d.time < 0.0:
-		return
-	var n := t.ult_dragon_segments
-	var gap := 0.6 / n  # the body is 0.6 of the path long
-	if (d.body as Array).is_empty():
-		_build_dragon(d, n)
-	var f: float = d.time / t.ult_dragon_time
-	var head_u := pow(f, 1.4) if f < 1.0 else 1.0 + (f - 1.0) * 1.2  # it gathers speed into the dive, then pours in
-	if head_u >= 1.0 and not d.landed:
-		d.landed = true
-		_dragon_lands(d)
-	for i in n:
-		var u := head_u - i * gap
-		var piece: Node3D = d.body[i]
-		if not is_instance_valid(piece):
-			continue
-		piece.visible = u > 0.0 and u < 1.0  # still in the circle, or already in the ground
-		if piece.visible:
-			var here := _dragon_at(d, u)
-			var ahead := _dragon_at(d, minf(u + 0.01, 1.0)) - here
-			piece.global_position = here
-			if ahead.length() > 0.001 and absf(ahead.normalized().y) < 0.999:
-				piece.look_at(here + ahead, Vector3.UP)
-	if head_u - n * gap >= 1.0:  # the tail is in: done
-		for piece in d.body:
-			if is_instance_valid(piece):
-				piece.queue_free()
-		_dragons.erase(d)
-
-
-## The dragon: a head with a snout and horns, and a body of glowing pieces thinning to the tail.
-func _build_dragon(d: Dictionary, n: int) -> void:
-	var t: CombatTuning = GameData.tuning
-	var root := Vfx._root()
-	for i in n:
-		var k := float(i) / (n - 1)
-		var r := t.ult_dragon_size * lerpf(1.0, 0.25, k) * (1.0 if i > 0 else 1.15)
-		var col := Color(1.0, 0.85, 0.35).lerp(Color(0.85, 0.12, 0.02), k)
-		var piece := Vfx._spawn(UltimateFx._sphere(r), col, d.p0)
-		if piece == null:
-			d.body.append(null)
-			continue
-		piece.scale = Vector3(1.0, 0.85, 1.4)  # long along the body
-		piece.visible = false
-		if i == 0:  # the head: a snout ahead (-Z), two horns swept back
-			var snout := MeshInstance3D.new()
-			snout.mesh = UltimateFx._spike(r * 0.6, r * 1.6)
-			snout.material_override = Vfx.material(Color(1.0, 0.95, 0.6))
-			snout.rotation.x = -PI / 2.0
-			snout.position = Vector3(0, -r * 0.15, -r * 1.1)
-			piece.add_child(snout)
-			for s in [-1.0, 1.0]:
-				var horn := MeshInstance3D.new()
-				horn.mesh = UltimateFx._spike(r * 0.18, r * 1.4)
-				horn.material_override = Vfx.material(Color(1.0, 0.55, 0.1))
-				horn.rotation = Vector3(PI * 0.3, 0.0, s * 0.4)
-				horn.position = Vector3(s * r * 0.45, r * 0.6, r * 0.4)
-				piece.add_child(horn)
-			var flames := ElementFx.trail("Fire")
-			if flames != null:
-				piece.add_child(flames)
-				flames.emitting = true
-		elif i % 3 == 0 and root != null:  # flames streaming off the body
-			var flames := ElementFx.trail("Fire")
-			if flames != null:
-				piece.add_child(flames)
-				flames.emitting = true
-		d.body.append(piece)
-
-
 ## The dive hits the ground: the ultimate's blast, cracks, and the ground there burns.
-func _dragon_lands(d: Dictionary) -> void:
-	var player: Node = d.player
+func _dragon_lands(a: Dictionary, player: Node, spot: Vector3, radius: float, main: bool) -> void:
 	if not is_instance_valid(player) or player.is_dead():
 		return
 	var t: CombatTuning = GameData.tuning
-	var spot: Vector3 = d.spot
-	var radius: float = d.radius
-	if not d.main:  # the others' landing is the look; the middle one deals the blast
+	if not main:  # the others' landing is the look; the middle one deals the blast
 		Vfx.burst(spot + UltimateFx._in_disc(radius * 0.4), radius * 0.6, Color(1.0, 0.6, 0.15, 0.8), 0.2)
 		return
-	_blast(d.a, player, spot, radius)
+	_blast(a, player, spot, radius)
 	ElementFx.area("Fire", spot, radius * 1.2)
 	Vfx.burst(spot, radius, Color(1.0, 0.7, 0.2, 0.8), 0.2)
 	UltimateFx._cracks(spot, Vector3.UP, radius)
-	_burn_ground(d.a, player, spot, radius * t.ult_fire_ground_radius)
+	_burn_ground(a, player, spot, radius * t.ult_fire_ground_radius)
 	for k in 8:
 		Vfx.chunk(spot + UltimateFx._in_disc(radius * 0.5), Vector3(randf_range(-5, 5), randf_range(5, 10), randf_range(-5, 5)), Color(1.0, 0.4, 0.05), 0.35)
 

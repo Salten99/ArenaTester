@@ -1,0 +1,20 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/fire_dragon.gd" id="1"]
+
+[node name="FireDragonPreview" type="Node3D"]
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.966, 0.259, 0, -0.259, 0.966, 0, 6, 22)
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707, 0.707, 0, -0.707, 0.707, 0, 10, 0)
+
+[node name="FireDragon" type="Node3D" parent="."]
+script = ExtResource("1")
+p0 = Vector3(-8, 2, 0)
+p1 = Vector3(-6, 10, -4)
+p2 = Vector3(4, 12, -2)
+p3 = Vector3(8, 0, 0)
+side = Vector3(0, 0, 1)
+time = -0.5
