@@ -10,6 +10,7 @@ extends Node
 ##   hits_or_projectiles > 1  -> repeated hits on the nearest enemy (radius 0)
 ##   shape Cone               -> the Fire Lance: lunge forward (lance_lunge_m), then a beam
 ##                               range_m long, radius_m wide each side, following your aim a moment
+##   shape Rings, Strike, Fan, Cage, Slide, Freeze, Slab, Crush -> the arena's spells (spells.gd)
 ## Abilities count as Magic damage.
 
 signal cooldowns_changed
@@ -27,6 +28,11 @@ var hover_y := 0.0  # the Fire ultimate's lift: the height you hang at, for this
 var _hover_left := 0.0
 var _ult_beams := []  # the Fire ultimate's three beams while they're on
 var _jets := []  # its boot jets while you hang in the air
+var spells := Spells.new()  # the shapes that aren't a plain blast (spells.gd)
+
+
+func _ready() -> void:
+	add_child(spells)
 
 
 func load_for(god_id: String) -> void:
@@ -102,6 +108,8 @@ func _cast_now(slot: String, a: Dictionary, player: Node, dir: Vector3, at: Vect
 		var spot: Vector3 = at
 		if spot == Vector3.INF:  # not aimed: ahead (ranged ones) or where you stand
 			spot = player.global_position + dir * reach if reach > 0.0 and radius > 0.0 else player.global_position
+		if spells.cast(a, player, dir, spot):
+			return true
 		if GameData.text(a, "damage_type") == "Fire" and radius > 0.0:
 			_fire_ultimate(a, player, spot, radius)
 			return true
@@ -112,6 +120,8 @@ func _cast_now(slot: String, a: Dictionary, player: Node, dir: Vector3, at: Vect
 			land.connect(_blast.bind(a, player, spot, radius))
 		else:
 			land.connect(_multi_hit.bind(a, player, dir, spot))
+		return true
+	if spells.cast(a, player, dir, at):
 		return true
 	if GameData.text(a, "shape") == "Spikes":
 		_erupt(a, player, at, radius)

@@ -208,6 +208,48 @@ extends Resource
 ## How long the ground cracks stay before fading (s).
 @export_range(0.5, 20.0, 0.5) var erupt_crack_time := 5.0
 
+@export_group("Spells")
+## The arena's spells (Arena Magic Attacks sheet, user 2026-11-20; scripts/player/spells.gd).
+## From the key press to the slam or chop that sets a spell off (s): Lava Ripple, Ring of Ice,
+## Thunder Crash, Bolt Fan, Stone Slab.
+@export_range(0.0, 1.0, 0.01) var spell_release_delay := 0.22
+## Lava Ripple and Ring of Ice: how fast the rings roll out (m/s), how many you see, the time
+## between them (s), and how hard the edge hits next to the middle (1 = as hard).
+@export_range(2.0, 40.0, 0.5) var ripple_speed := 12.0
+@export_range(1, 6) var ripple_rings := 3
+@export_range(0.0, 0.5, 0.01) var ripple_ring_gap := 0.12
+@export_range(0.0, 1.0, 0.05) var ripple_edge_strength := 0.35
+## Ring of Ice: how long a hit enemy stays frozen (s), how tall the icicles are (m) and how long
+## they stand before shattering (s).
+@export_range(0.0, 6.0, 0.1) var ice_ring_freeze := 2.0
+@export_range(0.3, 4.0, 0.1) var icicle_height := 1.4
+@export_range(0.1, 4.0, 0.1) var icicle_stay := 1.0
+## Bolt Fan: how wide the fan of bolts spreads in front of you (degrees).
+@export_range(10.0, 360.0, 5.0) var fan_arc_deg := 130.0
+## Storm Cage: how long it lasts (s), how many pillar bolts stand round the circle, the bouncing
+## bolt's speed (m/s), how much faster each bounce makes it, the most bolts bouncing at once, and
+## how soon the same enemy can be struck again (s).
+@export_range(1.0, 30.0, 0.5) var cage_time := 10.0
+@export_range(3, 10) var cage_pillars := 5
+@export_range(2.0, 60.0, 0.5) var cage_bolt_speed := 14.0
+@export_range(1.0, 1.5, 0.01) var cage_speedup := 1.08
+@export_range(1, 30) var cage_max_bolts := 12
+@export_range(0.05, 2.0, 0.05) var cage_rehit := 0.4
+## Ice Slide: how long the slide takes (s) and how long its ice trail stays (s).
+@export_range(0.1, 2.0, 0.05) var slide_time := 0.4
+@export_range(0.5, 10.0, 0.5) var ice_trail_time := 3.0
+## Deep Freeze: from the cast until everything locks in ice (s), and how long it stays frozen
+## before shattering (s).
+@export_range(0.0, 2.0, 0.05) var deep_freeze_delay := 0.4
+@export_range(0.5, 10.0, 0.25) var deep_freeze_time := 3.0
+## Stone Slab: how long the slab stands before sinking (s).
+@export_range(0.1, 5.0, 0.1) var slab_stay := 1.0
+## Crushing Pillars: how far apart the two circles open (m), the wait before the pillars move (s),
+## and how long they take to meet (s).
+@export_range(4.0, 30.0, 0.5) var pillar_gap := 10.0
+@export_range(0.0, 2.0, 0.05) var pillar_delay := 0.5
+@export_range(0.05, 2.0, 0.05) var pillar_time := 0.4
+
 @export_group("Enemies")
 ## How many enemies may be winding up or striking at once (attack tokens).
 @export_range(1, 20) var max_attackers := 3

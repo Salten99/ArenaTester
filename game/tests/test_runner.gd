@@ -51,10 +51,10 @@ func _ready() -> void:
 		"test_data_loads", "test_data_is_consistent", "test_rng_is_deterministic", "test_damage_pipeline",
 		"test_fire_ticks", "test_godly_gift_offer_and_duo", "test_unbuilt_content_is_hidden", "test_dodge_iframes", "test_guardian_parry",
 		"test_searing_strikes_ignites_slam", "test_thunderforged_combo", "test_attack_tokens",
-		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
+		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_spells", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -415,7 +415,7 @@ func test_aimed_ultimate() -> void:
 func test_ultimate_circles() -> void:
 	var p: Player = _arena.player
 	var kept: Dictionary = p.abilities.defs
-	for god in ["storm_god", "snow_god", "animal_god", "sun_god"]:  # Fire has its own: test_fire_ultimate
+	for god in ["sun_god"]:  # the plain kind; Fire has its own (test_fire_ultimate), the rest are spells (test_spells)
 		p.abilities.load_for(god)
 		if god == "sun_god":  # shelved (GameData.SHELVED_GODS): its sheet row by hand
 			p.abilities.defs = {"Ultimate": {"ability_id": "sun_high_noon", "slot": "Ultimate", "damage_type": "Light", "base_damage": 120, "radius_m": 8, "status_effect": "light"}}
@@ -521,6 +521,131 @@ func test_stone_eruption() -> void:
 	p.abilities.defs = kept
 
 
+func _hurt(es: Array) -> int:
+	return es.filter(func(e): return is_instance_valid(e) and e.health.hp < e.health.max_hp).size()
+
+
+func _free_all(es: Array) -> void:
+	for e in es:
+		if is_instance_valid(e):
+			e.queue_free()
+
+
+## A tough enemy standing `offset` from the player.
+func _dummy(offset: Vector3, hold := true) -> Enemy:
+	var e: Enemy = _arena.waves.spawn("barb_warlord")
+	e.global_position = _arena.player.global_position + offset
+	if hold:
+		e.freeze(20.0)
+	return e
+
+
+## The arena's spells (Arena Magic Attacks sheet, user 2026-11-20; spells.gd): each one hits where
+## its design says and not elsewhere.
+func test_spells() -> void:
+	var p: Player = _arena.player
+	var kept: Dictionary = p.abilities.defs
+	var t: CombatTuning = GameData.tuning
+	var hz := Engine.physics_ticks_per_second
+	var home: Vector3 = p.global_position
+	var saved := [t.cage_time, t.deep_freeze_time]
+	t.cage_time = 1.5
+	t.deep_freeze_time = 1.0
+
+	# Lava Ripple: rings roll out all round you, the near ones hit harder.
+	p.abilities.load_for("forge_god")
+	var near := _dummy(Vector3(0, 0, -1.2))
+	var far := _dummy(Vector3(0, 0, 4.4))
+	p.abilities.cast("Signature", p, Vector3.FORWARD)
+	await _frames(3)
+	check(near.health.hp == near.health.max_hp, "Lava Ripple waits for the slam")
+	await _frames(int((t.spell_release_delay + 5.0 / t.ripple_speed) * hz) + 10)
+	check(far.health.hp < far.health.max_hp, "Lava Ripple reaches behind you too")
+	check(near.health.max_hp - near.health.hp > far.health.max_hp - far.health.hp, "Lava Ripple hits the near ones harder")
+	_free_all([near, far])
+
+	# Ring of Ice: icicles all round you; what they hit is frozen.
+	p.abilities.load_for("snow_god")
+	var ring := [_dummy(Vector3(0, 0, -2.5), false), _dummy(Vector3(0, 0, 2.5), false)]
+	p.abilities.cast("Signature", p, Vector3.FORWARD)
+	await _frames(int((t.spell_release_delay + 0.8) * hz) + 6)  # the rings, then the freeze once they are thrown
+	check(_hurt(ring) == 2, "Ring of Ice hits in front and behind (%d of 2)" % _hurt(ring))
+	check(ring.any(func(e): return e.state == Enemy.State.FROZEN), "Ring of Ice freezes what it hits")
+	_free_all(ring)
+
+	# Ice Slide: you slide range_m forward and leave ice that slows.
+	var before := get_tree().get_nodes_in_group("hazards").size()
+	var start: Vector3 = p.global_position
+	p.abilities.cast("Movement", p, Vector3.FORWARD)
+	await _frames(int(t.slide_time * hz) + 4)
+	check(start.z - p.global_position.z > 7.0, "Ice Slide carries you forward (%.1f m)" % (start.z - p.global_position.z))
+	check(get_tree().get_nodes_in_group("hazards").size() >= before + 4, "and leaves a trail of ice")
+	var skater := _dummy(start - p.global_position + Vector3(0, 0, -4), false)
+	await _frames(40)
+	check(skater.statuses.has("ice"), "the trail slows whoever stands on it")
+	_free_all([skater])
+	p.global_position = home
+
+	# Deep Freeze: everything round you locks in ice, unhurt, then shatters.
+	var block := _dummy(Vector3(0, 0, 5), false)  # behind you: off the ice trail
+	p.abilities.cast("Ultimate", p, Vector3.FORWARD, p.global_position + Vector3(0, 0, -12))
+	await _frames(int(t.deep_freeze_delay * hz) + 4)
+	check(block.state == Enemy.State.FROZEN and block.health.hp == block.health.max_hp, "Deep Freeze locks enemies round you in ice")
+	await _frames(int(t.deep_freeze_time * hz) + 6)
+	check(block.health.hp < block.health.max_hp, "then they shatter")
+	_free_all([block])
+
+	# Thunder Crash and Bolt Fan: in front, not behind.
+	p.abilities.load_for("storm_god")
+	var ahead := _dummy(Vector3(0, 0, -4))
+	var behind := _dummy(Vector3(0, 0, 5))
+	p.abilities.cast("Signature", p, Vector3.FORWARD)
+	await _frames(int(t.spell_release_delay * hz) + 6)
+	check(ahead.health.hp < ahead.health.max_hp and behind.health.hp == behind.health.max_hp, "Thunder Crash strikes ahead of you")
+	_free_all([ahead, behind])
+	var fan := [_dummy(Vector3(-3, 0, -4)), _dummy(Vector3(3, 0, -4))]
+	var back := _dummy(Vector3(0, 0, 5))
+	p.abilities.cast("Movement", p, Vector3.FORWARD)
+	await _frames(int(t.spell_release_delay * hz) + 6)
+	check(_hurt(fan) == 2 and back.health.hp == back.health.max_hp, "Bolt Fan hits across the front and not behind")
+	_free_all(fan + [back])
+
+	# Storm Cage: bolts bounce round the aimed spot until it collapses.
+	var spot: Vector3 = p.global_position + Vector3(0, 0, -12)
+	var caged := [_dummy(Vector3(0, 0, -12)), _dummy(Vector3(2, 0, -13))]
+	p.abilities.cast("Ultimate", p, Vector3.FORWARD, spot)
+	await _frames(3)
+	check(p.abilities.spells.caging(), "Storm Cage stands round the aimed spot")
+	await _frames(int(t.cage_time * hz) + 6)
+	check(not p.abilities.spells.caging() and _hurt(caged) == 2, "Storm Cage strikes what's inside, then collapses (%d of 2)" % _hurt(caged))
+	_free_all(caged)
+
+	# Stone Slab: launches what's in front.
+	p.abilities.load_for("animal_god")
+	var slabbed := _dummy(Vector3(0, 0, -3))
+	var safe := _dummy(Vector3(0, 0, 3))
+	p.abilities.cast("Movement", p, Vector3.FORWARD)
+	await _frames(int(t.spell_release_delay * hz) + 6)
+	check(slabbed.health.hp < slabbed.health.max_hp and safe.health.hp == safe.health.max_hp, "Stone Slab erupts in front of you")
+	_free_all([slabbed, safe])
+
+	# Crushing Pillars: two circles, then the pillars meet on the aimed spot.
+	var crushed := _dummy(Vector3(0, 0, -12))
+	var away := _dummy(Vector3(0, 0, -24))
+	p.abilities.cast("Ultimate", p, Vector3.FORWARD, spot)
+	await _frames(3)
+	check(get_tree().get_nodes_in_group("magic_circle").filter(func(c): return c.global_position.distance_to(spot) < 7.0).size() >= 2, "Crushing Pillars opens two circles at the aimed spot")
+	check(crushed.health.hp == crushed.health.max_hp, "and nothing is crushed before the pillars meet")
+	await _frames(int((t.pillar_delay + t.pillar_time) * hz) + 6)
+	check(crushed.health.hp < crushed.health.max_hp and away.health.hp == away.health.max_hp, "the pillars crush what's between them")
+	_free_all([crushed, away])
+
+	t.cage_time = saved[0]
+	t.deep_freeze_time = saved[1]
+	p.global_position = home
+	p.abilities.defs = kept
+
+
 ## Enemies go limp when they die (user, 2026-10-29): physics bones take over and fall.
 func test_ragdoll_death() -> void:
 	var e: Enemy = _cluster(1, 4.0)[0]
@@ -546,7 +671,7 @@ func test_ability_cast() -> void:
 	var enemies := _cluster(4, 1.5, "barb_warlord")
 	var s := _scripted()
 	s.press("signature")
-	await _frames(5)
+	await _frames(45)  # the slam, then the lava rings roll out (Lava Ripple)
 	check(p.abilities.ready_in("Signature") > 0.0, "the Fire Special went on cooldown")
 	var hurt := enemies.filter(func(e): return e.health.hp < e.health.max_hp).size()
 	check(hurt == 4, "the Fire Special hit all 4 nearby enemies (got %d)" % hurt)
@@ -3040,3 +3165,47 @@ func test_mythical_roster() -> void:
 		e.queue_free()
 	check(Enemy.CHARGER == WaveDirector.TOUGH_UNIT and GameData.text(GameData.unit(EndlessArena.CASTER), "role") == "Magic", "the minotaur charges and the gorgon casts")
 	await _frames(1)
+
+
+func test_tutorial() -> void:
+	# The tutorial (user, 2026-11-20): each lesson goes on once its move is made, with foes to practise on.
+	_arena.queue_free()
+	await _frames(1)
+	_arena = load(TutorialArena.SCENE).instantiate()
+	_arena.auto_start = false
+	add_child(_arena)
+	await _frames(2)
+	await _until_on_floor()
+	var a: TutorialArena = _arena
+	var p: Player = a.player
+	check(a.waves.reserve.is_empty() and not a.waves.running, "the tutorial has no waves")
+	a.start_tutorial()
+	await _frames(2)
+	check(a.step == 0 and p.god_mode, "the tutorial begins at the first lesson and nothing hurts you")
+	check(a._foes.size() == TutorialArena.FOES, "skeletons stand by to practise on")
+	check(not a.hud._message.text.contains("{"), "the prompt shows your keys")
+	for mode in [Chain.Mode.HOOKED, Chain.Mode.REEL]:
+		p.chain.mode = mode
+		await _frames(2)
+	p.chain.mode = Chain.Mode.OFF
+	check(a.step == 2, "hooking and reeling pass their lessons")
+	p.grabber._throw = 0.0
+	await _frames(2)
+	p.grabber._throw = -1.0
+	check(a.step == 3, "a hurl passes its lesson")
+	for mode in [Chain.Mode.YANK, Chain.Mode.SLAM, Chain.Mode.SWING, Chain.Mode.DRAG]:
+		p.chain.mode = mode
+		await _frames(2)
+	p.chain.mode = Chain.Mode.OFF
+	check(a.step == 7 and is_instance_valid(a._cyclops), "the chain moves pass, and a cyclops comes for the drop kick")
+	p.chain.mode = Chain.Mode.PULL
+	await _frames(2)
+	p.chain.mode = Chain.Mode.OFF
+	check(a.step == 8 and get_tree().get_nodes_in_group("weapon_pickups").size() > 0, "the drop kick passes, and a weapon lies ready")
+	p.equip("warhammer")
+	await _frames(2)
+	p.throw_weapon(0.0)
+	await _frames(2)
+	p.equip("warhammer")
+	await _frames(2)
+	check(a.step == a.steps.size(), "taking up, throwing and taking back a weapon finish the tutorial")
