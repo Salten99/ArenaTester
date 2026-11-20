@@ -174,11 +174,12 @@ func _fire_ultimate(a: Dictionary, player: Node, spot: Vector3, radius: float) -
 		# The middle one deals the blast; the others land with it. Each takes its own random way there
 		# (user, 2026-11-20): only the two middle points of its curve move, so the start and end stay.
 		var w := t.ult_dragon_wander
+		var land := spot if i == 2 else spot + UltimateFx._in_disc(radius * t.ult_dragon_land_scatter)  # the others scatter round it
 		var d := FireDragon.new()
 		d.p0 = at
 		d.p1 = at + ahead * flat.length() * 0.2 + Vector3.UP * 5.0 + out * 5.0 + _wander(w)  # out * 4 and 3 until 2026-11-20 (user: 25% more spread)
-		d.p2 = spot + Vector3.UP * 9.0 - ahead * 2.0 + out * 3.75 + _wander(w)
-		d.p3 = spot
+		d.p2 = land + Vector3.UP * 9.0 - ahead * 2.0 + out * 3.75 + _wander(w)
+		d.p3 = land
 		d.side = right if randf() < 0.5 else -right  # weaves left first or right first
 		d.phase = randf() * TAU
 		d.coils = maxf(0.5, t.ult_dragon_coils + randf_range(-t.ult_dragon_coils_spread, t.ult_dragon_coils_spread))
@@ -187,7 +188,7 @@ func _fire_ultimate(a: Dictionary, player: Node, spot: Vector3, radius: float) -
 		var most := _hover_left - t.ult_dragon_delay
 		var s := t.ult_dragon_land_spread
 		d.duration = t.ult_dragon_time if i == 2 else minf(t.ult_dragon_time * randf_range(1.0 - s, 1.0 + s), most)
-		d.landed.connect(_dragon_lands.bind(a, player, spot, radius, i == 2))
+		d.landed.connect(_dragon_lands.bind(a, player, land, radius, i == 2))
 		root.add_child(d)
 	Combat.shake(t.shake_light)
 
@@ -208,7 +209,7 @@ func _dragon_lands(a: Dictionary, player: Node, spot: Vector3, radius: float, ma
 		return
 	var t: CombatTuning = GameData.tuning
 	if not main:  # the others' landing is the look; the middle one deals the blast
-		Vfx.burst(spot + UltimateFx._in_disc(radius * 0.4), radius * 0.6, Color(1.0, 0.6, 0.15, 0.8), 0.2)
+		Vfx.burst(spot, radius * 0.6, Color(1.0, 0.6, 0.15, 0.8), 0.2)
 		return
 	_blast(a, player, spot, radius)
 	ElementFx.area("Fire", spot, radius * 1.2)

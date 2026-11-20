@@ -476,7 +476,9 @@ func test_fire_ultimate() -> void:
 	var flying := dragons.filter(func(d): return d.pieces[0].visible and d.pieces[0].global_position.y > spot.y + 1.0)  # each at its own pace
 	check(flying.size() == 5, "all five snake through the air (%d)" % flying.size())
 	check(dragons.all(func(d): return d.pieces.size() == t.ult_dragon_segments), "each with a long body behind its head")
-	check(dragons.all(func(d): return (d.p3 as Vector3).is_equal_approx(spot)), "all headed for the one spot")
+	var lands: Array = dragons.map(func(d): return d.p3)
+	check(lands.count(spot) == 1 and lands.all(func(l): return Vector2(l.x - spot.x, l.z - spot.z).length() <= p.abilities.ultimate_radius() * t.ult_dragon_land_scatter + 0.01) and lands[0] != lands[1],
+		"the middle one dives into the aimed spot, the others scatter round it")
 	var pushes: Array = range(20).map(func(_n): return p.abilities._wander(t.ult_dragon_wander))
 	check(pushes.all(func(v): return absf(v.x) <= t.ult_dragon_wander and v.y >= -t.ult_dragon_wander * 0.4) and pushes[0] != pushes[1], "each dragon's way there is random, within ult_dragon_wander")
 	check(dragons.all(func(d): return d.duration <= t.ult_lift_time + t.ult_dragon_time + 0.3) and dragons.any(func(d): return not is_equal_approx(d.duration, t.ult_dragon_time)),

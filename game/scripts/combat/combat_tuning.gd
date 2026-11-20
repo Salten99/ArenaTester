@@ -232,6 +232,8 @@ extends Resource
 ## The other four dragons land up to this much (of ult_dragon_time) sooner or later than the middle
 ## one (user, 2026-11-20), never after the spell ends (you come back down).
 @export_range(0.0, 1.0, 0.05) var ult_dragon_land_spread := 0.3
+## The other four land at random spots this far out (of the ultimate's radius) from the aimed one (user, 2026-11-20).
+@export_range(0.0, 1.5, 0.05) var ult_dragon_land_scatter := 0.8
 @export_range(0.0, 2.0, 0.05) var ult_dragon_wave_up := 0.6  ## its up-and-down weave, this much of the side-to-side (0.3 until 2026-11-20)
 ## How much slower it goes through bends than down straights (0 = the same speed everywhere).
 @export_range(0.0, 30.0, 0.5) var ult_dragon_bend_slow := 15.0  # 12 until 2026-11-20 (user: 25% sharper)
