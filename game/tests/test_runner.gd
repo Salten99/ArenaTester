@@ -54,7 +54,7 @@ func _ready() -> void:
 		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_spells", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_bestiary_saved", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head", "test_pixelfx_effects", "test_hit_reactions", "test_aim_every_spell",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_bestiary_saved", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head", "test_pixelfx_effects", "test_hit_reactions", "test_aim_every_spell", "test_lance_flight_and_shoulder_camera",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -755,9 +755,13 @@ func test_fire_lance() -> void:
 	check(ahead.filter(func(e): return e.statuses.has("fire")).size() == 3, "and sets them on Fire")
 	check(behind.health.hp == behind.health.max_hp and beside.health.hp == beside.health.max_hp, "enemies behind and beside you are untouched")
 	check(far.health.hp == far.health.max_hp, "nor one past the beam's 50 m")
-	var head: Vector3 = p.visual.head_position(Vector3.INF)
-	var circles := get_tree().get_nodes_in_group("magic_circle").filter(func(c): return c.global_position.distance_to(head) < 0.8)
-	check(circles.size() == 1 and absf(circles[0].scale.x - 0.5) < 0.05, "the beam fires from a 1 m magic circle before your brow (user, 2026-11-19)")
+	var chest: Vector3 = p.global_position + Vector3.UP * 1.25 + p.facing * GameData.tuning.lance_chest_ahead
+	var circles := get_tree().get_nodes_in_group("magic_circle").filter(func(c): return c.global_position.distance_to(chest) < 0.5)
+	check(circles.size() == 1 and absf(circles[0].scale.x - 0.5) < 0.05, "the beam fires from one 1 m magic circle 1 m before your chest (user, 2026-11-20)")
+	var tint: Color = GameData.tuning.lance_tint
+	var fx: Node3D = p.abilities._beam.get("fx")
+	var sprites: Array = fx.find_children("*", "SpriteBase3D", true, false) if fx != null else []
+	check(fx == null or sprites.all(func(sp): return sp.modulate.g <= tint.g + 0.01), "and the lance is darker red")
 	# The beam stays on and follows your aim (user, 2026-11-19): turn right and it sweeps onto the one beside.
 	check(p.abilities.beaming() and p.state == Player.State.CAST, "the beam stays on a moment, and you keep casting")
 	check(float(p.abilities._beam.get("spin", 0.0)) > 0.5, "the circle whirls faster while the beam fires (user, 2026-11-19)")
@@ -3439,4 +3443,34 @@ func test_aim_every_spell() -> void:
 		await _frames(2)
 	p.abilities.defs = kept
 	p.input_source = null
+
+
+## Fired in mid-air pointing at the ground (user, 2026-11-20), the Fire Lance carries you up.
+func test_lance_flight_and_shoulder_camera() -> void:
+	var p: Player = _arena.player
+	var kept: Dictionary = p.abilities.defs
+	p.abilities.load_for("forge_god")
+	await _until_on_floor()
+	var s := _scripted()
+	p.global_position += Vector3.UP * 6.0  # mid-jump
+	p.velocity = Vector3.ZERO
+	await _frames(2)
+	check(not p.is_on_floor(), "in the air")
+	var y0 := p.global_position.y
+	s.hold({"movement": true, "aim_pitch": -1.4}, 1)
+	s.hold({"aim_pitch": -1.4}, int((AbilityRunner.LUNGE_TIME + 0.4) * 60.0))
+	await _frames(int((AbilityRunner.LUNGE_TIME + 0.4) * 60.0))
+	check(p.abilities.beaming() and p.abilities.lance_push().y > 5.0, "the lance points at the ground and pushes you up")
+	check(p.global_position.y > y0 + 1.0, "you fly up on it (%.1f m)" % (p.global_position.y - y0))
+	await _frames(int(GameData.tuning.lance_beam_time * 60.0) + 10)
+	check(p.abilities.lance_push() == Vector3.ZERO, "then it ends and you fall")
+	p.abilities.defs = kept
+	p.input_source = null
+	await _until_on_floor()
+	# The camera looks over your right shoulder (camera_side_deg round to your right), still where you aim.
+	var rig: CameraRig = _arena.camera_rig
+	await _frames(30)
+	var to_cam: Vector3 = rig.camera.global_position - p.global_position
+	var right := Vector3(cos(rig.yaw), 0.0, -sin(rig.yaw))
+	check(to_cam.dot(right) > 1.5 and (-rig.camera.global_basis.z).dot(rig.forward()) > 0.8, "the camera stands off your right shoulder (%.1f m), looking where you aim" % to_cam.dot(right))
 

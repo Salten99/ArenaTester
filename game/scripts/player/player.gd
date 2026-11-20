@@ -230,6 +230,8 @@ func _physics_process(delta: float) -> void:
 		health.heal(health.max_hp * t.rest_regen_pct / 100.0 * delta)
 
 	_crosshair = intent.crosshair
+	_aim_yaw = intent.aim_yaw
+	_aim_pitch = intent.aim_pitch
 	if visual != null:
 		# Holding a minion or item, or the Fire Lance's beam, your upper body aims it (user, 2026-11-19).
 		var held_aim := state == State.GRAB or abilities.beaming()
@@ -355,6 +357,10 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 		var fly := FLY_SPEED * (3.0 if intent.sprint else 1.0)
 		velocity = move_dir.normalized() * fly
 		velocity.y = fly * 0.7 * (float(intent.jump_held) - float(intent.dodge_held))
+		_finish_move(delta)
+		return
+	if abilities.lance_push() != Vector3.ZERO:  # a Fire Lance at the ground in mid-air carries you
+		velocity = abilities.lance_push()
 		_finish_move(delta)
 		return
 	if abilities.levitating():  # the Fire ultimate lifts you, eased up toward its top, and holds you there
@@ -513,6 +519,15 @@ func aim_direction(from: Vector3, speed := 0.0, drop := 0.0) -> Vector3:
 		at += Vector3.UP * 0.5 * drop * t * t
 	var to := (at - from).normalized()
 	return to if to.dot(facing) > 0.1 else facing
+
+
+var _aim_yaw := 0.0
+var _aim_pitch := 0.0
+
+
+## Straight where the camera looks, up and down too.
+func look_direction() -> Vector3:
+	return Vector3(-sin(_aim_yaw) * cos(_aim_pitch), sin(_aim_pitch), -cos(_aim_yaw) * cos(_aim_pitch))
 
 
 ## What the crosshair is on (INF: nothing).

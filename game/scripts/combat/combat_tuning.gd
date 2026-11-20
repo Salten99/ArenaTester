@@ -159,17 +159,26 @@ extends Resource
 @export_range(0.1, 3.0, 0.05) var lance_beam_time := 0.8
 @export_range(0.2, 3.0, 0.05) var lance_circle_diameter := 1.0
 @export_range(0.0, 1.5, 0.05) var lance_circle_ahead := 0.4
+## The Fire Lance's circle sits this far (m) in front of your chest instead (user, 2026-11-20), and
+## the beam and circle are tinted this color (darker red).
+@export_range(0.0, 3.0, 0.05) var lance_chest_ahead := 1.0
+@export var lance_tint := Color(0.7, 0.12, 0.08)
+## Fired in the air pointing down (user, 2026-11-20), the lance's push carries you: away from where
+## it points, this fast (m/s), so aiming at the ground under you lifts you up.
+@export_range(0.0, 40.0, 0.5) var lance_fly_speed := 12.0
 ## How much faster the circle spins while the beam fires (degrees a second, on top of its own turn; user, 2026-11-19).
 @export_range(0.0, 2000.0, 10.0) var lance_circle_beam_spin := 540.0
 ## The Lightning beam (E, user 2026-11-20): it shoots from a magic circle before your forehead for this long (s).
 @export_range(0.1, 3.0, 0.05) var lightning_beam_time := 0.5
 ## The Magma ball (Fire Q, user 2026-11-20): you reach into the ground and pull it out over this long (s),
 ## hold it this long (s), then hurl it where you aimed: the throw releases this long (s) after it starts
-## and the ball flies this fast (m/s), this big (radius, m), bursting where it lands.
-@export_range(0.05, 1.5, 0.05) var magma_pull_time := 0.4
-@export_range(0.0, 1.0, 0.05) var magma_hold_time := 0.15
-@export_range(0.05, 1.0, 0.05) var magma_throw_windup := 0.15
-@export_range(5.0, 80.0, 1.0) var magma_speed := 24.0
+## and the ball flies nearly flat this fast (m/s), dropping this much (m/s each second), this big
+## (radius, m), bursting on the first thing it touches (user, 2026-11-20: faster, no lob).
+@export_range(0.05, 1.5, 0.05) var magma_pull_time := 0.25
+@export_range(0.0, 1.0, 0.05) var magma_hold_time := 0.05
+@export_range(0.05, 1.0, 0.05) var magma_throw_windup := 0.1
+@export_range(5.0, 120.0, 1.0) var magma_speed := 45.0
+@export_range(0.0, 20.0, 0.5) var magma_drop := 4.0
 @export_range(0.1, 2.0, 0.05) var magma_ball_size := 0.45
 
 @export_group("Ultimate magic circle")
@@ -379,6 +388,9 @@ extends Resource
 @export_range(0.0, 50.0, 0.5) var fall_damage := 6.0
 ## With a bow, crossbow or spell weapon the camera sits this far to the right (m), over your shoulder.
 @export_range(0.0, 2.0, 0.05) var aim_shoulder_offset := 0.8
+## The third-person camera stands this many degrees round to your right, looking over your right
+## shoulder (user, 2026-11-20; 0 = straight behind you).
+@export_range(0.0, 60.0, 1.0) var camera_side_deg := 30.0
 
 @export_group("Allies and mini bosses")
 ## Warriors fighting beside you are this much tougher than their sheet health (so they last the fight).

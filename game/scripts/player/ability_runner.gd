@@ -362,20 +362,48 @@ func _strike(a: Dictionary, player: Node, e: Node, center: Vector3, explosive :=
 func _lance(a: Dictionary, player: Node, dir: Vector3, reach: float, half_width: float) -> void:
 	dir = Vector3(dir.x, 0.0, dir.z).normalized()
 	var lance := GameData.text(a, "shape") == "Cone"
-	var lunge: float = GameData.tuning.lance_lunge_m if a.get("slot") == "Movement" and lance else 0.0
+	var airborne: bool = player is CharacterBody3D and not player.is_on_floor()
+	var lunge: float = GameData.tuning.lance_lunge_m if a.get("slot") == "Movement" and lance and not airborne else 0.0
 	invulnerable = lunge > 0.0
 	var start: Vector3 = player.global_position
-	# A magic circle opens in front of your forehead as you lunge (user, 2026-11-19); the beam
-	# fires out of it when you land.
+	# A magic circle opens before you as you lunge (user, 2026-11-19): the Fire Lance's in front of
+	# your chest (2026-11-20), the Lightning beam's before your forehead. The beam fires out of it.
 	var t: CombatTuning = GameData.tuning
 	var time := t.lance_beam_time if lance else t.lightning_beam_time
-	var circle := UltimateFx.circle(GameData.text(a, "damage_type", "Fire"), _brow(player, dir), dir,
+	_beam = {"a": a, "player": player, "reach": reach, "width": maxf(half_width, 0.5), "circle": null, "lance": lance,
+		"fx": null, "on": false, "left": time, "hit": {}, "spin": 0.0, "flicker": 0.0, "flies": airborne and lance, "push": Vector3.ZERO}
+	_beam.circle = UltimateFx.circle(GameData.text(a, "damage_type", "Fire"), _beam_from(_beam, player, dir), dir,
 		t.lance_circle_diameter * 0.5, LUNGE_TIME + time)
-	_beam = {"a": a, "player": player, "reach": reach, "width": maxf(half_width, 0.5), "circle": circle,
-		"fx": null, "on": false, "left": time, "hit": {}, "spin": 0.0, "flicker": 0.0}
+	if lance and _beam.circle != null:  # darker red (user, 2026-11-20)
+		for m: MeshInstance3D in _beam.circle.find_children("*", "MeshInstance3D", false, false):
+			(m.material_override as StandardMaterial3D).albedo_color = Color(t.lance_tint, 1.0)
 	var tw := create_tween()
-	tw.tween_method(_leap_step.bind(player, start, start + dir * lunge, 0.0), 0.0, 1.0, LUNGE_TIME)
+	if lunge > 0.0:  # (a lunge holds you to the ground: not in the air)
+		tw.tween_method(_leap_step.bind(player, start, start + dir * lunge, 0.0), 0.0, 1.0, LUNGE_TIME)
+	else:
+		tw.tween_interval(LUNGE_TIME)
 	tw.tween_callback(_start_beam)
+
+
+## Where beam `b` fires from: the Fire Lance's circle lance_chest_ahead in front of your chest, the
+## Lightning beam's before your forehead.
+func _beam_from(b: Dictionary, player: Node, dir: Vector3) -> Vector3:
+	if not b.lance:
+		return _brow(player, dir)
+	return (player.global_position as Vector3) + Vector3.UP * 1.25 + dir * GameData.tuning.lance_chest_ahead
+
+
+## Where beam `b` points: at the crosshair; in the air, straight where you look, down too (so a lance
+## at the ground carries you).
+func _beam_dir(b: Dictionary, player: Node) -> Vector3:
+	if b.flies and player.has_method("look_direction"):
+		return player.look_direction()
+	return player.aim_direction(_beam_from(b, player, player.facing))
+
+
+## While a Fire Lance fired in the air points down: the push carrying you (Player._move), else ZERO.
+func lance_push() -> Vector3:
+	return _beam.get("push", Vector3.ZERO) if not _beam.is_empty() else Vector3.ZERO
 
 
 ## In front of your forehead, `dir` (where you aim) ahead of it.
@@ -398,8 +426,8 @@ func _start_beam() -> void:
 	b.on = true
 	var player: Node = b.player
 	var dir: Vector3 = player.facing
-	if GameData.text(b.a, "shape") == "Cone":  # the Lightning beam is drawn fresh each moment (_update_beam)
-		b.fx = _lance_fx(GameData.text(b.a, "ability_id"), _brow(player, dir), dir, b.reach, b.width, t.lance_beam_time)
+	if b.lance:  # the Lightning beam is drawn fresh each moment (_update_beam)
+		b.fx = _lance_fx(GameData.text(b.a, "ability_id"), _beam_from(b, player, dir), dir, b.reach, b.width, t.lance_beam_time, t.lance_tint)
 	_update_beam(0.0)
 	Combat.shake(t.shake_explosion)
 	HitStop.trigger(t.hitstop_light)
@@ -420,16 +448,18 @@ func _update_beam(delta: float) -> void:
 				n.queue_free()
 		_beam = {}
 		return
-	var dir: Vector3 = player.aim_direction(_brow(player, player.facing))
-	var from := _brow(player, dir)
+	var dir := _beam_dir(b, player)
+	var from := _beam_from(b, player, dir)
+	# Fired in the air and pointing down at the ground (user, 2026-11-20): it carries you, away from where it points.
+	b.push = -dir * GameData.tuning.lance_fly_speed if b.on and b.flies and dir.y < -0.3 else Vector3.ZERO
 	if circle != null:
 		circle.global_position = from
 		circle.quaternion = Quaternion(Vector3.UP, dir) * Quaternion(Vector3.UP, b.spin)
 	if not b.on:
 		return
-	if fx != null and absf(dir.y) < 0.99:
+	if fx != null:
 		fx.global_position = from
-		fx.look_at(from + dir, Vector3.UP)
+		fx.look_at(from + dir, Vector3.UP if absf(dir.y) < 0.99 else Vector3.FORWARD)
 	elif fx == null and GameData.text(b.a, "shape") == "Beam":
 		b.flicker -= delta
 		if b.flicker <= 0.0:  # a crackling bolt redrawn every moment, round a white-hot core
@@ -443,13 +473,15 @@ func _update_beam(delta: float) -> void:
 ## Your lance scene (models/own/fx/fire/forge_fire_lance.tscn for `id`) at `from` pointing `dir`,
 ## stretched to `reach` long and `half_width` * 2 across, its fade landing `time` s later; without
 ## the scene, the code's beam. Returns the scene (null without).
-func _lance_fx(id: String, from: Vector3, dir: Vector3, reach: float, half_width: float, time: float) -> Node3D:
+func _lance_fx(id: String, from: Vector3, dir: Vector3, reach: float, half_width: float, time: float, tint := Color.WHITE) -> Node3D:
 	var scene := ElementFx.own_scene(id)
 	var root := Vfx._root()
 	if scene == null or root == null:
 		ElementFx.beam("Fire", from, from + dir * reach)
 		return null
 	var fx: Node3D = scene.instantiate()
+	if tint != Color.WHITE:
+		_tint(fx, tint)
 	root.add_child(fx)
 	var across: float = half_width * 2.0 / LANCE_FX_WIDTH
 	fx.scale = Vector3(across, across, reach / LANCE_FX_LENGTH)
@@ -460,6 +492,25 @@ func _lance_fx(id: String, from: Vector3, dir: Vector3, reach: float, half_width
 	fx.global_position = from
 	fx.look_at(from + dir, Vector3.UP if absf(dir.y) < 0.99 else Vector3.FORWARD)  # straight down: the boot jets
 	return fx
+
+
+## Tints a scene: its sprites, and the colors its animations give them (they'd undo a plain tint).
+## Each copy gets its own animations, so the scene itself is left as it was.
+static func _tint(fx: Node, tint: Color) -> void:
+	for ap: AnimationPlayer in fx.find_children("*", "AnimationPlayer", true, false):
+		for lib_name in ap.get_animation_library_list():
+			var lib: AnimationLibrary = ap.get_animation_library(lib_name).duplicate(true)
+			for anim_name in lib.get_animation_list():
+				var anim := lib.get_animation(anim_name)
+				for ti in anim.get_track_count():
+					if String(anim.track_get_path(ti)).ends_with(":modulate"):
+						for k in anim.track_get_key_count(ti):
+							var c: Color = anim.track_get_key_value(ti, k)
+							anim.track_set_key_value(ti, k, Color(c.r * tint.r, c.g * tint.g, c.b * tint.b, c.a))
+			ap.remove_animation_library(lib_name)
+			ap.add_animation_library(lib_name, lib)
+	for s: SpriteBase3D in fx.find_children("*", "SpriteBase3D", true, false):
+		s.modulate = Color(s.modulate.r * tint.r, s.modulate.g * tint.g, s.modulate.b * tint.b, s.modulate.a)
 
 
 ## A beam from `from` along `dir`: strikes each enemy it touches (anywhere feet to head) that isn't

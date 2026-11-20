@@ -74,8 +74,17 @@ func _process(delta: float) -> void:
 		var focus: Vector3 = target.camera_focus() if target.has_method("camera_focus") else target.global_position
 		var aims: bool = target.has_method("aims_with_body") and target.aims_with_body()
 		_shoulder = lerpf(_shoulder, t.aim_shoulder_offset if aims and not first_person else 0.0, clampf(6.0 * delta, 0.0, 1.0))
-		# Moved, not h_offset: the crosshair ray from the camera's middle must stay true.
-		var goal := focus + Vector3.UP * (height + _low_offset) + Vector3(cos(_view_yaw), 0.0, -sin(_view_yaw)) * _shoulder
+		# Over your right shoulder (user, 2026-11-20): the camera stands where it would swung camera_side_deg
+		# round to your right, still looking where you aim. Moved, not h_offset: the crosshair ray from
+		# the camera's middle must stay true.
+		var side := 0.0 if first_person else deg_to_rad(t.camera_side_deg)
+		_arm.spring_length = 0.0 if first_person else distance * cos(side)
+		var pivot := focus + Vector3.UP * (height + _low_offset)
+		var goal := pivot + Vector3(cos(_view_yaw), 0.0, -sin(_view_yaw)) * (_shoulder + distance * sin(side))
+		if side > 0.0 and is_inside_tree():  # never put the pivot inside a wall beside you
+			var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(pivot, goal, 1))
+			if not hit.is_empty():
+				goal = hit.position + (pivot - goal).normalized() * 0.3
 		global_position = global_position.lerp(goal, clampf(follow_speed * delta, 0.0, 1.0)) + _kick
 	_kick = _kick.lerp(Vector3.ZERO, clampf(18.0 * delta, 0.0, 1.0))
 	var k := clampf(look_smoothing * delta, 0.0, 1.0)

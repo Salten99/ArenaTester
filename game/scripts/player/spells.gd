@@ -145,7 +145,7 @@ func _magma(a: Dictionary, player: Node, spot: Vector3) -> void:
 		if flames != null:
 			ball.add_child(flames)
 			flames.emitting = true
-	_magma_balls.append({"a": a, "player": player, "spot": spot, "ball": ball, "from": ground, "time": 0.0, "thrown": false, "hurled_at": Vector3.ZERO})
+	_magma_balls.append({"a": a, "player": player, "spot": spot, "ball": ball, "from": ground, "time": 0.0, "thrown": false, "at": Vector3.ZERO, "vel": Vector3.ZERO})
 
 
 ## Where the ball sits in your raised right hand.
@@ -179,19 +179,33 @@ func _update_magma(m: Dictionary, delta: float) -> void:
 	if m.time < t.magma_throw_windup:  # drawn back for the throw
 		if ball != null:
 			ball.global_position = _hand(player) if _alive(player) else ball.global_position
-		m.hurled_at = ball.global_position if ball != null else player.global_position + Vector3.UP * 1.7
+		var from: Vector3 = ball.global_position if ball != null else player.global_position + Vector3.UP * 1.7
+		# Hurled hard and nearly flat (user, 2026-11-20), aimed a touch high so its slight drop lands it on the spot.
+		var fly := from.distance_to(m.spot) / t.magma_speed
+		var aim: Vector3 = m.spot + Vector3.UP * (0.5 * t.magma_drop * fly * fly + 0.3)
+		m.at = from
+		m.vel = (aim - from).normalized() * t.magma_speed
 		return
-	var from: Vector3 = m.hurled_at
-	var spot: Vector3 = m.spot
-	var flight := maxf(from.distance_to(spot) / t.magma_speed, 0.2)
-	var f := clampf((m.time - t.magma_throw_windup) / flight, 0.0, 1.0)
-	if ball != null:  # an arc: up a little, then down onto the spot
-		ball.global_position = from.lerp(spot, f) + Vector3.UP * sin(f * PI) * from.distance_to(spot) * 0.12
-	if f >= 1.0:
+	# It flies on until it touches something: an enemy, the ground or a wall, and bursts there.
+	var at: Vector3 = m.at
+	m.vel = (m.vel as Vector3) + Vector3.DOWN * t.magma_drop * delta
+	var next: Vector3 = at + m.vel * delta
+	var burst := Vector3.INF
+	var hit := get_viewport().get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(at, next, 0b001)) if is_inside_tree() else {}
+	if not hit.is_empty():
+		burst = hit.position
+	for e in Combat.enemies_in_radius(next, t.magma_ball_size + 0.6):
+		if e.global_position.y + e.aim_height() * 2.0 > next.y - t.magma_ball_size:  # under its head, not passing over it
+			burst = next
+			break
+	m.at = next
+	if ball != null:
+		ball.global_position = next
+	if burst != Vector3.INF or m.time > 4.0:
 		_magma_balls.erase(m)
 		if ball != null:
 			ball.queue_free()
-		_magma_burst(m.a, player, spot)
+		_magma_burst(m.a, player, burst if burst != Vector3.INF else next)
 
 
 func _magma_burst(a: Dictionary, player: Node, spot: Vector3) -> void:
