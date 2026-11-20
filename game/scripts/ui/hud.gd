@@ -170,7 +170,7 @@ func _find_boss() -> Enemy:
 		var u: Enemy = e as Enemy
 		if u == null or u.is_dead() or u.team != Enemy.Team.HOSTILE:
 			continue
-		var big := u.mini_boss or u.giant or u.unit_id.begins_with("champ_") or GameData.text(u.unit, "role") in ["Boss", "Miniboss"]
+		var big := u.mini_boss or u.giant or GameData.text(u.unit, "role") in ["Boss", "Miniboss"]
 		if not big or u.target == null:
 			continue
 		var d := u.global_position.distance_to(player.global_position)

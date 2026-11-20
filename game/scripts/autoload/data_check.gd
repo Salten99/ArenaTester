@@ -1,6 +1,6 @@
 class_name DataCheck
 extends RefCounted
-## Cross-checks the exported spreadsheet so typos show up as clear warnings
+## Cross-checks the game data (data/*.json) so typos show up as clear warnings
 ## (in Godot's Output panel and the tests) instead of silent bugs.
 ## Returns a list of problems; empty means the data is consistent.
 

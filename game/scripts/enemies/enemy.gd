@@ -138,29 +138,6 @@ const CHARGE_TIME := 1.1
 const CHARGE_COOLDOWN := 6.0
 
 
-## A wild animal grown to a monstrous size, a mini boss (user, 2026-11-03). After setup, before adding to the tree.
-func make_giant() -> void:
-	var t: CombatTuning = GameData.tuning
-	make_mini_boss()
-	giant = true
-	civilian = false  # even a giant deer fights
-	peaceful = false
-	size_scale = t.giant_scale
-	unit = unit.duplicate()
-	unit["display_name"] = "Giant " + GameData.text(unit, "display_name")
-	unit["hp"] = GameData.num(unit, "hp", 25.0) * t.giant_health_mult
-	unit["damage"] = maxf(GameData.num(unit, "damage", 0.0) * t.giant_damage_mult, t.giant_min_damage)
-	unit["xp_reward"] = GameData.num(unit, "xp_reward", 2.0) * t.giant_xp_mult
-	unit["attack_range_m"] = GameData.num(unit, "attack_range_m", 2.0) * 1.6
-
-
-func make_mini_boss() -> void:
-	mini_boss = true
-	is_large = true
-	size_scale = 2.0
-	_base_color = Color(0.6, 0.25, 0.25)
-
-
 ## Call before adding to the tree.
 func setup(p_unit_id: String, p_player: Node3D, p_director: CrowdDirector, p_team := Team.HOSTILE) -> void:
 	unit_id = p_unit_id

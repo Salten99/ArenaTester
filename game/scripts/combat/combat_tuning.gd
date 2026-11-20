@@ -10,6 +10,11 @@ extends Resource
 @export_range(0.0, 0.3, 0.005) var hitstop_heavy := 0.09
 ## Game speed during a freeze (0 = full stop).
 @export_range(0.0, 1.0, 0.01) var hitstop_time_scale := 0.05
+## Slow motion after a perfect dodge and on a finisher: how long (real s) and the game speed.
+@export_range(0.0, 2.0, 0.05) var perfect_dodge_slow_time := 0.35
+@export_range(0.05, 1.0, 0.05) var perfect_dodge_slow_scale := 0.3
+@export_range(0.0, 2.0, 0.05) var finisher_slow_time := 0.25
+@export_range(0.05, 1.0, 0.05) var finisher_slow_scale := 0.25
 
 @export_group("Camera shake")
 @export_range(0.0, 1.0, 0.01) var shake_light := 0.12
@@ -370,16 +375,6 @@ extends Resource
 @export_group("Feedback")
 @export var show_damage_numbers := true
 @export var hitstop_enabled := true
-
-@export_group("Giant animals")
-## x its normal size.
-@export var giant_scale := 2.6
-## x its normal health, damage and the XP it gives.
-@export var giant_health_mult := 5.0
-@export var giant_damage_mult := 2.2
-@export var giant_xp_mult := 10.0
-## A giant of an animal that never fought before hits at least this hard.
-@export var giant_min_damage := 18.0
 
 @export_group("Battles")
 ## Enemies on the field at once; the rest of a wave waits its turn (WaveDirector.reserve).

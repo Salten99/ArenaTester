@@ -962,14 +962,13 @@ var parry_for_all := false
 var no_stamina := false  ## nothing costs stamina
 var _perfect_done := false
 const PERFECT_DODGE_WINDOW := 0.2  ## s from the dodge's start
-const PERFECT_DODGE_SLOW := 0.35   ## real s of slow motion
 const PERFECT_DODGE_BONUS := 60.0  ## damage % for PERFECT_DODGE_BUFF s
 const PERFECT_DODGE_BUFF := 2.0
 
 
 func _perfect_dodge() -> void:
 	_perfect_done = true
-	HitStop.slow(PERFECT_DODGE_SLOW, 0.3)
+	HitStop.slow(GameData.tuning.perfect_dodge_slow_time, GameData.tuning.perfect_dodge_slow_scale)
 	stats.add_timed("perfect_dodge", "damage_pct", PERFECT_DODGE_BONUS, PERFECT_DODGE_BUFF)
 	Vfx.ring(global_position + Vector3.UP * 0.1, 2.2, Color(0.5, 0.85, 1.0), 0.35)
 	_flash(Color(0.55, 0.85, 1.0))
@@ -983,7 +982,7 @@ func _finisher(e: Enemy) -> void:
 	_face_yaw(atan2(-to.x, -to.z))
 	if visual != null:
 		visual.play_strike("Melee_Unarmed_Attack_Punch_A", GRAB_CLAMP, GRAB_CLAMP + 0.1)
-	HitStop.slow(0.25, 0.25)
+	HitStop.slow(GameData.tuning.finisher_slow_time, GameData.tuning.finisher_slow_scale)
 	var info := DamageInfo.make(e.health.hp + 1.0, "Physical", DamageInfo.Kind.HEAVY, self)
 	info.knockback = GameData.tuning.knockback_heavy
 	info.knockback_dir = to.normalized() if to.length() > 0.05 else facing

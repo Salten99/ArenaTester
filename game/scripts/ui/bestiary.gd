@@ -22,7 +22,7 @@ static func open(parent: Node) -> Bestiary:
 
 
 static func is_discovered(unit_id: String) -> bool:
-	return ("creature:" + unit_id) in Meta.data.codex or ("creature:giant_" + unit_id) in Meta.data.codex
+	return ("creature:" + unit_id) in Meta.data.codex
 
 
 ## Every creature in the book, grouped by faction then name.

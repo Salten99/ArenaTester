@@ -9,8 +9,7 @@ const TUNING_PATH := "res://tuning/combat_tuning.tres"
 const ID_KEYS := {
 	"races": "race_id", "gods": "god_id", "weapons": "weapon_id", "god_abilities": "ability_id", "godly_gifts": "godly_gift_id",
 	"duo_godly_gifts": "duo_id", "status_effects": "status_id", "level_up_options": "upgrade_id",
-	"tribe_members": "member_id", "army_units": "unit_id", "champions": "champion_id",
-	"barbarians_beasts": "unit_id",
+	"army_units": "unit_id", "barbarians_beasts": "unit_id",
 }
 
 var tables := {}  # table name -> Array[Dictionary]
@@ -32,9 +31,6 @@ const SHELVED_RACES := ["owl", "elephant", "dragon", "fennec"]
 ## Milestone 1's roster (user, 2026-11-09, Council VIII: "less options for the characters").
 ## Races you can't start as any more.
 const START_HIDDEN_RACES := ["gnome", "gnoll", "centaur", "treekin", "ratfolk", "cat"]
-## The races you can start as for now (user, 2026-11-16: the dwarf only, the rest built once it's done).
-## The start screen's ring shows the other start races blacked out and locked. Add a race_id to open it.
-const PLAYABLE_RACES := ["dwarf"]
 ## Gods (and with them their damage types) set aside: no one worships them, they offer no gifts,
 ## their abilities and gifts (and duo gifts with them) are never offered. Rows stay on the sheet
 ## and still load by id; empty this list to bring them back. Any race may take any kept god.
@@ -78,7 +74,7 @@ func load_all() -> void:
 		push_warning("GameData: no tuning resource; using defaults.")
 		tuning = CombatTuning.new()
 	for problem in DataCheck.run():
-		push_warning("Spreadsheet: " + problem)
+		push_warning("Game data: " + problem)
 
 
 func row(table: String, id: String) -> Dictionary:
@@ -137,9 +133,9 @@ func abilities_for(god_id: String) -> Dictionary:
 	return out
 
 
-## Any unit row: army units, barbarians and beasts, champions or tribe members (villagers).
+## Any unit row: army units or barbarians and beasts.
 func unit(id: String) -> Dictionary:
-	for table in ["army_units", "barbarians_beasts", "champions", "tribe_members"]:
+	for table in ["army_units", "barbarians_beasts"]:
 		var r := row(table, id)
 		if not r.is_empty():
 			return r

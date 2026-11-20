@@ -1855,8 +1855,8 @@ func test_art_checklist() -> void:
 		and not by_file.call("dwarf/rogue/body.glb").is_empty() and by_file.call("dwarf/knife.glb").is_empty() and by_file.call("dwarf/fists.glb").is_empty(),
 		"each race lists every class's body and weapon and the Guardian's shield; no throwing knife or fists")
 	check(app.current(axe) == ModelRegistry.OWN + "dwarf/guardian/weapon.glb", "and shows what the game uses now (the user's dwarf axe)")
-	var villager: Dictionary = by_file.call(str(GameData.rows("tribe_members")[0].model_file))
-	check(app.target(villager).begins_with("user://checklist_test/own/%s/people/" % villager.dir.get_slice("/", 0)), "a villager goes in its race's people folder")
+	var soldier: Dictionary = by_file.call(str(GameData.rows("army_units")[0].model_file))
+	check(app.target(soldier).begins_with("user://checklist_test/own/%s/people/" % soldier.dir.get_slice("/", 0)), "an army unit goes in its race's people folder")
 	var dwarf: Dictionary = items.filter(func(i): return i.file == "race_dwarf.glb")[0]
 	var gen_copy := ProjectSettings.globalize_path("user://checklist_test/gen/race_dwarf.glb")
 	DirAccess.make_dir_recursive_absolute(gen_copy.get_base_dir())
@@ -3251,6 +3251,15 @@ func test_bestiary_saved() -> void:
 	Meta.load_profile()
 	check(("creature:" + WaveDirector.BASIC_UNIT) in Meta.data.codex, "a discovered creature is still in the bestiary after a reload")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SaveSystem.PROFILE_PATH))
+	# An unreadable profile is kept aside, never written over.
+	var f := FileAccess.open(SaveSystem.PROFILE_PATH, FileAccess.WRITE)
+	f.store_string("{oops")
+	f.close()
+	var aside := SaveSystem.PROFILE_PATH.get_basename() + ".broken.json"
+	Meta.load_profile()
+	check(FileAccess.file_exists(aside) and FileAccess.get_file_as_string(aside) == "{oops" and Meta.data.codex.is_empty(),
+		"a broken profile is kept as profile.broken.json and the game starts with an empty bestiary")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(aside))
 
 
 func test_hitstop_in_slow_motion() -> void:

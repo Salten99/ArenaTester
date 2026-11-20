@@ -126,10 +126,6 @@ func gather() -> Array:
 	# People go in their race's people/ folder.
 	for u in GameData.rows("army_units"):
 		add.call("Army units", "%s (%s)" % [GameData.text(u, "display_name"), GameData.text(GameData.race(u.race_id), "display_name")], u.get("model_file"), "model", {"dir": "%s/people/" % u.race_id})
-	for m in GameData.rows("tribe_members"):
-		add.call("Villagers", "%s (%s)" % [GameData.text(m, "display_name"), GameData.text(GameData.race(m.race_id), "display_name")], m.get("model_file"), "model", {"dir": "%s/people/" % m.race_id})
-	for c in GameData.rows("champions"):
-		add.call("Champions", GameData.text(c, "display_name"), c.get("model_file"), "model", {"dir": "%s/people/" % c.race_id})
 	for b in GameData.rows("barbarians_beasts"):
 		add.call("Beasts and monsters", GameData.text(b, "display_name"), b.get("model_file"))
 	var world := DirAccess.get_files_at(models_dir + "gen/world/") if DirAccess.dir_exists_absolute(models_dir + "gen/world/") else PackedStringArray()

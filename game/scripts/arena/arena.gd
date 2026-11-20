@@ -203,7 +203,7 @@ func _on_killed(target: Node, info: DamageInfo) -> void:
 		return  # one wild side killing another: not your XP
 	Run.note("kills")
 	Meta.discover(str(target.get("unit_id")))
-	give_xp(GameData.num(target.get("unit") if target.get("unit") != null else {}, "xp_reward", 2.0) * float(target.get_meta("xp_mult", 1.0)))  # a battle's share (WaveDirector.army_mult)
+	give_xp(GameData.num(target.get("unit") if target.get("unit") != null else {}, "xp_reward", 2.0))
 
 
 func give_xp(xp: float) -> void:
