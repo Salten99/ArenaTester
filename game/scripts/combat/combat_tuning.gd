@@ -225,8 +225,11 @@ extends Resource
 @export_range(0.5, 3.0, 0.05) var ult_dragon_head_scale := 1.25  ## the head, this much bigger than the body
 ## Each dragon's path is pushed up to this far (m) a random way every cast; they still land on the spot.
 @export_range(0.0, 10.0, 0.25) var ult_dragon_wander := 4.0
-@export_range(0.0, 8.0, 0.1) var ult_dragon_wave := 2.5
+@export_range(0.0, 8.0, 0.1) var ult_dragon_wave := 3.75  # 2.5 until 2026-11-20 (user: bigger curves)
 @export_range(0.0, 6.0, 0.25) var ult_dragon_coils := 2.0
+@export_range(0.0, 2.0, 0.05) var ult_dragon_wave_up := 0.6  ## its up-and-down weave, this much of the side-to-side (0.3 until 2026-11-20)
+## How much slower it goes through bends than down straights (0 = the same speed everywhere).
+@export_range(0.0, 10.0, 0.25) var ult_dragon_bend_slow := 3.0
 ## Where the dragon lands the ground burns this long (s), over this much of the ultimate's radius,
 ## setting alight whoever is in it and dealing this much of the ultimate's damage a second.
 @export_range(0.0, 15.0, 0.5) var ult_fire_ground_time := 4.0
