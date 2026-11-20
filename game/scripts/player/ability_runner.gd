@@ -26,6 +26,8 @@ var remaining := {}   # slot -> seconds left on cooldown
 var invulnerable := false
 var _beam := {}  # the Fire Lance's (or Lightning beam's) beam while it's on (user, 2026-11-19)
 var _dragons := []  # the Fire ultimate's flame dragons while they fly
+var hover_y := 0.0  # the Fire ultimate's lift: the height you hang at, for _hover_left s more
+var _hover_left := 0.0
 var spells := Spells.new()  # the shapes that aren't a plain blast (spells.gd)
 
 
@@ -41,6 +43,7 @@ func load_for(god_id: String) -> void:
 func _physics_process(delta: float) -> void:
 	for slot in remaining:
 		remaining[slot] = maxf(0.0, remaining[slot] - delta)
+	_hover_left = maxf(0.0, _hover_left - delta)
 	if not _beam.is_empty():
 		_update_beam(delta)
 	for d: Dictionary in _dragons.duplicate():
@@ -155,18 +158,30 @@ func _fire_ultimate(a: Dictionary, player: Node, spot: Vector3, radius: float) -
 	var flat := Vector3(spot.x - from.x, 0.0, spot.z - from.z)
 	var ahead: Vector3 = flat.normalized() if flat.length() > 0.5 else player.facing
 	var right := ahead.cross(Vector3.UP).normalized()
-	var top := _brow(player, Vector3.ZERO) + Vector3.UP * t.ult_arc_height  # the arc's middle
+	# You rise ult_lift_height off the ground (user, 2026-11-20) and hang there until the dragons land;
+	# the arc opens over where your head will be.
+	hover_y = from.y + t.ult_lift_height
+	_hover_left = t.ult_lift_time + t.ult_dragon_delay + t.ult_dragon_time + 0.3
+	var top := _brow(player, Vector3.ZERO) + Vector3.UP * (t.ult_arc_height + t.ult_lift_height)  # the arc's middle
 	var lasts := t.ult_dragon_delay + t.ult_dragon_time * 1.6
 	for i in 5:  # 20..160 degrees round, like a rainbow over you
 		var ang := deg_to_rad(lerpf(20.0, 160.0, i / 4.0))
-		var at := top + (right * cos(ang) + Vector3.UP * (sin(ang) - 1.0)) * t.ult_arc_radius
+		var out := right * cos(ang) + Vector3.UP * sin(ang)  # from the arc's center out to this circle
+		var at := top + (out - Vector3.UP) * t.ult_arc_radius
 		get_tree().create_timer(t.ult_arc_gap * absf(i - 2), false).timeout.connect(  # from the middle outward
 			func(): UltimateFx.circle("Fire", at, ahead, t.ult_arc_circle_size * (1.3 if i == 2 else 1.0), lasts))
-	var d := {"a": a, "player": player, "spot": spot, "radius": radius, "right": right, "time": -t.ult_dragon_delay,
-		"p0": top, "p1": top + ahead * flat.length() * 0.2 + Vector3.UP * 7.0, "p2": spot + Vector3.UP * 9.0 - ahead * 2.0,
-		"p3": spot, "landed": false, "body": []}
-	_dragons.append(d)
+		# A dragon out of each circle (user, 2026-11-20): they fan out, then all dive into the one spot.
+		# The middle one deals the blast; the others land with it.
+		_dragons.append({"a": a, "player": player, "spot": spot, "radius": radius, "right": right, "phase": i * 0.7,
+			"time": -t.ult_dragon_delay, "main": i == 2,  # all together, so they land as one
+			"p0": at, "p1": at + ahead * flat.length() * 0.2 + Vector3.UP * 5.0 + out * 4.0,
+			"p2": spot + Vector3.UP * 9.0 - ahead * 2.0 + out * 3.0, "p3": spot, "landed": false, "body": []})
 	Combat.shake(t.shake_light)
+
+
+## While the Fire ultimate holds you up: the Player hangs at hover_y.
+func levitating() -> bool:
+	return _hover_left > 0.0
 
 
 ## Where the dragon's body is at `u` (0 the circle, 1 the ground): a curve out, up and down onto the
@@ -175,7 +190,8 @@ func _dragon_at(d: Dictionary, u: float) -> Vector3:
 	var t: CombatTuning = GameData.tuning
 	var p: Vector3 = (d.p0 as Vector3).bezier_interpolate(d.p1, d.p2, d.p3, u)
 	var weave := sin(u * PI) * t.ult_dragon_wave
-	return p + (d.right as Vector3) * sin(u * TAU * t.ult_dragon_coils) * weave + Vector3.UP * cos(u * TAU * t.ult_dragon_coils) * weave * 0.3
+	var turn: float = u * TAU * t.ult_dragon_coils + d.phase  # each weaves to its own beat
+	return p + (d.right as Vector3) * sin(turn) * weave + Vector3.UP * cos(turn) * weave * 0.3
 
 
 func _update_dragon(d: Dictionary, delta: float) -> void:
@@ -259,6 +275,9 @@ func _dragon_lands(d: Dictionary) -> void:
 	var t: CombatTuning = GameData.tuning
 	var spot: Vector3 = d.spot
 	var radius: float = d.radius
+	if not d.main:  # the others' landing is the look; the middle one deals the blast
+		Vfx.burst(spot + UltimateFx._in_disc(radius * 0.4), radius * 0.6, Color(1.0, 0.6, 0.15, 0.8), 0.2)
+		return
 	_blast(d.a, player, spot, radius)
 	ElementFx.area("Fire", spot, radius * 1.2)
 	Vfx.burst(spot, radius, Color(1.0, 0.7, 0.2, 0.8), 0.2)

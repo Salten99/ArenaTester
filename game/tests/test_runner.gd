@@ -457,27 +457,33 @@ func test_fire_ultimate() -> void:
 		e.freeze(8.0)
 	var t: CombatTuning = GameData.tuning
 	var spot: Vector3 = p.global_position + Vector3(0, 0, -12)
+	var lifted: Vector3 = p.global_position + Vector3.UP * t.ult_lift_height  # where you'll hang
 	check(p.abilities.cast("Ultimate", p, Vector3.FORWARD, spot), "the Fire ultimate casts")
 	await _frames(int(t.ult_arc_gap * 2.0 * hz) + 4)
 	var over := get_tree().get_nodes_in_group("magic_circle").filter(func(c):
-		var to: Vector3 = c.global_position - p.global_position
+		var to: Vector3 = c.global_position - lifted
 		return to.y > 1.0 and to.length() < 7.0)
 	check(over.size() == 5, "five magic circles open in an arc over your head (%d)" % over.size())
-	var heights: Array = over.map(func(c): return c.global_position.y - p.global_position.y)
+	var heights: Array = over.map(func(c): return c.global_position.y - lifted.y)
 	heights.sort()
 	check(heights[4] > 3.0 and heights[0] < heights[4] - 1.0, "arching up over it, the middle one highest")
 	check(enemies.all(func(e): return e.health.hp == e.health.max_hp), "nothing is hit yet")
-	await _frames(int((t.ult_dragon_delay + t.ult_dragon_time * 0.5) * hz))
-	var dragon: Dictionary = p.abilities._dragons[0] if not p.abilities._dragons.is_empty() else {}
-	var head: Node3D = dragon.body[0] if not dragon.is_empty() and not dragon.body.is_empty() else null
-	check(head != null and head.visible and head.global_position.y > spot.y + 3.0, "a flame dragon pours out and snakes through the air")
-	check(dragon.body.size() == t.ult_dragon_segments, "a long body behind its head (%d pieces)" % dragon.body.size())
+	await _frames(int(t.ult_lift_time * hz) + 2)
+	check(p.global_position.y > lifted.y - 0.5 and p.abilities.levitating(), "you rise %.0f m off the ground (%.1f)" % [t.ult_lift_height, p.global_position.y - spot.y])
+	await _frames(int((t.ult_dragon_delay + t.ult_dragon_time * 0.5 - t.ult_lift_time) * hz))
+	var dragons: Array = p.abilities._dragons
+	check(dragons.size() == 5, "a flame dragon out of each circle (%d)" % dragons.size())
+	var flying := dragons.filter(func(d): return not d.body.is_empty() and d.body[0].visible and d.body[0].global_position.y > spot.y + 3.0)
+	check(flying.size() == 5, "all five snake through the air (%d)" % flying.size())
+	check(dragons.all(func(d): return d.body.size() == t.ult_dragon_segments), "each with a long body behind its head")
+	check(dragons.all(func(d): return (d.p3 as Vector3).is_equal_approx(spot)), "all headed for the one spot")
 	await _frames(int(t.ult_dragon_time * 0.6 * hz) + 4)
 	check(enemies.all(func(e): return e.health.hp < e.health.max_hp), "it dives into the aimed spot, hitting everything there")
 	var fires := get_tree().get_nodes_in_group("hazards").filter(func(h): return Vector2(h.global_position.x - spot.x, h.global_position.z - spot.z).length() < 1.0)
 	check(fires.size() == 1, "and the ground burns there")
-	await _frames(int(t.ult_dragon_time * hz) + 10)
-	check(p.abilities._dragons.is_empty(), "then its tail pours into the ground and it's gone")
+	await _frames(int(t.ult_dragon_time * hz) + 40)
+	check(p.abilities._dragons.is_empty(), "then their tails pour into the ground and they're gone")
+	check(not p.abilities.levitating() and p.global_position.y < spot.y + 0.5, "and you come back down")
 	for e in enemies:
 		e.queue_free()
 	p.abilities.defs = kept

@@ -357,6 +357,11 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 		velocity.y = fly * 0.7 * (float(intent.jump_held) - float(intent.dodge_held))
 		_finish_move(delta)
 		return
+	if abilities.levitating():  # the Fire ultimate lifts you, eased up toward its top, and holds you there
+		velocity = Vector3(0.0, clampf((abilities.hover_y - global_position.y) / maxf(t.ult_lift_time * 0.5, 0.05), -20.0, 20.0), 0.0)
+		_finish_move(delta)
+		velocity.y = 0.0  # you drop from rest when it lets go
+		return
 	if not on_floor:
 		velocity.y -= t.gravity * delta
 		if race_id in GLIDERS:

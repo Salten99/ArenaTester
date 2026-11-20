@@ -194,9 +194,13 @@ extends Resource
 @export_range(1, 30) var ult_storm_strikes := 7
 ## Stone: how many rock shards rain down.
 @export_range(1, 80) var ult_shard_count := 26
-## Fire (user, 2026-11-20): five magic circles open in an arc over your head, this far above it (m),
+## Fire (user, 2026-11-20): you rise this high (m) off the ground over this long (s), and hang there
+## until the dragons land.
+@export_range(0.0, 15.0, 0.5) var ult_lift_height := 5.0
+@export_range(0.1, 2.0, 0.05) var ult_lift_time := 0.4
+## Five magic circles open in an arc over your head, this far above it (m),
 ## the arc this wide (radius, m), each circle this big (radius, m), one after another this far apart
-## (s). After this long (s) a flame dragon pours out of the middle one, snakes out and up, and dives
+## (s). After this long (s) a flame dragon pours out of each, snakes out and up, and they all dive
 ## into the aimed spot, taking this long (s) from the circle to the ground; the blast lands then.
 ## Its body is this many pieces, this thick at the head (radius, m), weaving this far each side (m)
 ## this many times on the way.
@@ -205,7 +209,7 @@ extends Resource
 @export_range(0.2, 3.0, 0.05) var ult_arc_circle_size := 0.7
 @export_range(0.0, 0.5, 0.01) var ult_arc_gap := 0.08
 @export_range(0.1, 3.0, 0.05) var ult_dragon_delay := 0.6
-@export_range(0.3, 4.0, 0.05) var ult_dragon_time := 1.2
+@export_range(0.3, 4.0, 0.05) var ult_dragon_time := 0.9  # 1.2 until 2026-11-20 (user: 33% faster)
 @export_range(6, 80) var ult_dragon_segments := 30
 @export_range(0.2, 3.0, 0.05) var ult_dragon_size := 0.9
 @export_range(0.0, 8.0, 0.1) var ult_dragon_wave := 2.5
