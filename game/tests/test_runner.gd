@@ -3250,6 +3250,9 @@ func test_bestiary_saved() -> void:
 	Meta.data = {}
 	Meta.load_profile()
 	check(("creature:" + WaveDirector.BASIC_UNIT) in Meta.data.codex, "a discovered creature is still in the bestiary after a reload")
+	for id in EndlessArena.HITS_TO_KILL:
+		Meta.discover(id)
+		check(Bestiary.is_discovered(id) and Bestiary.creatures().any(func(r): return r.unit_id == id), "%s, met in the waves, is in the bestiary" % id)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SaveSystem.PROFILE_PATH))
 	# An unreadable profile is kept aside, never written over.
 	var f := FileAccess.open(SaveSystem.PROFILE_PATH, FileAccess.WRITE)

@@ -947,6 +947,7 @@
  {
   "unit_id": "minotaur_labrys_warrior",
   "race_id": "minotaur",
+  "faction": "Beast",
   "role": "Melee",
   "display_name": "Minotaur Melee",
   "description": "Double-headed axe, sweeping attacks.",

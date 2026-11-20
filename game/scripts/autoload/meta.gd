@@ -23,7 +23,7 @@ func save() -> void:
 
 ## A creature goes in the bestiary (seen or killed). Saved at once.
 func discover(unit_id: String) -> void:
-	if unit_id == "" or GameData.row("barbarians_beasts", unit_id).is_empty() or ("creature:" + unit_id) in data.codex:
+	if unit_id == "" or GameData.unit(unit_id).is_empty() or ("creature:" + unit_id) in data.codex:
 		return
 	data.codex.append("creature:" + unit_id)
 	save()

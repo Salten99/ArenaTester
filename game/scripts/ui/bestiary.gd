@@ -28,6 +28,9 @@ static func is_discovered(unit_id: String) -> bool:
 ## Every creature in the book, grouped by faction then name.
 static func creatures() -> Array:
 	var rows: Array = GameData.rows("barbarians_beasts").duplicate()
+	for id in EndlessArena.HITS_TO_KILL:  # the waves' foes from the army sheet (the minotaur)
+		if not GameData.row("army_units", id).is_empty():
+			rows.append(GameData.row("army_units", id))
 	rows.sort_custom(func(a, b):
 		var fa := FACTION_ORDER.find(GameData.text(a, "faction"))
 		var fb := FACTION_ORDER.find(GameData.text(b, "faction"))
