@@ -942,7 +942,7 @@ func _god_passive_on_hit(target: Node) -> void:
 func enemies_in_arc(reach: float, half_angle_deg: float) -> Array:
 	var out: Array = []
 	var cos_limit := cos(deg_to_rad(half_angle_deg))
-	for e in Combat.weapon_targets(global_position, reach):
+	for e in Combat.enemies_in_radius(global_position, reach):
 		var to: Vector3 = e.global_position - global_position
 		to.y = 0.0
 		if to.length() < 0.8 or to.normalized().dot(facing) >= cos_limit:

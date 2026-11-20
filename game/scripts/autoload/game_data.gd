@@ -51,7 +51,7 @@ func load_all() -> void:
 	by_id.clear()
 	var dir := DirAccess.open(DATA_DIR)
 	if dir == null:
-		push_error("GameData: missing %s. Run tools/export_data.py." % DATA_DIR)
+		push_error("GameData: missing %s." % DATA_DIR)
 		return
 	for file in dir.get_files():
 		if not file.ends_with(".json"):

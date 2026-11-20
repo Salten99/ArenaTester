@@ -143,7 +143,7 @@ func _streak() -> void:
 
 func _targets() -> Array:
 	if not hostile:
-		var near := Combat.weapon_targets(global_position, radius, _hit)
+		var near := Combat.enemies_in_radius(global_position, radius, _hit)
 		if aimed:  # over their heads or under their feet: a miss
 			near = near.filter(func(e): return global_position.y > e.global_position.y - 0.7 and global_position.y < e.global_position.y + 2.6 * e.size_scale)
 		return near

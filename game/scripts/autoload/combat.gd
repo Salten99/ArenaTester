@@ -88,24 +88,6 @@ func area(center: Vector3, radius: float, template: DamageInfo, exclude: Array =
 	return hit
 
 
-## Units your weapon can hit besides enemies: a tribe's warriors while you help defend their
-## village (user, 2026-11-05: hit them twice before any raider and you turn on the tribe).
-const STRIKABLE := "strikable"
-
-
-## What your swings and shots can hit: enemies, and anyone STRIKABLE.
-func weapon_targets(center: Vector3, radius: float, exclude: Array = []) -> Array:
-	var out := enemies_in_radius(center, radius, exclude)
-	for e in get_tree().get_nodes_in_group(STRIKABLE):
-		if e in exclude or e.is_dead():
-			continue
-		var d: Vector3 = e.global_position - center
-		d.y = 0.0
-		if d.length() <= radius:
-			out.append(e)
-	return out
-
-
 func enemies_in_radius(center: Vector3, radius: float, exclude: Array = []) -> Array:
 	var out: Array = []
 	# The fight's crowd grid finds the nearby ones; without it (no arena), every enemy.

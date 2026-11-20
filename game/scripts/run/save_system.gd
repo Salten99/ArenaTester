@@ -1,6 +1,6 @@
 class_name SaveSystem
 extends RefCounted
-## Reads and writes the profile (unlocks, bestiary, settings) as JSON in user://.
+## Reads and writes the profile (the bestiary) as JSON in user://.
 
 ## Where it goes. Tests point it at a test file so they never touch the real profile.
 static var PROFILE_PATH := "user://profile.json"

@@ -8,8 +8,6 @@ import sys
 
 # Errors the tests cause on purpose, or that only exist on this machine.
 EXPECTED = [
-    "Parse JSON failed",           # the broken-save test feeds a broken profile
-    "CryptoCore::b64_decode",       # the fog-of-war test feeds a damaged save
     "/asset_library/",              # the asset viewer test: asset_library is local only, not in git
     "leaked at exit",               # Godot's own exit bookkeeping, not the game's
     "resources still in use at exit",
