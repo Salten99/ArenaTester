@@ -316,13 +316,22 @@ func _cage(a: Dictionary, player: Node, spot: Vector3) -> void:
 				ElementFx.beam("Lightning", p + Vector3.UP * 18.0, p)
 	if not own:
 		UltimateFx.circle("Lightning", spot + Vector3.UP * 0.06, Vector3.UP, radius, t.cage_time)
+	# Who stands inside when it's cast is caught (user, 2026-11-20): held in the circle and struck
+	# again and again until it ends.
 	var c := {"a": a, "player": player, "spot": spot, "radius": radius, "pillars": pillars, "glows": glows,
-		"left": t.cage_time, "flicker": 0.0, "bolts": [], "struck": {}, "own": own}
-	# Your bolt: thrown from your hand to the first pillar, then it bounces.
+		"left": t.cage_time, "flicker": 0.0, "bolts": [], "struck": {}, "own": own, "trapped": Combat.enemies_in_radius(spot, radius)}
+	# Your bolt, thrown from your hand to the first pillar, and one already bouncing off every pillar:
+	# it's at full tilt from the start (user, 2026-11-20).
 	var hand: Vector3 = player.global_position + Vector3.UP * 1.3 if _alive(player) else pillars[0]
 	_add_bolt(c, hand, 0, t.cage_bolt_speed)
+	for i in pillars.size():
+		_add_bolt(c, pillars[i] + Vector3.UP * 1.2, _other_pillar(c, i), t.cage_bolt_speed)
 	_cages.append(c)
 	Combat.shake(t.shake_heavy)
+	if _alive(player):  # you float cage_lift_height up while it lasts
+		var r := _runner()
+		r.hover_y = player.global_position.y + t.cage_lift_height
+		r._hover_left = t.cage_time
 
 
 ## A bolt flying from `from` to pillar `to` at `speed`.
@@ -353,9 +362,10 @@ func _update_cage(c: Dictionary, delta: float) -> void:
 	if c.left <= 0.0 or not _alive(player):
 		_end_cage(c)
 		return
+	_hold_trapped(c)
 	c.flicker -= delta
 	if c.flicker <= 0.0 and not c.own:  # the pillars crackle
-		c.flicker = 0.3
+		c.flicker = 0.15
 		var p: Vector3 = c.pillars[randi() % c.pillars.size()]
 		ElementFx.bolt_arc(p + Vector3.UP * 14.0, p)
 	for b: Dictionary in c.bolts.duplicate():
@@ -365,10 +375,13 @@ func _update_cage(c: Dictionary, delta: float) -> void:
 		var at: Vector3 = (b.from as Vector3).lerp(target, minf(b.f, 1.0))
 		if is_instance_valid(b.orb):
 			b.orb.global_position = at
-		for e in Combat.enemies_in_radius(at, 1.3):  # what it passes is struck and tossed
+		for e in Combat.enemies_in_radius(at, 1.3):  # what it passes is struck and tossed (the caught ones only shake)
 			if Combat.time - float(c.struck.get(e, -99.0)) >= t.cage_rehit:
 				c.struck[e] = Combat.time
-				_runner()._strike(c.a, player, e, at, true)
+				if c.trapped.has(e):
+					_shock(c, e)
+				else:
+					_runner()._strike(c.a, player, e, at, true)
 		if b.f >= 1.0:  # it bounces off the pillar, faster, and splits
 			var from: int = b.to
 			b.from = target
@@ -379,6 +392,37 @@ func _update_cage(c: Dictionary, delta: float) -> void:
 				ElementFx.beam("Lightning", target, c.pillars[b.to] + Vector3.UP * 1.2)
 			if c.bolts.size() < t.cage_max_bolts:
 				_add_bolt(c, target, _other_pillar(c, from), b.speed)
+
+
+## The caught ones stay inside, struck every cage_rehit s whether a bolt passes or not, never thrown out.
+func _hold_trapped(c: Dictionary) -> void:
+	var t: CombatTuning = GameData.tuning
+	var spot: Vector3 = c.spot
+	var inside: float = c.radius - 0.8
+	for e in c.trapped.duplicate():
+		if not is_instance_valid(e) or e.is_dead():
+			c.trapped.erase(e)
+			continue
+		var out := _flat(e.global_position - spot)
+		if out.length() > inside:  # pushed back from the edge
+			e.global_position = Vector3(spot.x, e.global_position.y, spot.z) + out.normalized() * inside
+		if Combat.time - float(c.struck.get(e, -99.0)) >= t.cage_rehit:
+			c.struck[e] = Combat.time
+			_shock(c, e)
+			if not c.own:
+				var p: Vector3 = c.pillars[randi() % c.pillars.size()] + Vector3.UP * 1.2
+				if not ElementFx.bolt_arc(p, e.global_position + Vector3.UP):
+					ElementFx.beam("Lightning", p, e.global_position + Vector3.UP)
+
+
+## A caught one is struck where it stands: cage_trap_damage of the spell, no throw.
+func _shock(c: Dictionary, e: Node) -> void:
+	var player: Node = c.player
+	var info: DamageInfo = player.make_hit(GameData.num(c.a, "base_damage") * GameData.tuning.cage_trap_damage, "Lightning", "Magic", e, DamageInfo.Kind.ABILITY)
+	info.no_launch = true
+	info.knockback = 0.0
+	_runner()._add_status(c.a, player, info)
+	Combat.deal(e, info)
 
 
 ## The pillars collapse in one big burst.

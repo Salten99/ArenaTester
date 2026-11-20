@@ -262,12 +262,17 @@ extends Resource
 ## Kaminari: how long it lasts (s), how many pillar bolts stand round the circle, the bouncing
 ## bolt's speed (m/s), how much faster each bounce makes it, the most bolts bouncing at once, and
 ## how soon the same enemy can be struck again (s).
-@export_range(1.0, 30.0, 0.5) var cage_time := 10.0
+## (user, 2026-11-20: 5 s, twice as fast from the start: 10 s, 14 m/s and 1.08 before.)
+@export_range(1.0, 30.0, 0.5) var cage_time := 5.0
 @export_range(3, 10) var cage_pillars := 5
-@export_range(2.0, 60.0, 0.5) var cage_bolt_speed := 14.0
-@export_range(1.0, 1.5, 0.01) var cage_speedup := 1.08
+@export_range(2.0, 80.0, 0.5) var cage_bolt_speed := 28.0
+@export_range(1.0, 1.5, 0.01) var cage_speedup := 1.0
 @export_range(1, 30) var cage_max_bolts := 12
 @export_range(0.05, 2.0, 0.05) var cage_rehit := 0.4
+## Whoever stands inside when it's cast is caught there until it ends, struck every cage_rehit s for
+## this much of its damage. You float this high (m) while it lasts.
+@export_range(0.0, 1.0, 0.05) var cage_trap_damage := 0.25
+@export_range(0.0, 20.0, 0.5) var cage_lift_height := 10.0
 ## Ice Slide: how long the slide takes (s) and how long its ice trail stays (s).
 @export_range(0.1, 2.0, 0.05) var slide_time := 0.4
 @export_range(0.5, 10.0, 0.5) var ice_trail_time := 3.0

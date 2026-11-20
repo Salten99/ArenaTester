@@ -638,11 +638,21 @@ func test_spells() -> void:
 	# Kaminari: bolts bounce round the aimed spot until it collapses.
 	var spot: Vector3 = p.global_position + Vector3(0, 0, -12)
 	var caged := [_dummy(Vector3(0, 0, -12)), _dummy(Vector3(2, 0, -13))]
+	var y0: float = p.global_position.y
 	p.abilities.cast("Ultimate", p, Vector3.FORWARD, spot)
 	await _frames(3)
 	check(p.abilities.spells.caging(), "Kaminari stands round the aimed spot")
+	var cage: Dictionary = p.abilities.spells._cages[0]
+	check(caged.all(func(e): return cage.trapped.has(e)) and cage.bolts.size() >= t.cage_pillars, "who's inside is caught, and bolts already bounce off every pillar (%d)" % cage.bolts.size())
+	caged[0].global_position = spot + Vector3(0, 0, -15)  # knocked out of it
+	await _frames(2)
+	check(Vector2(caged[0].global_position.x - spot.x, caged[0].global_position.z - spot.z).length() < 6.0, "a caught one can't leave the circle")
+	await _frames(int(t.ult_lift_time * hz) + 10)
+	check(p.global_position.y > y0 + t.cage_lift_height - 1.0, "you float %.0f m up while it lasts (%.1f)" % [t.cage_lift_height, p.global_position.y - y0])
+	var after_first: float = caged[1].health.hp
 	await _frames(int(t.cage_time * hz) + 6)
 	check(not p.abilities.spells.caging() and _hurt(caged) == 2, "Kaminari strikes what's inside, then collapses (%d of 2)" % _hurt(caged))
+	check(caged[1].health.hp < after_first, "caught ones are struck again and again")
 	_free_all(caged)
 
 	# Stone Slab: launches what's in front.
