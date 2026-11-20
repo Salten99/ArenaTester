@@ -1,9 +1,8 @@
 extends Node
-## Remembers the loadout picked in the arena menu across a scene reload, and sets the UI look.
+## Remembers the element picked in the arena menu across a scene reload, and sets the UI look.
 
-## The god and weapon the arena starts with ("" = Arena's defaults).
+## The god the arena starts with ("" = Arena's default).
 var practice_god := ""
-var practice_weapon := ""
 
 
 func _ready() -> void:

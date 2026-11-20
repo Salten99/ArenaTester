@@ -6,7 +6,6 @@ extends Node3D
 const ARENA_SIZE := 60.0
 const START_GOD := "forge_god"
 const START_RACE := "dwarf"
-const START_WEAPON := "warhammer"
 ## Gods whose godly gifts are offered, in turn, after each wave.
 const OFFER_GODS := ["forge_god", "storm_god"]
 
@@ -84,11 +83,11 @@ func _ready() -> void:
 	_begin()
 
 
-## A fresh fight state, with the god and weapon picked in the arena menu (Flow), so XP and level-ups work.
+## A fresh fight state, with the god picked in the arena menu (Flow), so XP and level-ups work.
+## You start with your fists (Run.start_new); weapons lie about the arena (scatter_weapons).
 func _prepare_run() -> void:
 	var god := Flow.practice_god if Flow.practice_god != "" else START_GOD
-	var weapon := Flow.practice_weapon if Flow.practice_weapon != "" else START_WEAPON
-	Run.start_new(START_RACE, god, run_seed, weapon)
+	Run.start_new(START_RACE, god, run_seed)
 	offer_gods = _practice_offer_gods(god)
 
 
@@ -118,6 +117,17 @@ func _build_level() -> void:
 	for i in 8:
 		var a := TAU * i / 8.0
 		Throwable.make(Throwable.KINDS[i % 4], self, Vector3(cos(a), 0.0, sin(a)) * 9.0, a)
+	scatter_weapons()
+
+
+## Lays weapons about the arena until weapon_pickups lie there (user, 2026-11-20): at the start one of
+## each kind in turn on a ring, and after each wave more to make up for thrown ones that were lost.
+func scatter_weapons() -> void:
+	var kinds := GameData.pickup_weapons()
+	var lying := get_tree().get_nodes_in_group("weapon_pickups").filter(func(w): return not w.is_queued_for_deletion()).size()
+	for i in maxi(0, GameData.tuning.weapon_pickups - lying):
+		var a := RunRng.randf_range(0.0, TAU)
+		WeaponPickup.make(kinds[(lying + i) % kinds.size()], self, Vector3(cos(a), 0.0, sin(a)) * RunRng.randf_range(5.0, 14.0))
 
 
 ## Glowing motes of magic drifting slowly up over the arena floor (arena_motes, arena_mote_color).

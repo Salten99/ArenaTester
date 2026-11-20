@@ -46,7 +46,7 @@ var _waiting_choices: Array = []  ## [[kind, title, ids, texts]] offered while a
 
 const HELP := """WASD move  ·  Shift sprint  ·  Space jump  ·  Mouse side button slide  ·  Ctrl dodge
 LMB light combo  ·  RMB heavy slam
-Q special  ·  E movement  ·  R ultimate  ·  V race skill  ·  G throwing knife  ·  C or wheel: sidearm  ·  T first person
+Q special  ·  E movement  ·  R ultimate  ·  V race skill  ·  G throw your weapon (hold for force)  ·  T first person
 P god mode  ·  1/2/3 pick a godly gift  ·  Esc menu
 
 Debug:  F1 this help  ·  F2 spawn 10 skeletons  ·  F3 spawn a cyclops  ·  F4 random godly gift
@@ -216,8 +216,8 @@ func _process(delta: float) -> void:
 	if player.race_active != null:
 		var left: float = player.race_active.cooldown
 		parts.append("[V] %s %s" % [player.race_active.title(), "ready" if left <= 0.0 else "%.0fs" % ceilf(left)])
-		parts.append("[G] Knife %s" % ("ready" if player._knife_left <= 0.0 else "%.0fs" % ceilf(player._knife_left)))
-		parts.append("[C] Bow %s" % ("ready" if player.bow_left <= 0.0 else "%.0fs" % ceilf(player.bow_left)))
+	parts.append("Fists: walk over a weapon to take it" if player.weapon_id == GameData.FISTS
+		else "[G] Throw the %s" % GameData.text(player.weapon(), "display_name", player.weapon_id))
 	_abilities.text = "   ".join(parts)
 	var lines: Array = ["Godly Gifts"]
 	for b in player.godly_gifts.owned:

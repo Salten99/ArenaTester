@@ -96,6 +96,7 @@ var _pinned_left := 0.0
 var _pin_watch_left := 0.0
 var _pin_dir := Vector3.ZERO
 var _pin_bolt: Node3D
+var _pin_weapon := ""  ## the thrown weapon carrying it, shown through it once pinned ("" = a plain bolt)
 const DETOUR_TIME := 0.9
 var _marker: MeshInstance3D
 ## The animated model, or null when using the capsule fallback.
@@ -496,6 +497,7 @@ func launch_from_hit(info: DamageInfo) -> void:
 		_pinning = true
 		_pin_watch_left = PIN_WATCH_SECONDS
 		_pin_dir = dir
+		_pin_weapon = info.pin_weapon
 	throw((dir * t.launch_speed + Vector3.UP * t.launch_lift) * k, info.source)
 
 
@@ -804,6 +806,11 @@ func _show_pin_bolt(chest: Vector3, flat: Vector3) -> void:
 	_pin_bolt.top_level = true
 	_pin_bolt.global_position = chest
 	_pin_bolt.look_at(chest + flat, Vector3.UP if absf(flat.y) < 0.99 else Vector3.RIGHT)
+	var weapon := WeaponPickup.add_model(_pin_bolt, _pin_weapon) if _pin_weapon != "" else null
+	if weapon != null:  # the thrown weapon through its chest, the grip sticking out toward you
+		weapon.rotation.y = PI
+		weapon.position.z = -0.5
+		return
 	var shaft := MeshInstance3D.new()
 	var rod := CylinderMesh.new()
 	rod.top_radius = 0.035

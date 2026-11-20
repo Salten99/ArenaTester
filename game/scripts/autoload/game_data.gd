@@ -42,8 +42,8 @@ const PLAYABLE_RACES := ["dwarf"]
 ## Stone (animal_god), the others come back once these four are polished.
 const SHELVED_GODS := ["nature_god", "war_god", "disease_god", "death_god", "chaos_god", "desert_god",
 	"sun_god", "moon_god", "harvest_god", "sea_god", "wind_god"]
-## Sidearm classes: held on their own key beside your main (melee) weapon.
-const SIDEARM_CLASSES := ["Ranged"]
+## What you hold with no weapon (user, 2026-11-20: you start with only your fists and the chain).
+const FISTS := "fists"
 
 
 func load_all() -> void:
@@ -117,30 +117,9 @@ func weapon(id: String) -> Dictionary:
 	return row("weapons", id)
 
 
-## The main (melee) weapons a race may pick at run start (Races: weapon_options; blank = all).
-func weapon_options(race_id: String) -> Array:
-	var out: Array = []
-	for w in text(race(race_id), "weapon_options").split(",", false):
-		w = w.strip_edges()
-		if rows("weapons").any(func(r): return r.weapon_id == w) and not is_sidearm(w):
-			out.append(w)
-	if out.is_empty():
-		out = rows("weapons").filter(func(r): return not is_sidearm(r.weapon_id)).map(func(r): return r.weapon_id)
-	return out
-
-
-## Bows and spell foci: carried beside your main weapon.
-func is_sidearm(weapon_id: String) -> bool:
-	return text(weapon(weapon_id), "weapon_class") in SIDEARM_CLASSES
-
-
-func sidearms() -> Array:
-	return rows("weapons").filter(func(r): return is_sidearm(r.weapon_id)).map(func(r): return r.weapon_id)
-
-
-## The sidearm every class starts with: the bow, the only one since the staff went (user, 2026-11-19).
-func sidearm_for(_weapon_id: String) -> String:
-	return sidearms()[0]
+## The weapons lying about the arena to pick up and throw: every weapon but your fists.
+func pickup_weapons() -> Array:
+	return rows("weapons").map(func(r): return r.weapon_id).filter(func(w): return w != FISTS)
 
 
 func status(id: String) -> Dictionary:

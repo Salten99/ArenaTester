@@ -4,8 +4,7 @@ extends RefCounted
 
 var seed := 0
 var race_id := ""
-var weapon_id := ""           ## your main (melee) weapon
-var sidearm_id := "bow"       ## your sidearm (bow or spells), on its own key
+var weapon_id := ""           ## what you start holding (fists; weapons are picked up in the arena)
 var god_id := ""              ## your god (the core of the build)
 var godly_gifts: Array = []   ## [{id, rank}]. The only record of the build; GodlyGiftManager mirrors it.
 var level := 1

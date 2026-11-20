@@ -6,7 +6,7 @@ extends Node
 const KEYS := {
 	"move_forward": [KEY_W], "move_back": [KEY_S], "move_left": [KEY_A], "move_right": [KEY_D],
 	"jump": [KEY_SPACE], "sprint": [KEY_SHIFT], "dodge": [KEY_CTRL],
-	"ability_signature": [KEY_Q], "ability_movement": [KEY_E], "ability_ultimate": [KEY_R], "race_active": [KEY_V], "throw_knife": [KEY_G], "sidearm": [KEY_C], "god_mode": [KEY_P], "camera_view": [KEY_T],
+	"ability_signature": [KEY_Q], "ability_movement": [KEY_E], "ability_ultimate": [KEY_R], "race_active": [KEY_V], "throw_weapon": [KEY_G], "god_mode": [KEY_P], "camera_view": [KEY_T],
 	"choose_1": [KEY_1], "choose_2": [KEY_2], "choose_3": [KEY_3],
 	"release_mouse": [KEY_ESCAPE],
 	"debug_help": [KEY_F1], "debug_spawn": [KEY_F2], "debug_spawn_large": [KEY_F3],
@@ -18,15 +18,13 @@ const MOUSE := {
 	"attack_light": MOUSE_BUTTON_LEFT, "attack_heavy": MOUSE_BUTTON_RIGHT,
 	"slide": MOUSE_BUTTON_XBUTTON1,  # mouse side button (back), as in sam-movement
 }
-## Scrolling the wheel either way switches between your main weapon and your sidearm (user, 2026-11-08).
-const WHEEL := {"switch_weapon": [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]}
 ## The actions a player can rebind, in menu order, with their labels.
 const REBINDABLE := [
 	["move_forward", "Move forward"], ["move_back", "Move back"], ["move_left", "Move left"],
 	["move_right", "Move right"], ["jump", "Jump"], ["sprint", "Sprint"], ["dodge", "Dodge"], ["slide", "Slide"],
 	["attack_light", "Light attack"], ["attack_heavy", "Heavy attack"],
 	["ability_signature", "Special ability"], ["ability_movement", "Movement ability"],
-	["ability_ultimate", "Ultimate ability"], ["race_active", "Race active skill"], ["throw_knife", "Throwing knife"], ["sidearm", "Switch to your bow and back"], ["switch_weapon", "Switch to your bow and back (wheel)"], ["god_mode", "God mode"],
+	["ability_ultimate", "Ultimate ability"], ["race_active", "Race active skill"], ["throw_weapon", "Throw your weapon (hold for force)"], ["god_mode", "God mode"],
 	["choose_1", "Choose option 1"], ["choose_2", "Choose option 2"],
 	["choose_3", "Choose option 3"],
 ]
@@ -51,12 +49,6 @@ func reset_to_defaults(save := true) -> void:
 		var ev := InputEventMouseButton.new()
 		ev.button_index = MOUSE[action]
 		InputMap.action_add_event(action, ev)
-	for action in WHEEL:
-		_ensure(action)
-		for button in WHEEL[action]:
-			var ev := InputEventMouseButton.new()
-			ev.button_index = button
-			InputMap.action_add_event(action, ev)
 	if save:
 		var cfg := ConfigFile.new()
 		cfg.save(SAVE_PATH)

@@ -1,13 +1,13 @@
 class_name WeaponMoveset
 extends RefCounted
-## The shared weapon types (Council II 5; Twin added 2026-11-06): main weapons Heavy, Blade,
-## Twin, Polearm; the sidearm Ranged (bow).
+## The shared weapon types (Council II 5; Twin added 2026-11-06): Heavy, Blade, Twin, Polearm,
+## and Fists, what you fight with until you pick a weapon up (user, 2026-11-20).
 ## The weapon (Weapons sheet, picked with the race) gives the stats and model; the moveset
 ## decides the shape of the light combo, the heavy attack, and the animations.
 ##
 ## Every moveset uses the player's helpers, so damage, crits, godly gift events and
 ## feedback stay identical across weapon types:
-##   p.enemies_in_arc(reach, half_angle)   p.hit_targets(...)   p.fire_projectile(...)
+##   p.enemies_in_arc(reach, half_angle)   p.hit_targets(...)
 
 ## Light combo animations, in order; the last one is the finisher.
 func light_anims() -> Array:
@@ -85,18 +85,12 @@ func _base(p: Player) -> float:
 	return GameData.num(p.weapon(), "weapon_base_damage", 15.0)
 
 
-## Races whose bow is a blowgun, held at the mouth (user, 2026-11-10).
-const BLOWGUN_RACES := ["frog"]
-
-
-static func for_class(weapon_class: String, race_id := "") -> WeaponMoveset:
-	if weapon_class == "Ranged" and race_id in BLOWGUN_RACES:
-		return Blowgun.new()
+static func for_class(weapon_class: String) -> WeaponMoveset:
 	match weapon_class:
 		"Blade": return Blade.new()
 		"Twin": return Twin.new()
 		"Polearm": return Polearm.new()
-		"Ranged": return Ranged.new()
+		"Fists": return Fists.new()
 		_: return WeaponMoveset.new()  # Heavy
 
 
@@ -191,44 +185,27 @@ class Polearm extends WeaponMoveset:
 			DamageInfo.Kind.HEAVY, t.knockback_heavy, false, t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], p.global_position)
 
 
-## The bow (user, 2026-11-19): either click fires one powerful bolt that goes through every enemy
-## in its path and pins them to walls, then waits bow_cooldown.
-class Ranged extends WeaponMoveset:
+## Bare hands (user, 2026-11-20: you start with none but the chain): two quick punches and a kick;
+## heavy is a front kick that knocks the one in front of you back. Weak, so a found weapon is worth it.
+class Fists extends WeaponMoveset:
 	func launch_scale() -> float:
-		return 1.0
+		return 0.8
 
 	func light_anims() -> Array:
-		return ["Ranged_Bow_Release", "Ranged_Bow_Release", "Ranged_Bow_Release"]
+		return ["Melee_Unarmed_Attack_Punch_A", "Melee_Unarmed_Attack_Punch_A", "Melee_Unarmed_Attack_Kick"]
 
 	func heavy_anim() -> String:
-		return "Ranged_Bow_Draw"
+		return "Melee_Unarmed_Attack_Kick"
 
 	func idle_anim() -> String:
-		return "Ranged_Bow_Idle"
-
-	const PIERCE := 99  ## enemies one bolt goes through
-
-	func light_hit(p: Player, _finisher: bool) -> void:
-		heavy_hit(p)
+		return "Melee_Unarmed_Idle"
 
 	func heavy_hit(p: Player) -> void:
-		p.bow_left = GameData.tuning.bow_cooldown
-		p.fire_projectile(p.facing, GameData.tuning.bow_bolt_speed, _base(p) * p.heavy_mult(), DamageInfo.Kind.HEAVY, PIERCE, ["on_heavy_hit"])
-
-
-## A blowgun: the bow's shots as darts, the tube held at the mouth in the bow's aiming pose.
-class Blowgun extends Ranged:
-	func light_anims() -> Array:
-		return ["Ranged_Bow_Aiming_Idle", "Ranged_Bow_Aiming_Idle", "Ranged_Bow_Aiming_Idle"]
-
-	func heavy_anim() -> String:
-		return "Ranged_Bow_Aiming_Idle"
-
-	func idle_anim() -> String:
-		return "Ranged_Bow_Aiming_Idle"
-
-	func weapon_bone() -> String:
-		return "head"
+		var t: CombatTuning = GameData.tuning
+		var reach := _reach(p) + 0.6
+		_smash_ahead(p, reach)
+		p.hit_targets(p.enemies_in_arc(reach, 45.0), _base(p) * p.heavy_mult(), DamageInfo.Kind.HEAVY, t.knockback_heavy, true,
+			t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], p.global_position + p.facing * reach * 0.6, "Physical", false, false)
 
 
 ## Enemies inside a capsule from `start` along `dir`.

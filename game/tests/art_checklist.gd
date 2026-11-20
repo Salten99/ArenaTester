@@ -105,6 +105,8 @@ func gather() -> Array:
 		for w in GameData.rows("weapons"):
 			var cls := GameData.text(w, "class_name")
 			var wid: String = w.weapon_id
+			if wid == GameData.FISTS:
+				continue  # bare hands: no model
 			if cls == "":
 				add.call(group, GameData.text(w, "display_name"), "%s/%s.glb" % [race, wid], "model",
 					{"now": func(): return ModelRegistry.weapon_model(wid, race)})
@@ -117,9 +119,6 @@ func gather() -> Array:
 				add.call(group, "Guardian shield", folder + "shield.glb", "model", {"now": func():
 					var mine := ModelRegistry.class_part(race, cls, "shield")
 					return mine if mine != "" else ModelRegistry.own(Player.SHIELD)})
-		add.call(group, "Throwing weapon", race + "/knife.glb", "model", {"now": func():
-			var mine := ModelRegistry.race_part(race, "knife")
-			return mine if mine != "" else ModelRegistry.own(race + "/gear_knife.glb")})
 	for r in GameData.rows("races"):
 		add.call("Player races (any class without its own body)", GameData.text(r, "display_name"), r.get("player_model_file"))
 	for w in GameData.rows("weapons"):

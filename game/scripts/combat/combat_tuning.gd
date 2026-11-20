@@ -122,12 +122,6 @@ extends Resource
 ## Holding jump (user, 2026-11-05): a tap jumps 100%, held it rises to jump_charge_max after jump_charge_time seconds.
 @export_range(0.0, 5.0, 0.1) var jump_charge_time := 2.0
 @export_range(1.0, 2.0, 0.05) var jump_charge_max := 1.3
-## How far your arrows fly (m).
-@export_range(10.0, 200.0, 5.0) var missile_range := 75.0
-## Aiming help (user, 2026-11-05): an enemy this close to the crosshair (degrees), within the weapon's
-## sure range, is hit: the bow aims true at it.
-@export_range(0.0, 15.0, 0.5) var aim_cone_missile_deg := 3.0
-@export_range(5.0, 100.0, 1.0) var sure_range_bow := 30.0
 ## A jump crouches at least this long (s) first: knees bend even on a tap (user, 2026-11-06).
 @export_range(0.0, 0.4, 0.02) var jump_crouch_min := 0.12
 ## The camera's view while you hold an attack with a bow or spell weapon (it's 70 otherwise).
@@ -260,26 +254,25 @@ extends Resource
 @export_group("Weapons, shots and launches")
 ## Every weapon in a hand is drawn this much bigger (user, 2026-11-01: 30%).
 @export_range(0.5, 3.0, 0.05) var weapon_scale := 1.3
-## A heavy shot from a bow or crossbow: the launch is this much harder, and if it carries
-## the enemy into a wall, tree or rock it's pinned there this long, taking this damage.
+## A thrown weapon's hit: the launch is this much harder, and if it carries the enemy into a wall,
+## tree or rock it's pinned there this long, taking this damage.
 @export_range(1.0, 4.0, 0.05) var pin_launch_scale := 1.6
 ## An explosion launches the ones it ragdolls this much faster (user, 2026-11-08: 33%).
 @export_range(1.0, 3.0, 0.05) var explosion_launch_scale := 1.33
 @export_range(0.5, 20.0, 0.5) var pin_seconds := 5.0
-## The bow fires one bolt, then waits this long (s) before the next (user, 2026-11-19).
-@export_range(0.0, 60.0, 0.5) var bow_cooldown := 10.0
-## How fast the bow's bolt flies (m/s).
-@export_range(10.0, 200.0, 5.0) var bow_bolt_speed := 80.0
 @export_range(0.0, 500.0, 5.0) var pin_damage := 40.0
-## How fast your arrows and bolts fall (m/s per second): a little drop over distance.
-@export_range(0.0, 30.0, 0.25) var missile_gravity := 5.0
-## The throwing knife on G (HomingKnife).
-@export_range(0.0, 500.0, 1.0) var knife_damage := 40.0
-@export_range(0.5, 15.0, 0.25) var knife_radius := 4.5
-@export_range(0.0, 30.0, 0.25) var knife_cooldown := 4.0
-@export_range(5.0, 80.0, 1.0) var knife_speed := 20.0
-## How far it looks for someone to chase (m).
-@export_range(5.0, 120.0, 1.0) var knife_range := 40.0
+## Throwing your weapon (G, user 2026-11-20): it flies through every enemy in its path and pins them
+## to walls, then lies where it lands to be picked up again. A tap throws at weapon_throw_speed; held
+## for weapon_throw_charge_time it flies at weapon_throw_speed_max and hits twice as hard.
+## Its hit is the weapon's damage times weapon_throw_damage_mult.
+@export_range(5.0, 150.0, 1.0) var weapon_throw_speed := 35.0
+@export_range(5.0, 150.0, 1.0) var weapon_throw_speed_max := 70.0
+@export_range(0.05, 3.0, 0.05) var weapon_throw_charge_time := 0.6
+@export_range(0.5, 10.0, 0.1) var weapon_throw_damage_mult := 3.0
+## How fast a thrown weapon falls (m/s per second).
+@export_range(0.0, 30.0, 0.25) var weapon_throw_drop := 6.0
+## How many weapons lie about the arena; more are laid out after each wave to make up the count.
+@export_range(0, 20, 1) var weapon_pickups := 6
 ## Your heavy and magic hits launch enemies: how fast and how high (m/s), before launch_velocity_mult.
 @export_range(0.0, 40.0, 0.5) var launch_speed := 9.0
 @export_range(0.0, 20.0, 0.5) var launch_lift := 7.0  # 4 before the reels' frame-by-frame (2026-11-18): launched enemies hang high

@@ -19,6 +19,7 @@ const TOUGH_FROM := 3
 const LARGE_EVERY := 4
 ## Your light hits it takes to kill each kind (user, 2026-11-19: 3-4 hits for the common ones).
 ## Health comes from your light hit at the start, so every weapon needs about the same count.
+const HEALTH_WEAPON := "warhammer"
 const HITS_TO_KILL := {WaveDirector.BASIC_UNIT: 3.5, SHOOTER: 3.0, CASTER: 3.0, WaveDirector.TOUGH_UNIT: 6.0, WaveDirector.LARGE_UNIT: 18.0}
 ## Fighters that may close in on you at once (the tuning's max_attackers is 3); the rest circle and
 ## wait their turn (user, 2026-11-19: FightQuest's pacing, one foe at a time). Shooters take turns apart.
@@ -34,7 +35,7 @@ const WAVE_GAP := 5.0
 ## The traps: two spike walls and two fire pits on a ring around the middle.
 const HAZARD_RING := 15.0
 const HAZARDS := [["fire", 45.0], ["spikes", 135.0], ["fire", 225.0], ["spikes", 315.0]]
-const HINT := "Break them (gold !) and grab to finish.  Dodge just as a blow lands.  Dodge standing still to parry.\nSlide key: tap to dash, hold to slide.  While chained: right click to yank.  Throw enemies into the spikes and fire."
+const HINT := "Walk over a weapon to take it; hold G and let go to throw it through them.  Break them (gold !) and grab to finish.  Dodge just as a blow lands.  Dodge standing still to parry.\nSlide key: tap to dash, hold to slide.  While chained: right click to yank.  Throw enemies into the spikes and fire."
 
 var kills := 0
 var menu: ArenaMenu
@@ -62,9 +63,10 @@ static func wave_units(index: int) -> Array:
 	return units
 
 
-## Damage of one plain light hit with your main weapon (no crit), which sets enemy health.
+## Damage of one plain light hit with a warhammer (no crit), which sets enemy health: the same
+## whether you hold a weapon yet or not (you start with your fists).
 func light_hit_damage() -> float:
-	return player._boosted(player.moveset._base(player), "Physical", player._category(), null)
+	return player._boosted(GameData.num(GameData.weapon(HEALTH_WEAPON), "weapon_base_damage", 15.0), "Physical", "Melee", null)
 
 
 func _begin() -> void:
@@ -93,15 +95,14 @@ func _begin() -> void:
 	if not auto_start:
 		return  # tests start the waves themselves
 	if not loadout_picked:
-		menu.open_loadout(player.god_id, player.weapon_id)
+		menu.open_loadout(player.god_id)
 		return
 	_start_fight()
 
 
-## Restarts with the picked weapon and element (Arena._prepare_run reads them from Flow).
-func _on_loadout_chosen(god_id: String, weapon_id: String) -> void:
+## Restarts with the picked element (Arena._prepare_run reads it from Flow).
+func _on_loadout_chosen(god_id: String) -> void:
 	Flow.practice_god = god_id
-	Flow.practice_weapon = weapon_id
 	loadout_picked = true
 	restart()
 
@@ -146,6 +147,7 @@ func _on_wave_cleared(index: int) -> void:
 	_queue_wave(index + 1)
 	hud.show_message("Wave %d survived" % (index + 1), 1.5)
 	_leave_supplies()
+	scatter_weapons()
 	get_tree().create_timer(WAVE_GAP, false).timeout.connect(_continue_waves)
 
 

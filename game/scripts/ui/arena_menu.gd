@@ -1,16 +1,16 @@
 class_name ArenaMenu
 extends CanvasLayer
-## The endless arena's menus: the loadout (melee weapon and element) before a fight, and the
-## pause menu on Esc (resume, restart, change loadout, quit). Both pause the game.
+## The endless arena's menus: the loadout (your element) before a fight, and the pause menu on Esc
+## (resume, restart, change element, quit). Both pause the game. No weapon to pick: you start with
+## your fists and the chain and find weapons in the arena (user, 2026-11-20).
 
-signal loadout_chosen(god_id: String, weapon_id: String)
+signal loadout_chosen(god_id: String)
 
 var arena: Arena
 var _root: Control
 var _panel: Control
 var _mode := ""  ## "", "pause" or "loadout"
 var _god := ""
-var _weapon := ""
 
 
 func _ready() -> void:
@@ -32,23 +32,9 @@ static func elements() -> Array:
 	return GameData.rows("gods").map(func(r): return r.god_id).filter(func(g): return not g in GameData.SHELVED_GODS)
 
 
-static func weapons() -> Array:
-	return GameData.weapon_options(Arena.START_RACE)
-
-
-func open_loadout(god: String, weapon: String) -> void:
+func open_loadout(god: String) -> void:
 	_god = god
-	_weapon = weapon
-	var box := _open("loadout", "Choose your loadout")
-	box.add_child(_heading("Weapon"))
-	var weapon_row := HFlowContainer.new()
-	box.add_child(weapon_row)
-	for w in weapons():
-		var row := GameData.weapon(w)
-		_chip(weapon_row, w, "%s\n%s" % [GameData.text(row, "display_name", w), GameData.text(row, "class_name")],
-			GameData.text(row, "class_description"), func(): _weapon = w; _mark(weapon_row, w))
-	_mark(weapon_row, _weapon)
-	box.add_child(_heading("Element"))
+	var box := _open("loadout", "Choose your element")
 	var element_row := HFlowContainer.new()
 	box.add_child(element_row)
 	for g in elements():
@@ -56,15 +42,14 @@ func open_loadout(god: String, weapon: String) -> void:
 		_chip(element_row, g, "%s\n%s" % [GameData.text(row, "element", g), GameData.text(row, "display_name")],
 			GameData.text(row, "short_description"), func(): _god = g; _mark(element_row, g))
 	_mark(element_row, _god)
-	_button(box, "Fight!", func(): loadout_chosen.emit(_god, _weapon))
+	_button(box, "Fight!", func(): loadout_chosen.emit(_god))
 
 
 func open_pause() -> void:
 	var box := _open("pause", "Paused")
 	_button(box, "Resume", close)
 	_button(box, "Restart", func(): arena.restart())
-	_button(box, "Change weapon or element", func(): open_loadout(Flow.practice_god if Flow.practice_god != "" else Arena.START_GOD,
-		Flow.practice_weapon if Flow.practice_weapon != "" else Arena.START_WEAPON))
+	_button(box, "Change element", func(): open_loadout(Flow.practice_god if Flow.practice_god != "" else Arena.START_GOD))
 	_button(box, "Quit game", func(): get_tree().quit())
 
 

@@ -81,8 +81,7 @@ static func rescan() -> void:
 
 
 ## Each race has the same classes, each with its own look (user, 2026-11-17): your files go in
-## own/<race>/<class>/ (body.glb, weapon.glb, shield.glb), the sidearms and the throwing weapon in
-## own/<race>/ (bow.glb, staff.glb, knife.glb). "" when you haven't made it.
+## own/<race>/<class>/ (body.glb, weapon.glb, shield.glb). "" when you haven't made it.
 static func class_part(race_id: String, class_id: String, part: String) -> String:
 	if race_id == "" or class_id == "":
 		return ""
@@ -115,7 +114,7 @@ static func for_race(race_id: String, class_id := "") -> String:
 	return mine if mine != "" else DEFAULT_RACE
 
 
-## Your class weapon (own/<race>/<class>/weapon.glb) or sidearm (own/<race>/bow.glb) wins; then a
+## Your class weapon (own/<race>/<class>/weapon.glb) or own/<race>/<weapon_id>.glb wins; then a
 ## race's version (<race>/<file>, e.g. gen/dwarf/weapon_naginata.glb, their Dane axe); races without
 ## one use the shared weapon (your own file first). The macaques have no generated polearm, so they
 ## carry your naginata (user, 2026-11-09).

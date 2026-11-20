@@ -3,8 +3,8 @@ extends CharacterBody3D
 ## The player character: movement, dodge, the god's weapon moveset and abilities.
 ## Reads a PlayerIntent each physics frame (see PlayerInput); never reads keys itself.
 ##
-## Weapon movesets are per weapon class (Heavy, Blade, Polearm, Ranged).
-## Milestone 0 implements Heavy; other classes fall back to it until built.
+## Weapon movesets are per weapon class (Fists, Heavy, Blade, Twin, Polearm). You start with your
+## fists and the chain; weapons are picked up in the arena and thrown (user, 2026-11-20).
 
 signal died
 signal stamina_changed(current: float, maximum: float)
@@ -14,13 +14,7 @@ enum State { FREE, LIGHT, HEAVY, DODGE, CAST, PARRY, DEAD, GRAB, CHAIN }
 @export var race_id := "dwarf"
 @export var god_id := "forge_god"
 ## Picked with the race at run start; pledging to a new god keeps it.
-@export var weapon_id := "warhammer"  ## main (melee) weapon
-@export var sidearm_id := "bow"  ## held on its own key (user, 2026-11-06: a melee weapon and a sidearm, as in shooter-brawlers)
-var using_sidearm := false
-var _main: Dictionary
-var _side: Dictionary
-var _main_moveset: WeaponMoveset
-var _side_moveset: WeaponMoveset
+@export var weapon_id := GameData.FISTS  ## what's in your hand: fists, or a weapon you picked up
 ## Drop a character model (.glb / .tscn) here to replace the capsule.
 @export var model_scene: PackedScene
 
@@ -35,8 +29,8 @@ var abilities := AbilityRunner.new()
 var race_active := RaceActive.new()
 var race_active_held := false
 var _crosshair := Vector3.INF  ## what you're aiming at (PlayerIntent.crosshair)
-var _knife_left := 0.0  ## seconds until the knife can be thrown again
-var bow_left := 0.0  ## seconds until the bow can fire again
+## How far a throw is wound up (0..1) while you hold the throw key; -1 = not throwing.
+var throw_charge := -1.0
 var _cast_clip := "Throw"
 var _cast_slow := 1.0  ## the cast animation plays this many times longer (the Fire Lance's stab: 1.5)
 const CAST_TIME := 0.25  ## a cast holds you this long (s)...
@@ -44,7 +38,6 @@ const CAST_CLIP := 0.4  ## ...while its animation plays this long
 var input_source: Object  ## anything with read() -> PlayerIntent
 var is_large := false
 var god_mode := false
-var _sidearm_out := false  ## switched to your bow (C or the wheel), until you switch back
 ## God mode (F6) also flies: Space up, Ctrl down, Shift fast. No gravity.
 var flying := false
 const FLY_SPEED := 30.0
@@ -72,7 +65,7 @@ var _weapon_pivot: Node3D
 ## The animated character model, or null when using the capsule fallback.
 var visual: CharacterModel
 var _body := ""  ## the model file `visual` was built from
-## The weapon type's attacks (Heavy, Blade, Polearm, Ranged).
+## The weapon type's attacks (Fists, Heavy, Blade, Twin, Polearm).
 var moveset: WeaponMoveset = WeaponMoveset.new()
 var _weapon_hits := 0
 var _low_health_fired := false
@@ -113,7 +106,7 @@ func _ready() -> void:
 
 
 ## Applies race, god and weapon data. Safe to call again (pledging swaps only the god).
-func setup(p_race: String, p_god: String, p_weapon := "", p_sidearm := "") -> void:
+func setup(p_race: String, p_god: String, p_weapon := "") -> void:
 	race_id = p_race
 	god_id = p_god
 	_race = GameData.race(race_id)
@@ -130,7 +123,7 @@ func setup(p_race: String, p_god: String, p_weapon := "", p_sidearm := "") -> vo
 	max_stamina = t.base_stamina * stats.mult("stamina_pct")
 	stamina = max_stamina
 	abilities.load_for(god_id)
-	equip(p_weapon if p_weapon != "" else weapon_id, p_sidearm if p_sidearm != "" else sidearm_id)
+	equip(p_weapon if p_weapon != "" else weapon_id)
 	if visual != null:
 		visual.set_weapon_aura(god_id)
 		visual.set_god_colors(race_id, god_id)  # shortcut: a saved run reloads in the pledged god's colors, not the starting god's
@@ -140,9 +133,9 @@ func setup(p_race: String, p_god: String, p_weapon := "", p_sidearm := "") -> vo
 ## and level-ups. Used on fight start.
 func apply_run_state(state: RunState) -> void:
 	if state.race_id != race_id or state.god_id != god_id:
-		setup(state.race_id, state.god_id, state.weapon_id, state.sidearm_id)
-	elif state.weapon_id != weapon_id or state.sidearm_id != sidearm_id:
-		equip(state.weapon_id, state.sidearm_id)
+		setup(state.race_id, state.god_id, state.weapon_id)
+	elif state.weapon_id != weapon_id:
+		equip(state.weapon_id)
 	godly_gifts.load_from(state)
 	LevelSystem.apply_all(state, stats)
 
@@ -164,45 +157,31 @@ func _on_element_hit(target: Node, element: String, source: Node) -> void:
 		statuses.remove("void")
 
 
-## The weapon's row on the Weapons sheet.
-## Takes up a main weapon and a sidearm (start of a run, or one you found).
-func equip(main: String, side: String) -> void:
-	weapon_id = main
-	sidearm_id = side
-	_main = GameData.weapon(main)
-	_side = GameData.weapon(side)
-	# Your class is your melee weapon (user, 2026-11-09): its row on the Weapons sheet carries the class's stats.
+## Takes `id` in hand (a weapon picked up, or your fists once it's thrown). The weapon's row on the
+## Weapons sheet gives its damage, reach and moveset; while you hold it, its class columns count
+## (the sword and shield's Guardian parries). Your body stays as it was built.
+func equip(id: String) -> void:
+	weapon_id = id
+	_weapon = GameData.weapon(id)
 	var n := GameData.num
 	stats.set_source("class", {
-		"max_hp_pct": n.call(_main, "hp_mod_pct"), "melee_pct": n.call(_main, "melee_damage_mod_pct"),
-		"missile_pct": n.call(_main, "missile_damage_mod_pct"), "magic_pct": n.call(_main, "magic_damage_mod_pct"),
-		"attack_speed_pct": n.call(_main, "attack_speed_mod_pct"), "move_speed_pct": n.call(_main, "move_speed_mod_pct"),
-		"stamina_pct": n.call(_main, "stamina_mod_pct"), "armor_pct": n.call(_main, "armor_pct"), "stealth_pct": n.call(_main, "stealth_pct"),
+		"max_hp_pct": n.call(_weapon, "hp_mod_pct"), "melee_pct": n.call(_weapon, "melee_damage_mod_pct"),
+		"missile_pct": n.call(_weapon, "missile_damage_mod_pct"), "magic_pct": n.call(_weapon, "magic_damage_mod_pct"),
+		"attack_speed_pct": n.call(_weapon, "attack_speed_mod_pct"), "move_speed_pct": n.call(_weapon, "move_speed_mod_pct"),
+		"stamina_pct": n.call(_weapon, "stamina_mod_pct"), "armor_pct": n.call(_weapon, "armor_pct"), "stealth_pct": n.call(_weapon, "stealth_pct"),
 	})
-	if visual != null and ModelRegistry.for_race(race_id, class_id()) != _body:
-		# Each class has its own look per race (user, 2026-11-17): put on this class's body.
-		remove_child(visual)
-		visual.queue_free()
-		visual = null
-		_build_visuals()
-	_main_moveset = WeaponMoveset.for_class(GameData.text(_main, "weapon_class", "Heavy"))
-	_side_moveset = WeaponMoveset.for_class(GameData.text(_side, "weapon_class", "Ranged"), race_id)
-	_use_sidearm(using_sidearm, true)
-
-
-## Draws the sidearm (true) or goes back to the main weapon.
-func _use_sidearm(on: bool, force := false) -> void:
-	on = on and not _side.is_empty()
-	if on == using_sidearm and not force:
-		return
-	using_sidearm = on
-	_weapon = _side if on else _main
-	moveset = _side_moveset if on else _main_moveset
+	moveset = WeaponMoveset.for_class(GameData.text(_weapon, "weapon_class", "Fists"))
+	_combo_index = 0
 	if visual != null:
 		visual.weapon_bone = moveset.weapon_bone()
-		visual.set_weapon(ModelRegistry.weapon_model(sidearm_id if on else weapon_id, race_id))
+		visual.set_weapon(_hand_model())
 		var shield := ModelRegistry.class_part(race_id, class_id(), "shield")
 		visual.set_offhand((shield if shield != "" else ModelRegistry.own(SHIELD)) if parries() else "")
+
+
+## The model in your hand: the weapon's, or none for bare fists.
+func _hand_model() -> String:
+	return "" if weapon_id == GameData.FISTS else ModelRegistry.weapon_model(weapon_id, race_id)
 
 
 func weapon() -> Dictionary:
@@ -234,7 +213,7 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector3.ZERO
 		return
 	var intent: PlayerIntent = input_source.read() if input_source != null else PlayerIntent.new()
-	aiming = aims_with_body() and (using_sidearm or intent.light_held or intent.heavy_held)
+	aiming = aims_with_body()
 	_bull_rush(delta)
 	_state_time += delta
 	_combo_timer -= delta
@@ -253,15 +232,6 @@ func _physics_process(delta: float) -> void:
 	var move_dir := _world_dir(intent.move, intent.aim_yaw)
 	if flying:
 		intent.dodge = false  # Ctrl flies down instead
-	# C or the wheel switches to your bow and back; your class keeps its one melee weapon
-	# (user, 2026-11-09). Holding an attack is just an attack. Changes between attacks, never mid-swing.
-	if state == State.CHAIN:  # the wheel reels the chain in, it doesn't switch weapons
-		intent.switch_weapon = false
-		intent.sidearm = false
-	if intent.sidearm or intent.switch_weapon:
-		_sidearm_out = not _sidearm_out
-	if state == State.FREE and _sidearm_out != using_sidearm:
-		_use_sidearm(_sidearm_out)
 	var light_now := intent.light
 	# Hold light attack to grab (combat feel plan, 2026-11-18): a held click waits grab_hold_time,
 	# then grabs a minion in reach or swings; let go sooner and it swings right away.
@@ -281,12 +251,12 @@ func _physics_process(delta: float) -> void:
 	elif intent.light and intent.light_held and _can_grab() and (state == State.FREE or (state == State.LIGHT and _hit_done)):
 		_light_hold = 0.0
 		light_now = false
-	if intent.dodge and (parries() or (parry_for_all and not intent.dash and not using_sidearm and move_dir.length() < 0.1)):
+	if intent.dodge and (parries() or (parry_for_all and not intent.dash and move_dir.length() < 0.1)):
 		if state != State.PARRY and stamina >= t.parry_stamina_cost:
 			_start_parry(intent.aim_yaw)
 	elif intent.dodge and state != State.DODGE and stamina >= t.dodge_stamina_cost:
 		_start_dodge(move_dir if move_dir.length() > 0.1 else -facing)
-	elif (state == State.FREE or (state == State.LIGHT and _hit_done)) and not (using_sidearm and bow_left > 0.0):
+	elif (state == State.FREE or (state == State.LIGHT and _hit_done)) and throw_charge < 0.0:
 		if light_now:
 			if state == State.LIGHT:
 				_queued_light = true
@@ -298,10 +268,7 @@ func _physics_process(delta: float) -> void:
 	race_active_held = intent.race_active_held
 	if intent.race_active and state == State.FREE:
 		race_active.cast()
-	_knife_left = maxf(0.0, _knife_left - delta)
-	bow_left = maxf(0.0, bow_left - delta)
-	if intent.throw_knife and state == State.FREE:
-		throw_knife(intent.aim_yaw)
+	_update_throw(delta, intent)
 	if state == State.FREE:
 		if intent.signature:
 			_cast("Signature", intent.aim_yaw, intent.aim_point)  # only a Spikes ability uses the point
@@ -538,54 +505,64 @@ func aim_point() -> Vector3:
 	return _crosshair
 
 
-## How far the bow's shots are sure to hit what the crosshair is on (30 m).
-func sure_range() -> float:
-	return GameData.tuning.sure_range_bow
-
-
-## The enemy nearest the crosshair within `cone_deg` and `reach` of `from`, or null.
-func sure_target(from: Vector3, cone_deg: float, reach: float) -> Enemy:
-	if _crosshair == Vector3.INF or cone_deg <= 0.0:
-		return null
-	var look := (_crosshair - from).normalized()
-	var best: Enemy = null
-	var best_angle := deg_to_rad(cone_deg)
-	for e in Combat.enemies_in_radius(from, reach):
-		var to: Vector3 = e.global_position + Vector3.UP * e.aim_height() - from
-		var a := look.angle_to(to)
-		if a < best_angle:
-			best_angle = a
-			best = e
-	return best
-
-
-## Bows, crossbows and spell weapons lean with where you look.
+## Winding up a throw, you lean with where you look: the crosshair shows and the view narrows.
 func aims_with_body() -> bool:
-	return GameData.text(_weapon, "weapon_class") in GameData.SIDEARM_CLASSES
+	return throw_charge >= 0.0
 
 
-## Throws your god's homing knife at whoever you're facing most, or straight ahead if no one's near.
-func throw_knife(aim_yaw: float) -> bool:
-	if _knife_left > 0.0:
-		return false
+## The throw key (G, user 2026-11-20): press it with a weapon in hand to wind up, hold it to put
+## more force in (weapon_throw_charge_time), let go to throw.
+func _update_throw(delta: float, intent: PlayerIntent) -> void:
+	if intent.throw and state == State.FREE and weapon_id != GameData.FISTS:
+		throw_charge = 0.0
+	if throw_charge < 0.0:
+		return
+	if state != State.FREE or weapon_id == GameData.FISTS:
+		throw_charge = -1.0
+	elif intent.throw_held:
+		throw_charge = minf(1.0, throw_charge + delta / GameData.tuning.weapon_throw_charge_time)
+	else:
+		throw_weapon(intent.aim_yaw)
+
+
+## Throws the weapon in your hand where the crosshair is, with the wound-up force: it goes through
+## every enemy in its path, pins them to walls like the old bow's bolt (Enemy.launch_from_hit: a
+## heavy Missile hit), and lies where it lands to be picked up again. Your hands are empty after.
+func throw_weapon(aim_yaw: float) -> Projectile:
+	if weapon_id == GameData.FISTS:
+		return null
 	var t: CombatTuning = GameData.tuning
+	var force := clampf(throw_charge, 0.0, 1.0)
+	throw_charge = -1.0
 	_face_yaw(aim_yaw)
-	var aim := aim_direction(global_position + Vector3.UP * 1.3)
-	var best: Node3D = null
-	var best_score := INF
-	for e in Combat.enemies_in_radius(global_position, t.knife_range):
-		var to: Vector3 = e.global_position - global_position
-		var score := to.length() * (2.0 - to.normalized().dot(aim))  # close and near the crosshair
-		if score < best_score:
-			best_score = score
-			best = e
-	if HomingKnife.fire(self, best, global_position + Vector3.UP * 1.3 + aim * 18.0) == null:
-		return false
-	_knife_left = t.knife_cooldown
-	_cast_clip = HomingKnife.throw_clip(element())
+	var speed := lerpf(t.weapon_throw_speed, t.weapon_throw_speed_max, force)
+	var info := make_hit(moveset._base(self) * t.weapon_throw_damage_mult * (1.0 + force), "Physical", "Missile", null, DamageInfo.Kind.HEAVY)
+	info.knockback = t.knockback_heavy
+	info.hitstop = t.hitstop_heavy
+	info.shake = t.shake_light
+	info.pin_weapon = weapon_id
+	var from := global_position + Vector3.UP * 1.3 + facing * 0.6
+	var p := Projectile.fire(from, aim_direction(from, speed, t.weapon_throw_drop), speed, info, Color.WHITE, 999)
+	if p == null:
+		return null
+	p.aimed = true
+	p.drop = t.weapon_throw_drop
+	p.radius = 0.8
+	p.lifetime = 8.0
+	p.on_hit = _projectile_hit.bind(["on_heavy_hit"])
+	var thrown := weapon_id
+	var root: Node = Combat.effects_root
+	p.on_land = func(at: Vector3) -> void: WeaponPickup.make(thrown, root, at)
+	p._mesh.queue_free()  # the weapon itself flies, not a bolt
+	p._mesh = null
+	var spin := WeaponPickup.add_model(p, weapon_id, race_id)
+	if spin != null and GameData.text(_weapon, "weapon_class") != "Polearm":  # a spear flies point first; the rest turn end over end
+		spin.create_tween().set_loops().tween_property(spin, "rotation:x", -TAU, 0.3).from(0.0)
+	equip(GameData.FISTS)
+	_cast_clip = "Throw"
 	_cast_slow = 1.0
 	_set_state(State.CAST)
-	return true
+	return p
 
 
 ## Where the camera looks.
@@ -633,12 +610,14 @@ func _light_duration() -> float:
 	var aps := GameData.num(_weapon, "weapon_attacks_per_sec", 1.2)
 	# Melee light attacks are light_speed_mult faster (combat feel plan, 2026-11-18); each class keeps
 	# its own pace from the sheet (Twin fastest, Heavy slowest).
-	var quick: float = 1.0 if using_sidearm else GameData.tuning.light_speed_mult
+	var quick: float = GameData.tuning.light_speed_mult
 	return 1.0 / (aps * stats.mult("attack_speed_pct") * moveset.swing_speed() * quick)
 
 
-## 0..1 while you're charging a heavy (the HUD's charge bar), -1 otherwise.
+## 0..1 while you're charging a heavy or winding up a throw (the HUD's charge bar), -1 otherwise.
 func charge_shown() -> float:
+	if throw_charge >= 0.0:
+		return throw_charge
 	return heavy_charge if state == State.HEAVY and not _hit_done and heavy_charge > 0.0 else -1.0
 
 
@@ -698,9 +677,9 @@ func _punch_apart(e: Enemy) -> void:
 var _light_hold := -1.0  ## seconds light attack has been held since its press (a grab?), -1 = not waiting
 
 
-## Whether a held light attack may become a grab: your melee weapon out, on foot.
+## Whether a held light attack may become a grab: always (fists or a weapon).
 func _can_grab() -> bool:
-	return not using_sidearm
+	return true
 
 
 ## Grabs the minion in reach, if there is one; else fires the chain at what's in the crosshair.
@@ -869,44 +848,8 @@ func _jump_now(intent: PlayerIntent, delta: float, on_floor: bool) -> bool:
 	return true
 
 
-## True while you hold an attack with a bow or spell weapon: the crosshair shows and the view narrows.
+## True while you wind up a throw: the crosshair shows and the view narrows.
 var aiming := false
-
-
-## Fires a bow shot.
-func fire_projectile(dir: Vector3, speed: float, base: float, kind: DamageInfo.Kind, pierce: int,
-		events: Array) -> Projectile:
-	var t: CombatTuning = GameData.tuning
-	if kind == DamageInfo.Kind.HEAVY:
-		speed *= 1.0 + heavy_charge * t.heavy_charge_speed  # a charged shot flies faster
-	var info := make_hit(base, "Physical", _category(), null, kind)
-	info.knockback = GameData.tuning.knockback_light
-	info.hitstop = GameData.tuning.hitstop_light
-	var from := global_position + Vector3.UP * 1.3 + dir * 0.6
-	# Aim where the crosshair is, up or down too; a shot fired off to the side keeps its angle around that.
-	var drop: float = t.missile_gravity if _category() == "Missile" else 0.0
-	var shot := aim_direction(from, speed, drop).rotated(Vector3.UP, facing.signed_angle_to(dir, Vector3.UP))
-	var sure := sure_target(from, t.aim_cone_missile_deg, sure_range())
-	if sure != null and is_equal_approx(facing.signed_angle_to(dir, Vector3.UP), 0.0):
-		var at: Vector3 = sure.global_position + Vector3.UP * sure.aim_height()
-		var fly := from.distance_to(at) / speed
-		shot = (at + Vector3.UP * 0.5 * drop * fly * fly - from).normalized()  # true at the one you aimed at
-	var p := Projectile.fire(from, shot, speed, info, Color(1.0, 0.95, 0.7), pierce)
-	if p != null:
-		p.aimed = true
-		p.on_hit = _projectile_hit.bind(events)
-		p.drop = drop
-		p.lifetime = t.missile_range / speed  # user, 2026-11-05: 75 m
-		p.bright = true
-		if sure != null:
-			p.homing = sure
-			p.pull_deg = 720.0  # an arrow at the one in the crosshair can't miss
-	if p != null and moveset is WeaponMoveset.Blowgun:  # a dart, not an arrow
-		(p._mesh.mesh as BoxMesh).size = Vector3(0.04, 0.04, 0.35)
-	if p != null and kind == DamageInfo.Kind.HEAVY and _category() == "Missile":
-		var boom := element()  # a heavy arrow or bullet: your god's explosion where it lands (user, 2026-11-08)
-		p.on_land = func(at: Vector3) -> void: ElementFx.area(boom, at, 2.0)
-	return p
 
 
 func _projectile_hit(target: Node, info: DamageInfo, dealt: float, events: Array) -> void:
@@ -1054,12 +997,12 @@ func _start_dodge(dir: Vector3) -> void:
 ## The Guardian's signature move (DECISIONS 2026-11-16): the dodge key raises the shield
 ## instead of rolling. Only with the main weapon out: the shield is on the melee arm.
 func parries() -> bool:
-	return not using_sidearm and class_id() == "Guardian"
+	return class_id() == "Guardian"
 
 
 ## Your class (Barbarian, Guardian, Rogue, Lancer): the main weapon's class_name.
 func class_id() -> String:
-	return GameData.text(_main, "class_name")
+	return GameData.text(_weapon, "class_name")
 
 
 func _start_parry(aim_yaw: float) -> void:
@@ -1250,7 +1193,7 @@ func _build_visuals() -> void:
 	m.name = "Model"
 	add_child(m)
 	_body = ModelRegistry.for_race(race_id, class_id())
-	if m.setup(_body, ModelRegistry.weapon_model(weapon_id, race_id)):
+	if m.setup(_body, _hand_model()):
 		visual = m
 		visual.set_body_layer(CameraRig.BODY_LAYER)  # first person shows only what you hold
 		visual.play("Melee_2H_Idle")
@@ -1336,7 +1279,7 @@ func _update_animation() -> void:
 		trail = SwingTrail.new()
 		add_child(trail)
 	trail.model = visual
-	trail.active = state in [State.LIGHT, State.HEAVY] and not using_sidearm
+	trail.active = state in [State.LIGHT, State.HEAVY] and weapon_id != GameData.FISTS
 	if trail.active:
 		trail.tint(element())
 	# The body split (combat feel plan, 2026-11-18): moving during any move, the legs keep walking.

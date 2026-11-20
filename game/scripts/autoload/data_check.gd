@@ -9,17 +9,14 @@ static func run() -> Array:
 	var gods := _ids("gods")
 	var races := _ids("races")
 	var statuses := _ids("status_effects")
-	var weapons := _ids("weapons")
 	for w in GameData.rows("weapons"):
-		if not GameData.text(w, "weapon_class") in ["Heavy", "Blade", "Twin", "Polearm", "Ranged"]:
+		if not GameData.text(w, "weapon_class") in ["Fists", "Heavy", "Blade", "Twin", "Polearm"]:
 			problems.append("Weapons %s: unknown weapon_class '%s'" % [w.weapon_id, GameData.text(w, "weapon_class")])
 	for g in GameData.rows("gods"):
 		_ref(problems, "Gods", g.god_id, "default_race", g.get("default_race"), races, true)
 	for r in GameData.rows("races"):
 		for gid in GameData.text(r, "starting_gods").split(",", false):
 			_ref(problems, "Races", r.race_id, "starting_gods", gid.strip_edges(), gods)
-		for wid in GameData.text(r, "weapon_options").split(",", false):
-			_ref(problems, "Races", r.race_id, "weapon_options", wid.strip_edges(), weapons)
 	for b in GameData.rows("godly_gifts"):
 		_ref(problems, "Godly Gifts", b.godly_gift_id, "god_id", b.get("god_id"), gods)
 		_ref(problems, "Godly Gifts", b.godly_gift_id, "status_effect", b.get("status_effect"), statuses, true)

@@ -24,6 +24,8 @@ var explosive := false
 var no_launch := false
 ## Brought by a projectile (an arrow, a bolt): a Guardian's shield blocks it without touching the shooter.
 var shot := false
+## A thrown weapon's id: the weapon that pins its target to a wall (Enemy._show_pin_bolt).
+var pin_weapon := ""
 ## Statuses to apply on hit: [{id, stacks, duration_bonus}]
 var statuses: Array = []
 

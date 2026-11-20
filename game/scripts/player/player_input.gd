@@ -3,13 +3,10 @@ extends Node
 ## Turns keyboard and mouse into a PlayerIntent each physics frame.
 
 var camera_rig: Node3D
-var _switch := false  ## the wheel turned since the last read (a wheel "press" is over within a frame)
 var _wheel_back := false  ## the wheel turned back (down) since the last read: reels in the chain
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("switch_weapon"):
-		_switch = true
 	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_DOWN, MOUSE_BUTTON_WHEEL_UP]:  # either way reels in a chained one
 		_wheel_back = true
 
@@ -56,10 +53,7 @@ func read() -> PlayerIntent:
 	i.light_held = captured and Input.is_action_pressed("attack_light")
 	i.heavy = captured and Input.is_action_just_pressed("attack_heavy")
 	i.heavy_held = captured and Input.is_action_pressed("attack_heavy")
-	i.sidearm = captured and Input.is_action_just_pressed("sidearm")
-	i.switch_weapon = captured and _switch
 	i.wheel_back = captured and _wheel_back
-	_switch = false
 	_wheel_back = false
 	i.dodge = Input.is_action_just_pressed("dodge")
 	i.jump = Input.is_action_just_pressed("jump")
@@ -72,7 +66,8 @@ func read() -> PlayerIntent:
 		_slide_or_dash(i)
 	i.signature = Input.is_action_just_pressed("ability_signature")
 	i.race_active = Input.is_action_just_pressed("race_active")
-	i.throw_knife = Input.is_action_just_pressed("throw_knife")
+	i.throw = captured and Input.is_action_just_pressed("throw_weapon")
+	i.throw_held = captured and Input.is_action_pressed("throw_weapon")
 	i.race_active_held = Input.is_action_pressed("race_active")
 	i.movement = Input.is_action_just_pressed("ability_movement")
 	i.ultimate = Input.is_action_just_pressed("ability_ultimate")

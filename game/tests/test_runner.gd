@@ -54,7 +54,7 @@ func _ready() -> void:
 		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_main_weapon_and_sidearm", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throwing_knife", "test_myths", "test_pin_to_wall", "test_aiming", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -80,6 +80,7 @@ func _setup() -> void:
 	_arena.auto_start = false
 	_arena.run_seed = 1234
 	add_child(_arena)
+	_arena.player.equip("warhammer")  # most tests swing a warhammer; fists, pickups and throws have their own test
 	await _frames(2)
 	await _until_on_floor()
 
@@ -142,7 +143,7 @@ func test_data_loads() -> void:
 	check(not GameData.status("fire").is_empty(), "fire status exists")
 	check(GameData.abilities_for("forge_god").size() == 3, "forge has 3 abilities")
 	check(GameData.text(GameData.weapon("warhammer"), "weapon_class") == "Heavy", "the warhammer is a Heavy weapon")
-	check(GameData.weapon_options("dwarf").size() == GameData.rows("weapons").size() - GameData.sidearms().size(), "a race with blank weapon_options can pick any main weapon")
+	check(GameData.pickup_weapons().size() == GameData.rows("weapons").size() - 1 and not GameData.FISTS in GameData.pickup_weapons(), "every weapon but your fists can be picked up")
 
 
 func test_rng_is_deterministic() -> void:
@@ -229,7 +230,7 @@ func test_guardian_parry() -> void:
 	# The Guardian's signature move (DECISIONS 2026-11-16): a parry on the dodge key, a shield in the left hand.
 	var p: Player = _arena.player
 	check(not p.parries(), "other classes still dodge")
-	p.equip("greatsword", p.sidearm_id)
+	p.equip("greatsword")
 	check(p.parries(), "a Guardian parries on the dodge key")
 	if p.visual != null:
 		check(not p.visual.find_children("Offhand", "BoneAttachment3D", true, false).is_empty(), "the Guardian holds a shield in the left hand")
@@ -800,7 +801,7 @@ func test_void_mark() -> void:
 
 func test_all_movesets() -> void:
 	var p: Player = _arena.player
-	for weapon in ["warhammer", "greatsword", "naginata", "bow"]:
+	for weapon in ["fists", "warhammer", "greatsword", "twin_khopesh", "naginata"]:
 		p.setup("dwarf", "forge_god", weapon)
 		var enemies := _cluster(3, 3.0, "barb_warlord")
 		var s := _scripted()
@@ -817,8 +818,10 @@ func test_all_movesets() -> void:
 
 
 func test_weapon_choice() -> void:
-	var s := Run.start_new("dwarf", "forge_god", 31, "naginata")
 	var p: Player = _arena.player
+	p.apply_run_state(Run.start_new("dwarf", "forge_god", 31))
+	check(p.weapon_id == GameData.FISTS and p.moveset is WeaponMoveset.Fists, "a fight starts with bare fists (user, 2026-11-20)")
+	var s := Run.start_new("dwarf", "forge_god", 31, "naginata")
 	p.apply_run_state(s)
 	check(p.weapon_id == "naginata" and p.moveset is WeaponMoveset.Polearm, "the weapon picked at the start sets the moveset")
 	p.setup("dwarf", "forge_god", "warhammer")
@@ -886,14 +889,6 @@ func test_own_effects() -> void:
 	var booms: int = explosions.call()
 	p.hit_targets([], 10.0, DamageInfo.Kind.HEAVY, 1.0, false, 0.0, 0.0, [], p.global_position + p.facing * 2.0)
 	check(explosions.call() == booms + 1, "a weapon heavy plays your god's explosion where it lands, even on a miss (user, 2026-11-08)")
-	p.setup(p.race_id, "forge_god", "warhammer", "bow")
-	p._use_sidearm(true)
-	var arrow := p.fire_projectile(p.facing, 60.0, 10.0, DamageInfo.Kind.HEAVY, 0, [])
-	booms = explosions.call()
-	if arrow != null and arrow.on_land.is_valid():
-		arrow.on_land.call(p.global_position + p.facing * 10.0)
-	check(arrow != null and explosions.call() == booms + 1, "a heavy arrow plays your god's explosion where it lands (user, 2026-11-08)")
-	p._use_sidearm(false)
 	p.setup(p.race_id, god)
 	before = Combat.effects_root.get_child_count()
 	ElementFx.hit("Ice", p.global_position + Vector3(0, 1, -3))
@@ -901,7 +896,7 @@ func test_own_effects() -> void:
 	var aura := ElementFx.aura("Fire", 1.0)
 	check(aura is CPUParticles3D and aura.find_child("Mine_fire_aura", false, false) != null, "your aura rides along like the code's (start and stop work the same)")
 	aura.free()
-	p.setup("dwarf", "forge_god", "warhammer", "bow")
+	p.setup("dwarf", "forge_god", "warhammer")
 	p.abilities.remaining["Signature"] = 0.0
 	var code_before: int = Combat.effects_root.get_children().filter(func(n): return n is CPUParticles3D).size()
 	p.abilities.cast("Signature", p, p.facing)
@@ -917,40 +912,8 @@ func test_bestiary_and_wings() -> void:
 	Meta.persist = false
 	var p: Player = _arena.player
 	p.god_mode = true
-	# Holding attack is just an attack; C switches to the sidearm and back (user, 2026-11-08).
-	p.setup("dwarf", "forge_god", "warhammer", "bow")
+	p.setup("dwarf", "forge_god", "warhammer")
 	var input := _scripted()
-	input.hold({"light": true, "light_held": true}, 1)
-	input.hold({"light_held": true}, 90)
-	await _frames(80)
-	check(not p.using_sidearm and p.weapon_class() == "Heavy", "holding left click doesn't draw the sidearm")
-	await _frames(40)
-	input.press("switch_weapon")
-	await _frames(4)
-	check(p.using_sidearm and p.weapon_class() == "Ranged" and p.aiming, "the wheel switches to the bow, with the crosshair")
-	input.press("light")
-	await _frames(4)
-	check(p.state == Player.State.LIGHT and p.using_sidearm, "a click shoots it")
-	await _frames(90)
-	check(p.using_sidearm, "and it stays out")
-	input.press("heavy")
-	await _frames(6)
-	check(p.state != Player.State.HEAVY and p.bow_left > 0.0, "one shot, then the bow waits (%.1f s left)" % p.bow_left)
-	p.bow_left = 0.0
-	input.press("heavy")
-	await _frames(6)
-	check(p.state == Player.State.HEAVY and p.using_sidearm, "and once it's ready, right click fires it too")
-	await _frames(120)
-	input.press("sidearm")
-	await _frames(4)
-	check(not p.using_sidearm and p.weapon_class() == "Heavy", "C from the bow: back to the melee weapon")
-	input.press("light")
-	var swung := false
-	for i in 20:
-		await _frames(1)
-		swung = swung or (p.state == Player.State.LIGHT and not p.using_sidearm)
-	check(swung, "a click swings the main weapon")
-	await _frames(60)
 	var book := Bestiary.open(_arena)
 	await _frames(2)
 	check(book._title.text.contains("discovered") and book._info.text != "", "the bestiary lists what you've found")
@@ -985,27 +948,23 @@ func test_bestiary_and_wings() -> void:
 	input.hold({}, 1)
 
 
-func test_main_weapon_and_sidearm() -> void:
-	var mains := GameData.weapon_options("dwarf")
-	check(mains.size() == 4 and "naginata" in mains and not "guandao" in mains and not "mace" in mains, "four main weapons to start with (%s)" % ", ".join(mains))
-	check(GameData.sidearms() == ["bow"], "and one sidearm: the bow (user, 2026-11-19: no staff)")
-	check(GameData.rows("weapons").size() == 5, "only the five weapons in use are on the sheet")
+func test_weapons_and_classes() -> void:
+	var found := GameData.pickup_weapons()
+	check(found.size() == 4 and "naginata" in found and not "bow" in found, "four weapons to find (%s), no bow (user, 2026-11-20)" % ", ".join(found))
+	check(GameData.rows("weapons").size() == 5 and GameData.text(GameData.weapon(GameData.FISTS), "weapon_class") == "Fists", "and your fists, five on the sheet")
 	check(GameData.text(GameData.weapon("twin_khopesh"), "weapon_class") == "Twin" and WeaponMoveset.for_class("Twin") is WeaponMoveset.Twin, "twin blades are their own class")
 	check(ModelRegistry.weapon_model("naginata").ends_with("weapon_naginata.glb"), "the naginata has its own model")
-	check(ModelRegistry.weapon_model("bow", "macaque").ends_with("macaque/weapon_bow.glb") and ModelRegistry.weapon_model("bow", "dwarf").ends_with("dwarf/weapon_bow.glb"),
-		"a race's own weapon versions are used for that race")
 	check(ModelRegistry.weapon_model("naginata", "macaque") == ModelRegistry.OWN + "weapon_naginata.glb"
 		and ModelRegistry.weapon_model("naginata", "minotaur").ends_with("minotaur/weapon_naginata.glb") and ModelRegistry.weapon_model("naginata", "frog").ends_with("frog/weapon_naginata.glb"),
 		"polearms by race: your naginata for the macaques, the minotaurs' and frogfolk's own (user, 2026-11-09; the dwarves' is your lance, below)")
-	# Every race has its own set of all five weapons (user, 2026-11-09).
+	# Every race has its own set of the weapons (user, 2026-11-09).
 	var shared: Array = []
 	for r in GameData.rows("races"):
-		for w in GameData.rows("weapons"):
-			if not ModelRegistry.weapon_model(w.weapon_id, r.race_id).contains("/%s/" % r.race_id):
-				shared.append("%s %s" % [r.race_id, w.weapon_id])
+		for w in found:
+			if not ModelRegistry.weapon_model(w, r.race_id).contains("/%s/" % r.race_id):
+				shared.append("%s %s" % [r.race_id, w])
 	check(shared == ["macaque naginata"], "every race has its own version of every weapon; only the macaques' polearm is your naginata (%s)" % [shared])
-	check(ModelRegistry.weapon_model("bow", "nobody") == ModelRegistry.weapon_model("bow"), "and the normal weapon where there is no race version")
-	check(ModelRegistry.own("dwarf/gear_knife.glb") != "", "the dwarves throw axes instead of knives")
+	check(ModelRegistry.weapon_model("naginata", "nobody") == ModelRegistry.weapon_model("naginata"), "and the normal weapon where there is no race version")
 	# Each race has the same classes, each with its own look (user, 2026-11-17): own/<race>/<class>/.
 	check(ModelRegistry.weapon_model("greatsword", "dwarf") == ModelRegistry.OWN + "dwarf/guardian/weapon.glb"
 		and ModelRegistry.weapon_model("warhammer", "dwarf") == ModelRegistry.OWN + "dwarf/barbarian/weapon.glb"
@@ -1013,10 +972,9 @@ func test_main_weapon_and_sidearm() -> void:
 		"a race's class weapons come from its class folders (the user's dwarf axe, warhammer and lance)")
 	check(ModelRegistry.for_race("dwarf", "Guardian") == ModelRegistry.for_race("dwarf") and ModelRegistry.class_part("dwarf", "Guardian", "body") == "",
 		"a class without its own body for a race wears the race's model")
-	check(ModelRegistry.weapon_model("bow", "dwarf") == ModelRegistry.own("dwarf/weapon_bow.glb"), "sidearms without your own file keep the race's generated one")
 	var p: Player = _arena.player
 	p.god_mode = true
-	p.setup("dwarf", "forge_god", "greatsword", "bow")
+	p.setup("dwarf", "forge_god", "greatsword")
 	check(is_equal_approx(p._light_duration() * 1.5 * GameData.num(GameData.weapon("greatsword"), "weapon_attacks_per_sec", 1.2) * p.stats.mult("attack_speed_pct") * GameData.tuning.light_speed_mult, 1.0),
 		"sword swings are 50% faster (user, 2026-11-08)")
 	var dash_from := p.global_position
@@ -1026,65 +984,25 @@ func test_main_weapon_and_sidearm() -> void:
 	await _frames(15)
 	check(first < 2.5 and p.global_position.distance_to(dash_from) > 3.0,
 		"the sword's heavy dashes forward, not in one jump (%.1f m in a frame, %.1f m after)" % [first, p.global_position.distance_to(dash_from)])
-	var input := _scripted()
-	input.press("sidearm")
-	await _frames(4)
-	check(p.using_sidearm and p.weapon_class() == "Ranged" and p.aiming, "C draws the sidearm, with the crosshair")
-	input.press("sidearm")
-	await _frames(4)
-	check(not p.using_sidearm and p.weapon_class() == "Blade", "pressed again: back to your class's weapon")
-	# Classes (user, 2026-11-09): your class is your melee weapon, with its own strengths.
+	# Classes (user, 2026-11-09): a weapon's class counts while you hold it.
 	check(GameData.text(GameData.weapon("warhammer"), "class_name") == "Barbarian" and GameData.text(GameData.weapon("twin_khopesh"), "class_name") == "Rogue",
 		"the warhammer is the Barbarian's, the twin blades the Rogue's")
+	p.equip(GameData.FISTS)
 	var plain_hp: float = p.health.max_hp
 	var plain_move: float = p.stats.get_stat("move_speed_pct")
-	p.equip("warhammer", p.sidearm_id)
+	p.equip("warhammer")
 	check(p.health.max_hp > plain_hp and p.stats.get_stat("magic_pct") < 0.0 and p.stats.get_stat("melee_pct") > 0.0,
-		"a Barbarian has more health and melee damage, less magic (%.0f -> %.0f hp)" % [plain_hp, p.health.max_hp])
-	p.equip("twin_khopesh", p.sidearm_id)
+		"holding the Barbarian's warhammer: more health and melee damage, less magic (%.0f -> %.0f hp)" % [plain_hp, p.health.max_hp])
+	p.equip("twin_khopesh")
 	check(p.stats.get_stat("move_speed_pct") > plain_move and p.stats.get_stat("stealth_pct") > 0.0 and p.stats.get_stat("missile_pct") > 0.0,
-		"a Rogue is faster, harder to spot and better with bow and knives")
+		"the Rogue's twin blades: faster, harder to spot, and they hit harder thrown")
 	var foe: Enemy = _cluster(1, 30.0)[0]
 	foe.aggro_radius = 20.0  # arena units see the whole arena
 	var hidden := foe._notice_distance()
-	p.equip("greatsword", p.sidearm_id)
+	p.equip("greatsword")
 	check(hidden < foe._notice_distance(), "enemies notice a Rogue closer (%.1f m vs %.1f m)" % [hidden, foe._notice_distance()])
 	foe.queue_free()
-	# The mouse wheel switches and stays switched (user, 2026-11-08).
-	check(Controls.binding_text("switch_weapon") == "Wheel Up / Wheel Down", "scrolling the wheel switches weapon (%s)" % Controls.binding_text("switch_weapon"))
-	input.press("switch_weapon")
-	await _frames(12)
-	check(p.using_sidearm and p.weapon_class() == "Ranged", "a turn of the wheel draws your sidearm, and it stays out")
-	input.press("switch_weapon")
-	await _frames(4)
-	check(not p.using_sidearm and p.weapon_class() == "Blade", "another turn puts the main weapon back")
-	# The frogfolk's bow is a blowgun, held at the mouth, shooting darts (user, 2026-11-10).
-	p.setup("frog", "forge_god", "warhammer", "bow")
-	p._use_sidearm(true)
-	var slot: Array = p.visual.find_children("*", "BoneAttachment3D", true, false).filter(func(s): return s.get_child_count() > 0 and not s.is_queued_for_deletion())
-	var dart := p.fire_projectile(p.facing, 45.0, 1.0, DamageInfo.Kind.LIGHT, 0, [])
-	check(p.moveset is WeaponMoveset.Blowgun and slot.size() == 1 and slot[0].bone_name == "head" and dart != null and (dart._mesh.mesh as BoxMesh).size.x < 0.1,
-		"the frogfolk hold a blowgun at the mouth and shoot darts")
-	if dart != null:
-		dart.queue_free()
-	p.setup("dwarf", "forge_god", "warhammer", "bow")
-	# The bow (user, 2026-11-19): one heavy bolt through everyone in its path, then a 10 s wait.
-	p._use_sidearm(true)
-	var shots: Array = []
-	var count := func(n: Node) -> void:
-		if n is Projectile:
-			shots.append(n)
-	get_tree().node_added.connect(count)
-	p.moveset.light_hit(p, false)
-	get_tree().node_added.disconnect(count)
-	check(shots.size() == 1 and shots[0].pierce >= 99 and shots[0].template.kind == DamageInfo.Kind.HEAVY
-		and is_equal_approx(p.bow_left, GameData.tuning.bow_cooldown) and is_equal_approx(GameData.tuning.bow_cooldown, 10.0),
-		"a bow shot is one heavy bolt that goes through every enemy, then the bow waits 10 s")
-	for b in shots:
-		b.queue_free()
-	p.bow_left = 0.0
-	p._use_sidearm(false)
-	input.hold({}, 1)
+	check(not InputMap.has_action("sidearm") and not InputMap.has_action("switch_weapon"), "no bow to switch to any more (user, 2026-11-20)")
 
 
 func test_shelved_races() -> void:
@@ -1277,63 +1195,22 @@ func test_launches_and_ragdolls() -> void:
 	p.setup("dwarf", "forge_god")
 
 
-func test_throwing_knife() -> void:
+func test_throw_key_and_weapon_aura() -> void:
 	var p: Player = _arena.player
 	p.god_mode = true
 	var key := InputEventKey.new()
 	key.physical_keycode = KEY_G
-	check(InputMap.event_is_action(key, "throw_knife"), "G throws the knife")
+	check(InputMap.event_is_action(key, "throw_weapon"), "G throws your weapon")
 	var god_key := InputEventKey.new()
 	god_key.physical_keycode = KEY_P
 	check(InputMap.event_is_action(god_key, "god_mode"), "P is god mode")
-	# Every god's knife has its own throw, path and explosion, and every one lands and deals its type.
-	var clips := {}
-	var blasts := {}
 	for g in GameData.rows("gods"):
-		var element := GameData.text(g, "element")
-		check(HomingKnife.STYLES.has(element), "%s's %s has a knife style" % [g.god_id, element])
-		clips[HomingKnife.throw_clip(element)] = true
-		blasts[HomingKnife.STYLES.get(element, HomingKnife.STYLES["Physical"])[5]] = true
-		check(p.visual.anim.has_animation(HomingKnife.throw_clip(element)), "%s's throw animation exists" % element)
 		for a in GameData.abilities_for(g.god_id).values():  # the clips picked in the Arena Magic Attacks sheet
 			check(p.visual.anim.has_animation(GameData.text(a, "animation_name")), "%s plays %s" % [a.ability_id, a.animation_name])
-		p.setup("human", g.god_id)
-		await _frames(1)
-		get_tree().paused = false
-		var targets := _cluster(3, 22.0)
-		for e in targets:
-			e.global_position = p.global_position + Vector3(0, 0, -22) + Vector3(randf_range(-1.0, 1.0), 0, randf_range(-1.0, 1.0))
-			e.set_physics_process(true)
-		var hp: Array = targets.map(func(e): return e.health.hp)
-		var seen := []
-		var listen := func(_t, info: DamageInfo, _d):
-			seen.append(info.damage_type)
-		Combat.hit_landed.connect(listen)
-		p._knife_left = 0.0
-		var thrown := p.throw_knife(p.rotation.y)
-		for i in 240:
-			get_tree().paused = false
-			await _frames(1)
-			if not seen.is_empty():
-				break
-			for e in targets:  # they run: it still catches them
-				if is_instance_valid(e) and not e.is_dead():
-					e.global_position += Vector3(0, 0, -0.08)
-		Combat.hit_landed.disconnect(listen)
-		check(thrown and seen.size() >= 3, "%s's knife hits everyone in the blast (%d)" % [element, seen.size()])
-		check(seen.all(func(d): return d == element), "with %s damage (%s)" % [element, seen])
-		for e in targets:
-			if is_instance_valid(e):
-				e.queue_free()
-		await _frames(1)
-		await _frames(1)
-	check(clips.size() == GameData.rows("gods").size() and blasts.size() == GameData.rows("gods").size(), "each damage type has its own throw and explosion (%d, %d)" % [clips.size(), blasts.size()])
-	p._knife_left = 1.0
-	check(not p.throw_knife(0.0), "and it has a cooldown")
-	p._knife_left = 0.0
+	check(p.visual.anim.has_animation("Throw"), "the throw animation exists")
 	# The aura around the weapon, in your god's color, through weapon swaps.
-	p.setup("human", "forge_god")
-	await _frames(1)  # the last god's weapon goes away at the end of the frame
+	p.setup("human", "forge_god", "warhammer")
+	await _frames(1)  # the last weapon goes away at the end of the frame
 	var halos := func() -> Array:
 		return p.visual.find_children("WeaponAuraShell", "", true, false).filter(func(h): return not h.is_queued_for_deletion())
 	check(not halos.call().is_empty(), "the weapon glows")
@@ -1349,66 +1226,150 @@ func test_throwing_knife() -> void:
 func test_aiming() -> void:
 	var p: Player = _arena.player
 	p.god_mode = true
-	p.setup("human", "forge_god", "bow")
+	p.setup("human", "forge_god", "warhammer")
 	await _until_on_floor()
-	var newest := func() -> Projectile:
-		var shots: Array = Combat.effects_root.get_children().filter(func(n): return n is Projectile and not n.is_queued_for_deletion())
-		return shots[-1] if not shots.is_empty() else null
+	var t: CombatTuning = GameData.tuning
+	var throw := func() -> Projectile:  # a tap of G with the warhammer
+		p.equip("warhammer")
+		p.throw_charge = 0.0
+		return p.throw_weapon(p.rotation.y)
 	# Straight ahead with nothing to aim at: it still drops a little.
 	p._crosshair = Vector3.INF
-	p.fire_projectile(p.facing, 45.0, 1.0, DamageInfo.Kind.LIGHT, 0, [])
-	var flat: Projectile = newest.call()
-	check(flat != null and flat.drop == GameData.tuning.missile_gravity and flat.aimed, "arrows have a little drop")
+	var flat: Projectile = throw.call()
+	check(flat != null and flat.drop == t.weapon_throw_drop and flat.aimed, "a thrown weapon drops a little")
 	var y0: float = flat.velocity.y
 	await _frames(20)
-	check(is_instance_valid(flat) and flat.velocity.y < y0 - 1.0 and flat.velocity.y > -6.0, "they fall as they fly, not much (%.1f m/s)" % flat.velocity.y)
+	check(is_instance_valid(flat) and flat.velocity.y < y0 - 1.0 and flat.velocity.y > -8.0, "it falls as it flies, not much (%.1f m/s)" % flat.velocity.y)
 	# Up and down, at whatever the crosshair is on.
 	var muzzle: Vector3 = p.global_position + Vector3.UP * 1.3
-	var up_at := muzzle + p.facing * 20.0 + Vector3.UP * 12.0
-	p._crosshair = up_at
-	p.fire_projectile(p.facing, 45.0, 1.0, DamageInfo.Kind.LIGHT, 0, [])
-	var up: Projectile = newest.call()
-	check(up.velocity.y > 15.0, "aiming up shoots up (%.1f m/s)" % up.velocity.y)
+	p._crosshair = muzzle + p.facing * 20.0 + Vector3.UP * 12.0
+	check(throw.call().velocity.y > 15.0, "aiming up throws up")
 	p._crosshair = muzzle + p.facing * 10.0 + Vector3.DOWN * 6.0
-	p.fire_projectile(p.facing, 45.0, 1.0, DamageInfo.Kind.LIGHT, 0, [])
-	check(newest.call().velocity.y < -15.0, "aiming down shoots down")
+	check(throw.call().velocity.y < -15.0, "aiming down throws down")
 	p._crosshair = muzzle - p.facing * 3.0
-	p.fire_projectile(p.facing, 45.0, 1.0, DamageInfo.Kind.LIGHT, 0, [])
-	check(newest.call().velocity.normalized().dot(p.facing) > 0.9, "a crosshair behind you doesn't shoot backwards")
-	# An arrow is aimed a little high so it drops onto the point you picked (user, 2026-11-05).
-	var far_at := muzzle + p.facing * 40.0
+	check(throw.call().velocity.normalized().dot(p.facing) > 0.9, "a crosshair behind you doesn't throw backwards")
+	# Aimed a little high so it drops onto the point you picked (user, 2026-11-05).
+	var far_at := muzzle + p.facing * 30.0
 	p._crosshair = far_at
-	var aimed := p.aim_direction(muzzle + p.facing * 0.6, 45.0, GameData.tuning.missile_gravity)
-	var t_fly := 40.0 / 45.0
-	var lands := muzzle + p.facing * 0.6 + aimed * 45.0 * t_fly + Vector3.DOWN * 0.5 * GameData.tuning.missile_gravity * t_fly * t_fly
-	check(aimed.y > 0.0 and lands.distance_to(far_at) < 1.0, "a far arrow is aimed high and lands on the crosshair (%.2f m off)" % lands.distance_to(far_at))
-	check(p.aims_with_body(), "a bow puts the camera over your shoulder and shows the reticle")
-	# A shot over someone's head misses; one at them hits.
-	await _frames(100)  # the shots above have gone
+	var speed := t.weapon_throw_speed
+	var aimed := p.aim_direction(muzzle + p.facing * 0.6, speed, t.weapon_throw_drop)
+	var t_fly := 30.0 / speed
+	var lands := muzzle + p.facing * 0.6 + aimed * speed * t_fly + Vector3.DOWN * 0.5 * t.weapon_throw_drop * t_fly * t_fly
+	check(aimed.y > 0.0 and lands.distance_to(far_at) < 1.0, "a far throw is aimed high and lands on the crosshair (%.2f m off)" % lands.distance_to(far_at))
+	# A throw over someone's head misses; one at them hits.
+	await _frames(100)  # the throws above have landed
 	var foe: Enemy = _cluster(1, 8.0)[0]
 	foe.global_position = p.global_position + p.facing * 8.0
-	foe.health.setup(9999.0)
+	foe.health.setup(99999.0)
 	await _frames(1)
 	var hp: float = foe.health.hp
 	p._crosshair = foe.global_position + Vector3.UP * 14.0
-	p.fire_projectile(p.facing, 45.0, 50.0, DamageInfo.Kind.LIGHT, 0, [])
+	throw.call()
 	await _frames(20)
-	check(foe.health.hp == hp, "a shot over their head misses")
+	check(foe.health.hp == hp, "a throw over their head misses")
 	p._crosshair = foe.global_position + Vector3.UP
-	p.fire_projectile(p.facing, 45.0, 50.0, DamageInfo.Kind.LIGHT, 0, [])
+	throw.call()
 	await _frames(20)
-	check(foe.health.hp < hp, "a shot at them hits")
+	check(foe.health.hp < hp, "a throw at them hits")
 	foe.queue_free()
-	# Shots stop at the ground.
+	# Throws stop at the ground.
 	p._crosshair = muzzle + p.facing * 3.0 + Vector3.DOWN * 3.0
-	p.fire_projectile(p.facing, 45.0, 1.0, DamageInfo.Kind.LIGHT, 0, [])
-	var low: Projectile = newest.call()
+	var low: Projectile = throw.call()
 	await _frames(15)
-	check(not is_instance_valid(low), "a shot into the ground stops there")
+	check(not is_instance_valid(low), "a throw into the ground stops there")
 	# The camera looks nearly straight up and down, and the crosshair is on screen.
 	check(_arena.camera_rig.max_pitch > 1.0 and _arena.camera_rig.min_pitch < -1.3, "you can look almost straight up and down")
 	p._crosshair = Vector3.INF
-	p.setup("dwarf", "forge_god")
+	for w in get_tree().get_nodes_in_group("weapon_pickups"):
+		w.queue_free()
+	p.setup("dwarf", "forge_god", "warhammer")
+
+
+## User, 2026-11-20: you start with your fists and the chain; weapons lie about the arena, are picked
+## up by walking over them, and are thrown with G: through every enemy in the path, pinning them to
+## walls, landing to be picked up again.
+func test_fists_pickups_and_throws() -> void:
+	var p: Player = _arena.player
+	var t: CombatTuning = GameData.tuning
+	p.god_mode = true
+	var lying := get_tree().get_nodes_in_group("weapon_pickups")
+	check(lying.size() == t.weapon_pickups and lying.all(func(w): return w.weapon_id in GameData.pickup_weapons()), "%d weapons lie about the arena" % lying.size())
+	for w in lying:
+		w.queue_free()
+	await _frames(1)
+	_arena.scatter_weapons()
+	check(get_tree().get_nodes_in_group("weapon_pickups").size() == t.weapon_pickups, "and more are laid out to make up the count")
+	for w in get_tree().get_nodes_in_group("weapon_pickups"):
+		w.queue_free()
+	# Fists: weaker than any weapon, a punch combo and a kick.
+	p.equip(GameData.FISTS)
+	check(p.moveset is WeaponMoveset.Fists and p.visual.find_children("*", "BoneAttachment3D", true, false).filter(func(a): return not a.is_queued_for_deletion() and a.get_child_count() > 0).is_empty(),
+		"bare fists: nothing in your hand")
+	var fist := GameData.num(GameData.weapon(GameData.FISTS), "weapon_base_damage")
+	check(GameData.pickup_weapons().all(func(w): return GameData.num(GameData.weapon(w), "weapon_base_damage") > fist), "every weapon hits harder than your fists")
+	check(not p.throw_weapon(0.0), "there's nothing to throw")
+	# Walking over a weapon takes it up; with a weapon in hand you walk past the next.
+	await _frames(1)
+	var hammer := WeaponPickup.make("warhammer", _arena, p.global_position + Vector3(0, 0, -0.5))
+	var sword := WeaponPickup.make("greatsword", _arena, p.global_position + Vector3(0, 0, -0.5))
+	await _frames(3)
+	check(p.weapon_id in ["warhammer", "greatsword"] and (is_instance_valid(hammer) != is_instance_valid(sword)), "walking over a weapon takes it up, and only one (%s)" % p.weapon_id)
+	for w in [hammer, sword]:
+		if is_instance_valid(w):
+			w.queue_free()
+	# Throwing: hold G to wind up, let go to throw. It goes through every enemy in a line and pins them.
+	p.equip("warhammer")
+	var wall := StaticBody3D.new()
+	var col := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(30.0, 12.0, 1.0)
+	col.shape = box
+	wall.add_child(col)
+	wall.collision_layer = 0b001
+	_arena.add_child(wall)
+	wall.global_position = p.global_position + Vector3(0, 4, -14)
+	var foes: Array = []
+	for d in [4.0, 7.0]:
+		var e: Enemy = _cluster(1, d)[0]
+		e.global_position = p.global_position + Vector3(0, 0.2, -d)
+		e.health.setup(99999.0)
+		foes.append(e)
+	await _frames(1)
+	p._crosshair = p.global_position + Vector3(0, 1.0, -10)
+	var s := _scripted()
+	s.hold({"throw": true, "throw_held": true, "aim_yaw": 0.0}, 1)
+	s.hold({"throw_held": true, "aim_yaw": 0.0}, ceili(t.weapon_throw_charge_time * 60.0) + 5)
+	await _frames(10)
+	check(p.aiming and p.throw_charge > 0.0 and p.charge_shown() > 0.0, "holding G winds up the throw, the crosshair out and the charge bar filling")
+	var shots: Array = []
+	var count := func(n: Node) -> void:
+		if n is Projectile:
+			shots.append(n.velocity)
+	get_tree().node_added.connect(count)
+	await _frames(ceili(t.weapon_throw_charge_time * 60.0) + 2)
+	get_tree().node_added.disconnect(count)
+	check(shots.size() == 1 and p.weapon_id == GameData.FISTS and not p.aiming, "letting go throws it: your hands are empty")
+	check(shots.size() == 1 and is_equal_approx(Vector2(shots[0].x, shots[0].z).length(), t.weapon_throw_speed_max), "wound up all the way, it flies at full force")
+	var landed := false
+	for i in 120:
+		get_tree().paused = false
+		await _frames(1)
+		landed = landed or get_tree().get_nodes_in_group("weapon_pickups").any(func(w): return w.weapon_id == "warhammer")
+		if landed and foes.all(func(e): return e._pinned):
+			break
+	check(foes.all(func(e): return e.health.hp < e.health.max_hp), "it went through both enemies")
+	check(foes.all(func(e): return e._pinned), "and pinned them to the wall")
+	check(foes.all(func(e): return is_instance_valid(e._pin_bolt) and e._pin_bolt.find_children("*", "MeshInstance3D", true, false).size() > 1), "the warhammer itself through them")
+	check(landed, "the warhammer lies where it landed, to be picked up again")
+	for e in foes:
+		e.queue_free()
+	for w in get_tree().get_nodes_in_group("weapon_pickups"):
+		w.queue_free()
+	wall.queue_free()
+	p._crosshair = Vector3.INF
+	p.equip("warhammer")
+	s.hold({}, 1)
+	await _frames(1)
 
 
 ## The six worst bugs of the 2026-11-03 code review stay fixed.
@@ -1597,27 +1558,9 @@ func test_combat_feel() -> void:
 			break
 		jumped = p._jump_now(hold, 0.016, true)
 	check(jumped and is_equal_approx(p._jump_power, t.jump_charge_max), "held for 2 s it jumps 130%% (%.2f)" % p._jump_power)
-	# Sure aim: an enemy right in the crosshair within 30 m is hit by a bow.
-	p.setup("human", "forge_god", "bow")
-	await _until_on_floor()
 	var foe: Enemy = _cluster(1, 20.0)[0]
 	foe.global_position = p.global_position + p.facing * 20.0
 	await _frames(2)
-	var muzzle := p.global_position + Vector3.UP * 1.3
-	p._crosshair = foe.global_position + Vector3.UP * 1.0 + Vector3.UP * 0.4  # a little off, still in the circle
-	check(p.sure_target(muzzle, t.aim_cone_missile_deg, p.sure_range()) == foe, "the enemy at the crosshair is the bow's target")
-	p._crosshair = foe.global_position + Vector3.UP * 12.0
-	check(p.sure_target(muzzle, t.aim_cone_missile_deg, p.sure_range()) == null, "but not one well off it")
-	check(is_equal_approx(p.sure_range(), t.sure_range_bow), "a bow is sure to 30 m")
-	p._crosshair = foe.global_position + Vector3.UP
-	var hp := foe.health.hp
-	p.fire_projectile(p.facing, 45.0, 5.0, DamageInfo.Kind.LIGHT, 0, [])
-	await _frames(40)
-	check(foe.health.hp < hp, "and the arrow hits it")
-	var stuck := foe.find_children("*", "MeshInstance3D", false, false).size() > 0
-	check(stuck, "and stays stuck in it a while")
-	# A heavy shot doesn't pass through any more.
-	check(not FileAccess.get_file_as_string("res://scripts/combat/weapon_moveset.gd").contains("DamageInfo.Kind.HEAVY, 5,"), "a heavy shot doesn't pierce (that's for godly gifts)")
 	# Bosses show a health bar when they fight you.
 	foe.mini_boss = true
 	foe.target = p
@@ -1706,8 +1649,8 @@ func test_art_checklist() -> void:
 		return found[0] if not found.is_empty() else {}
 	var axe: Dictionary = by_file.call("dwarf/guardian/weapon.glb")
 	check(not axe.is_empty() and axe.group == "Race: Dwarf" and not by_file.call("dwarf/guardian/shield.glb").is_empty()
-		and not by_file.call("dwarf/rogue/body.glb").is_empty() and not by_file.call("dwarf/knife.glb").is_empty(),
-		"each race lists every class's body and weapon, the Guardian's shield and the throwing weapon")
+		and not by_file.call("dwarf/rogue/body.glb").is_empty() and by_file.call("dwarf/knife.glb").is_empty() and by_file.call("dwarf/fists.glb").is_empty(),
+		"each race lists every class's body and weapon and the Guardian's shield; no throwing knife or fists")
 	check(app.current(axe) == ModelRegistry.OWN + "dwarf/guardian/weapon.glb", "and shows what the game uses now (the user's dwarf axe)")
 	var villager: Dictionary = by_file.call(str(GameData.rows("tribe_members")[0].model_file))
 	check(app.target(villager).begins_with("user://checklist_test/own/%s/people/" % villager.dir.get_slice("/", 0)), "a villager goes in its race's people folder")
@@ -1756,22 +1699,18 @@ func test_target_search() -> void:
 func test_practice_picks() -> void:
 	var gods: Array = ArenaMenu.elements()
 	check(gods.size() >= 4 and not gods.any(func(g): return g in GameData.SHELVED_GODS), "Practice offers every kept god (%s)" % ", ".join(gods))
-	var weapons := GameData.weapon_options(Arena.START_RACE)
 	var god: String = gods.back()
-	var weapon: String = weapons.back()
 	_arena.queue_free()
 	await _frames(1)
 	Flow.practice_god = god
-	Flow.practice_weapon = weapon
 	_arena = ARENA.instantiate()
 	_arena.auto_start = false
 	add_child(_arena)
 	await _frames(2)
-	check(Run.state.race_id == "dwarf" and Run.state.god_id == god and Run.state.weapon_id == weapon,
-		"Practice starts as a dwarf with the god and class picked (%s, %s)" % [Run.state.god_id, Run.state.weapon_id])
+	check(Run.state.race_id == "dwarf" and Run.state.god_id == god and Run.state.weapon_id == GameData.FISTS,
+		"Practice starts as a dwarf with the god picked, bare-handed (%s, %s)" % [Run.state.god_id, Run.state.weapon_id])
 	check(_arena.player.god_id == god and god in _arena.offer_gods, "and offers that god's gifts")
 	Flow.practice_god = ""
-	Flow.practice_weapon = ""
 
 
 func test_stealth() -> void:
@@ -2085,7 +2024,7 @@ func test_rhythm_and_charge() -> void:
 	await _until_on_floor()
 	var paces := {}
 	for w in ["warhammer", "greatsword", "twin_khopesh", "naginata"]:
-		p.equip(w, "bow")
+		p.equip(w)
 		paces[w] = p._light_duration()
 	check(paces["twin_khopesh"] < paces["greatsword"] and paces["greatsword"] < paces["warhammer"], "Twin is fastest, Heavy slowest: %s" % str(paces))
 	var aps := GameData.num(p._weapon, "weapon_attacks_per_sec", 1.2)
@@ -2123,7 +2062,7 @@ func test_weapon_and_spell_feel() -> void:
 	check(k["Heavy"] > k["Polearm"] and k["Polearm"] > k["Blade"] and k["Blade"] > k["Twin"], "the hammer throws hardest, twin blades least: %s" % str(k))
 	var speeds := {}
 	for w in ["warhammer", "twin_khopesh"]:
-		p.equip(w, "bow")
+		p.equip(w)
 		var foe: Enemy = _cluster(1, 3.0)[0]
 		await _frames(2)
 		var info := DamageInfo.make(1.0, "Physical", DamageInfo.Kind.HEAVY, p)
@@ -2134,7 +2073,7 @@ func test_weapon_and_spell_feel() -> void:
 		foe.queue_free()
 		await _frames(1)
 	check(speeds["warhammer"] > speeds["twin_khopesh"], "a hammer's launch flies farther than a twin blade's (%s)" % str(speeds))
-	p.equip("warhammer", "bow")
+	p.equip("warhammer")
 
 
 ## Combat feel plan, part 4: hold light attack to grab a minion; keep holding to crush it, right
@@ -2227,10 +2166,6 @@ func test_grab_crush_hurl() -> void:
 	check(splat.is_dead() and not splat._hurled, "hurled into a wall, it bursts")
 	check(bystander.health.hp < by_hp or bystander.is_dead() or bystander.thrown, "and hurts whoever stands by the wall")
 	wall.queue_free()
-	# Not with the sidearm out.
-	p._use_sidearm(true)
-	check(not p._can_grab(), "no grab with the bow out")
-	p._use_sidearm(false)
 
 
 ## Combat feel plan, part 5: the chain grab. A held light attack with no minion in reach hooks
@@ -2687,8 +2622,8 @@ func test_anim_library() -> void:
 
 
 func test_arena_menu() -> void:
-	# The endless arena's menus: a loadout of weapons and elements, and Esc to pause and back.
-	check(ArenaMenu.weapons().size() >= 2 and ArenaMenu.elements().size() >= 2, "weapons and elements to choose from")
+	# The endless arena's menus: elements to choose from (no weapon: you find those), and Esc to pause and back.
+	check(ArenaMenu.elements().size() >= 2, "elements to choose from")
 	_arena.queue_free()
 	await _frames(1)
 	_arena = ENDLESS.instantiate()
@@ -2707,7 +2642,7 @@ func test_arena_menu() -> void:
 	check(a.menu.is_open() and get_tree().paused, "Esc pauses")
 	a.menu._unhandled_input(esc)
 	check(not a.menu.is_open() and not get_tree().paused, "Esc again resumes")
-	a.menu.open_loadout(a.player.god_id, a.player.weapon_id)
+	a.menu.open_loadout(a.player.god_id)
 	check(a.menu.is_open() and get_tree().paused, "the loadout menu pauses the fight")
 	a.menu.close()
 
@@ -2839,6 +2774,8 @@ func test_grab_aim_and_slams() -> void:
 	var a: EndlessArena = _arena
 	var p: Player = a.player
 	var rig: CameraRig = a.camera_rig
+	p.equip("warhammer")  # you start bare-handed: take a weapon to see it
+	await _frames(1)
 	var body_meshes: Array = p.visual.model.find_children("*", "MeshInstance3D", true, false)
 	check(rig.first_person and (rig.camera.cull_mask & CameraRig.BODY_LAYER) == 0, "first person leaves the body's layer out")
 	check(body_meshes.any(func(m): return m.layers == CameraRig.BODY_LAYER) and body_meshes.any(func(m): return m.layers & 1),
