@@ -16,7 +16,6 @@
   "default_race": "dwarf",
   "theme_color_hex": "#E0622B",
   "shrine_model_file": "shrine_forge_god.glb",
-  "unlocked_at_start": "Yes",
   "unlock_condition": null
  },
  {
@@ -36,7 +35,6 @@
   "default_race": "treekin",
   "theme_color_hex": "#5E9E3A",
   "shrine_model_file": "shrine_nature_god.glb",
-  "unlocked_at_start": "Yes",
   "unlock_condition": null
  },
  {
@@ -56,7 +54,6 @@
   "default_race": "orc",
   "theme_color_hex": "#A3202A",
   "shrine_model_file": "shrine_war_god.glb",
-  "unlocked_at_start": "Yes",
   "unlock_condition": null
  },
  {
@@ -76,7 +73,6 @@
   "default_race": "ratfolk",
   "theme_color_hex": "#7FA33A",
   "shrine_model_file": "shrine_disease_god.glb",
-  "unlocked_at_start": "Yes",
   "unlock_condition": null
  },
  {
@@ -96,7 +92,6 @@
   "default_race": "demon",
   "theme_color_hex": "#4B3A6B",
   "shrine_model_file": "shrine_death_god.glb",
-  "unlocked_at_start": "Yes",
   "unlock_condition": null
  },
  {
@@ -116,7 +111,6 @@
   "default_race": "gnome",
   "theme_color_hex": "#C23BAF",
   "shrine_model_file": "shrine_chaos_god.glb",
-  "unlocked_at_start": "Yes",
   "unlock_condition": null
  },
  {
@@ -136,7 +130,6 @@
   "default_race": "minotaur",
   "theme_color_hex": "#D8A64A",
   "shrine_model_file": "shrine_desert_god.glb",
-  "unlocked_at_start": "Yes",
   "unlock_condition": null
  },
  {
@@ -156,7 +149,6 @@
   "default_race": "angel",
   "theme_color_hex": "#F2C641",
   "shrine_model_file": "shrine_sun_god.glb",
-  "unlocked_at_start": "Yes",
   "unlock_condition": null
  },
  {
@@ -176,7 +168,6 @@
   "default_race": "elf",
   "theme_color_hex": "#6C7BD1",
   "shrine_model_file": "shrine_moon_god.glb",
-  "unlocked_at_start": "Yes",
   "unlock_condition": null
  },
  {
@@ -196,7 +187,6 @@
   "default_race": "macaque",
   "theme_color_hex": "#8FD3F0",
   "shrine_model_file": "shrine_snow_god.glb",
-  "unlocked_at_start": "Yes",
   "unlock_condition": null
  },
  {
@@ -216,7 +206,6 @@
   "default_race": "human",
   "theme_color_hex": "#C9A23B",
   "shrine_model_file": "shrine_harvest_god.glb",
-  "unlocked_at_start": "Yes",
   "unlock_condition": null
  },
  {
@@ -236,7 +225,6 @@
   "default_race": "frog",
   "theme_color_hex": "#2E86AB",
   "shrine_model_file": "shrine_sea_god.glb",
-  "unlocked_at_start": "Yes",
   "unlock_condition": null
  },
  {
@@ -256,7 +244,6 @@
   "default_race": "bird",
   "theme_color_hex": "#4FA3E0",
   "shrine_model_file": "shrine_storm_god.glb",
-  "unlocked_at_start": "Yes",
   "unlock_condition": null
  },
  {
@@ -276,7 +263,6 @@
   "default_race": "centaur",
   "theme_color_hex": "#A8D8C8",
   "shrine_model_file": "shrine_wind_god.glb",
-  "unlocked_at_start": "Yes",
   "unlock_condition": null
  },
  {
@@ -296,7 +282,6 @@
   "default_race": "gnoll",
   "theme_color_hex": "#B5651D",
   "shrine_model_file": "shrine_animal_god.glb",
-  "unlocked_at_start": "Yes",
   "unlock_condition": null
  }
 ]
