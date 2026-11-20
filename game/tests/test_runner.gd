@@ -1656,6 +1656,24 @@ func test_fists_pickups_and_throws() -> void:
 	check(foes.all(func(e): return is_instance_valid(e._pin_bolt) and e._pin_weapon == "warhammer"), "the warhammer itself through them")
 	check(landed, "the warhammer sticks in the wall it hit")
 	check(get_tree().get_nodes_in_group("weapon_pickups").any(func(w): return w.weapon_id == "warhammer"), "and a new warhammer is laid out")
+	# Empty hands: the chain grab pulls a weapon out of the wall into your hand (user, 2026-11-20).
+	for w in get_tree().get_nodes_in_group("weapon_pickups"):
+		w.free()
+	for e in foes:
+		e.free()
+	foes.clear()
+	var stuck: Array = _arena.find_children("StuckWeapon", "", false, false)
+	p.equip(GameData.FISTS)
+	p._set_state(Player.State.FREE)
+	var pull := PlayerIntent.new()
+	pull.crosshair = stuck[0].global_position
+	pull.light_held = true
+	check(p.chain.find_target(pull) == stuck[0] and p._try_grab(pull), "with empty hands the chain takes the weapon stuck in the wall")
+	for i in 90:
+		await _frames(1)
+		if p.weapon_id != GameData.FISTS:
+			break
+	check(p.weapon_id == "warhammer" and not is_instance_valid(stuck[0]), "and pulls it into your hand (%s)" % p.weapon_id)
 	for w in _arena.find_children("StuckWeapon", "", false, false):
 		w.queue_free()
 	for e in foes:

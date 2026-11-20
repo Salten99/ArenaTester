@@ -3,6 +3,7 @@ extends RefCounted
 ## The chain grab (combat feel plan, user 2026-11-18, from their fifth reel). The same held light
 ## attack as the hand grab: with no minion in reach but a target in the crosshair within
 ## chain_range, a chain shoots from your free hand and hooks it, even mid-air. No cooldown.
+## With empty hands it also takes a weapon (lying, or stuck in a wall) and pulls it into your hand.
 ## With a minion hooked, still holding light attack:
 ##   - scroll the wheel: reel it in; if a light hit would kill it you punch it apart, else it's in
 ##     your hand (the hand grab: crush or hurl);
@@ -68,6 +69,10 @@ func find_target(intent: PlayerIntent) -> Node3D:
 	for n in player.get_tree().get_nodes_in_group("throwables") + player.get_tree().get_nodes_in_group("breakables"):
 		if Grabber.is_item(n) and (n as Node3D).global_position.distance_to(player.global_position) <= t.chain_range:
 			pool.append(n)  # items too: whatever is nearest the crosshair
+	if player.weapon_id == GameData.FISTS:  # and weapons, lying or stuck in a wall, for empty hands
+		for w in player.get_tree().get_nodes_in_group("chain_weapons"):
+			if (w as Node3D).global_position.distance_to(player.global_position) <= t.chain_range:
+				pool.append(w)
 	for e in pool:
 		if not is_instance_valid(e) or e.is_dead() or (e is Enemy and (e.civilian or e.held_by != null)):
 			continue
@@ -112,6 +117,11 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 		Mode.FLYING:
 			var reach := hand().distance_to(_target_point())
 			if _time * t.chain_speed >= reach:
+				if target is WeaponPickup:  # a weapon: yanked straight into your hand
+					player.equip(target.weapon_id)
+					Vfx.sparks(_target_point(), hand() - _target_point(), 6)
+					target.queue_free()
+					return _end()
 				if pulls_you(target):
 					mode = Mode.ANCHOR  # it holds on a big one until you pull yourself in
 				else:

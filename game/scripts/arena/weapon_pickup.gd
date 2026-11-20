@@ -3,13 +3,15 @@ extends Node3D
 ## A weapon lying in the arena (user, 2026-11-20: you start with only your fists and the chain;
 ## weapons are found around the map). Walk over it with empty hands to take it up. A thrown weapon
 ## lies where it lands on the floor, as one of these, until you take it again; one thrown into a wall
-## sticks there (stick) and a new one is laid out.
+## sticks there (stick) and a new one is laid out. With empty hands the chain grab pulls either kind
+## into your hand (user, 2026-11-20).
 
 const REACH := 1.6
 ## A weapon's longest side, lying here or flying (m).
 const LENGTH := 1.3
 
 var weapon_id := ""
+var stuck := false  ## in a wall: no glow or spin, not walked over, only the chain pulls it out
 var _spin: Node3D
 var _time := 0.0
 var _landed := false  ## dropped onto the floor below where it was put (on the first physics frame)
@@ -47,21 +49,36 @@ static func add_model(parent: Node3D, id: String) -> Node3D:
 
 
 ## Weapon `id` stuck in a wall at `at`, flying along `dir`: its point in, the rest sticking out.
-static func stick(id: String, parent: Node, at: Vector3, dir: Vector3) -> Node3D:
-	var holder := Node3D.new()
-	holder.name = "StuckWeapon"
-	parent.add_child(holder)
-	holder.global_position = at
+static func stick(id: String, parent: Node, at: Vector3, dir: Vector3) -> WeaponPickup:
+	var w := WeaponPickup.new()
+	w.name = "StuckWeapon"
+	w.weapon_id = id
+	w.stuck = true
+	parent.add_child(w)
+	w.global_position = at
 	if dir.length() > 0.01:
-		holder.look_at(at + dir, Vector3.UP if absf(dir.normalized().y) < 0.99 else Vector3.RIGHT)
-	var pivot := add_model(holder, id)
-	if pivot != null:
-		pivot.position.z = LENGTH * 0.3  # back out of the wall along the flight
-	return holder
+		w.look_at(at + dir, Vector3.UP if absf(dir.normalized().y) < 0.99 else Vector3.RIGHT)
+	return w
+
+
+## The chain (Chain.find_target) takes weapons as targets: these two make it one.
+func is_dead() -> bool:
+	return is_queued_for_deletion()
+
+
+func aim_height() -> float:
+	return 0.0 if stuck else 1.0
 
 
 func _ready() -> void:
-	add_to_group("weapon_pickups")
+	add_to_group("chain_weapons")
+	if stuck:
+		var model := add_model(self, weapon_id)
+		if model != null:
+			model.position.z = LENGTH * 0.3  # back out of the wall along the flight
+		set_physics_process(false)
+		return
+	add_to_group("weapon_pickups")  # only the ones lying about count toward weapon_pickups
 	_spin = Node3D.new()
 	add_child(_spin)
 	var pivot := add_model(_spin, weapon_id)
