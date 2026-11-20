@@ -128,7 +128,7 @@ func set_body_layer(layers: int) -> void:
 
 var _body_layers := 1
 var head_ball: BoneAttachment3D
-const HEAD_BALL_RADIUS := 0.19  ## m
+const HEAD_BALL_RADIUS := 0.27  ## m (bigger, user 2026-11-20)
 
 
 ## The god's element as the head (user, 2026-11-20): a fireball, a ball of ice, a ball of lightning,
@@ -174,7 +174,7 @@ func set_head_ball(element: String) -> void:
 	ball.position = Vector3.UP * HEAD_BALL_RADIUS * 0.6  # sits on the neck
 	head_ball.add_child(ball)
 	if element != "Stone":
-		var aura := ElementFx.aura(element, 0.35)  # flames, frost, sparks around it
+		var aura := ElementFx.aura(element, 0.5)  # flames, frost, sparks around it
 		aura.position = Vector3.ZERO
 		aura.scale_amount_min *= 0.35  # the aura's pieces are sized for a whole body
 		aura.scale_amount_max *= 0.35
