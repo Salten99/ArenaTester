@@ -54,7 +54,7 @@ func _ready() -> void:
 		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_spells", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_bestiary_saved", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_bestiary_saved", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -1199,6 +1199,24 @@ func test_paired_claws() -> void:
 	m.queue_free()
 
 
+func test_element_head() -> void:
+	var p: Player = _arena.player
+	check(ModelRegistry.for_race("dwarf").get_file() == ModelRegistry.PLAYER_BODY, "every race plays the user's base body")
+	check(p.visual != null and p.visual.head_ball != null and p.visual.anim.has_animation("Running_A"), "it's rigged, animated, with an element for a head")
+	var balls := func() -> int:
+		return p.visual.find_children("HeadBall", "BoneAttachment3D", true, false).size()
+	p.setup(p.race_id, "forge_god")
+	var fire := p.visual.head_ball.find_children("*", "CPUParticles3D", true, false).size()
+	p.visual.set_head_ball("Stone")
+	check(balls.call() == 1 and fire > 0 and p.visual.head_ball.find_children("*", "CPUParticles3D", true, false).is_empty(),
+		"the fire god's head burns, the boulder doesn't, and a new god swaps it (%d heads)" % balls.call())
+	p.visual.set_weapon(ModelRegistry.own("weapon_mace.glb"))
+	await _frames(1)
+	check(is_instance_valid(p.visual.head_ball), "picking up a weapon keeps the head")
+	var bone: Transform3D = p.visual._skeleton.global_transform * p.visual._skeleton.get_bone_global_pose(p.visual._skeleton.find_bone("head"))
+	check(p.visual.head_ball.global_position.distance_to(bone.origin) < 0.05, "the ball sits on the head bone")
+
+
 func test_race_active_fixes() -> void:
 	var p: Player = _arena.player
 	p.god_mode = false
@@ -1475,7 +1493,7 @@ func test_fists_pickups_and_throws() -> void:
 		w.queue_free()
 	# Fists: weaker than any weapon, a punch combo and a kick.
 	p.equip(GameData.FISTS)
-	check(p.moveset is WeaponMoveset.Fists and p.visual.find_children("*", "BoneAttachment3D", true, false).filter(func(a): return not a.is_queued_for_deletion() and a.get_child_count() > 0).is_empty(),
+	check(p.moveset is WeaponMoveset.Fists and p.visual.find_children("*", "BoneAttachment3D", true, false).filter(func(a): return not a.is_queued_for_deletion() and a.get_child_count() > 0 and a != p.visual.head_ball).is_empty(),
 		"bare fists: nothing in your hand")
 	var fist := GameData.num(GameData.weapon(GameData.FISTS), "weapon_base_damage")
 	check(GameData.pickup_weapons().all(func(w): return GameData.num(GameData.weapon(w), "weapon_base_damage") > fist), "every weapon hits harder than your fists")
@@ -2137,7 +2155,7 @@ func test_audit_fixes_2() -> void:
 	# Rigs that rest their shoulders differently get their own animation library (the cat's and the minotaur's).
 	var rigs: Array = []
 	for race in ["cat", "minotaur"]:
-		var n: Node = (load(ModelRegistry.for_race(race)) as PackedScene).instantiate()
+		var n: Node = (load(ModelRegistry.own(GameData.race(race).get("player_model_file"))) as PackedScene).instantiate()
 		rigs.append(CharacterModel._shape_key(n.find_children("*", "Skeleton3D", true, false)[0]))
 		n.free()
 	check(rigs[0] != rigs[1], "the cat's and the minotaur's rigs don't share animations")

@@ -38,6 +38,9 @@ const ANIMATION_FILES := [
 ]
 
 const DEFAULT_RACE := GEN + "race_human.glb"
+## The user's base body, every race's player, the god's element for a head (user, 2026-11-20;
+## tools/blender/make_player_body.py).
+const PLAYER_BODY := "player_body.glb"
 const DEFAULT_WEAPON := GEN + "weapon_mace.glb"
 
 static var _held: Dictionary = {}
@@ -109,6 +112,8 @@ static func held(file_name) -> String:
 ## The player's body: the class's own look for that race, else the race's model.
 static func for_race(race_id: String, class_id := "") -> String:
 	var mine := class_part(race_id, class_id, "body")
+	if mine == "":
+		mine = own(PLAYER_BODY)
 	if mine == "":
 		mine = own(GameData.race(race_id).get("player_model_file"))
 	return mine if mine != "" else DEFAULT_RACE

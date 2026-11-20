@@ -126,6 +126,8 @@ func setup(p_race: String, p_god: String, p_weapon := "") -> void:
 	equip(p_weapon if p_weapon != "" else weapon_id)
 	if visual != null:
 		visual.set_weapon_aura(god_id)
+		if _body.get_file() == ModelRegistry.PLAYER_BODY:
+			visual.set_head_ball(element())
 		visual.set_god_colors(race_id, god_id)  # shortcut: a saved run reloads in the pledged god's colors, not the starting god's
 
 

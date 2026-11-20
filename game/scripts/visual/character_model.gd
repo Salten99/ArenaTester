@@ -110,6 +110,8 @@ func setup(model_path: String, weapon_path := "", model_scale := 1.0) -> bool:
 ## Puts the body's meshes (not what the hands hold) on render `layers`. The player's body goes on
 ## CameraRig.BODY_LAYER, which the first-person camera leaves out, so only the weapon shows.
 func set_body_layer(layers: int) -> void:
+	_body_layers = layers
+	_layer_head()
 	if model == null:
 		return
 	for n in model.find_children("*", "VisualInstance3D", true, false):
@@ -122,6 +124,68 @@ func set_body_layer(layers: int) -> void:
 			up = up.get_parent()
 		if not held:
 			(n as VisualInstance3D).layers = layers
+
+
+var _body_layers := 1
+var head_ball: BoneAttachment3D
+const HEAD_BALL_RADIUS := 0.19  ## m
+
+
+## The god's element as the head (user, 2026-11-20): a fireball, a ball of ice, a ball of lightning,
+## a boulder; other elements a glowing ball in their color. Rides the head bone from outside the
+## skeleton, so swapping weapons (which clears the skeleton's attachments) leaves it.
+func set_head_ball(element: String) -> void:
+	if head_ball != null:
+		head_ball.free()
+		head_ball = null
+	if _skeleton == null or _skeleton.find_bone("head") < 0:
+		return
+	head_ball = BoneAttachment3D.new()
+	head_ball.name = "HeadBall"
+	add_child(head_ball)
+	head_ball.use_external_skeleton = true
+	head_ball.external_skeleton = head_ball.get_path_to(_skeleton)
+	head_ball.bone_name = "head"
+	var sphere := SphereMesh.new()
+	sphere.radius = HEAD_BALL_RADIUS
+	sphere.height = HEAD_BALL_RADIUS * 2.0
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = ElementFx.color(element)
+	var mesh: Mesh = sphere
+	if element in ["Stone", "Ice"]:  # a few flat faces: a rough boulder, a cut crystal
+		sphere.radial_segments = 7 if element == "Stone" else 6
+		sphere.rings = 4 if element == "Stone" else 3
+		var st := SurfaceTool.new()
+		st.create_from(sphere, 0)
+		st.deindex()
+		st.generate_normals()
+		mesh = st.commit()
+		mat.roughness = 1.0 if element == "Stone" else 0.1
+		if element == "Ice":
+			mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			mat.albedo_color.a = 0.8
+	else:
+		mat.emission_enabled = true
+		mat.emission = mat.albedo_color
+		mat.emission_energy_multiplier = 2.0
+	var ball := MeshInstance3D.new()
+	ball.mesh = mesh
+	ball.material_override = mat
+	ball.position = Vector3.UP * HEAD_BALL_RADIUS * 0.6  # sits on the neck
+	head_ball.add_child(ball)
+	if element != "Stone":
+		var aura := ElementFx.aura(element, 0.35)  # flames, frost, sparks around it
+		aura.position = Vector3.ZERO
+		aura.scale_amount_min *= 0.35  # the aura's pieces are sized for a whole body
+		aura.scale_amount_max *= 0.35
+		ball.add_child(aura)
+	_layer_head()
+
+
+func _layer_head() -> void:
+	if head_ball != null:
+		for n in head_ball.find_children("*", "VisualInstance3D", true, false):
+			(n as VisualInstance3D).layers = _body_layers
 
 
 ## Leans the upper body up or down with your aim (radians, + is up). 0 stands straight.
