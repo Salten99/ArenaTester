@@ -160,9 +160,10 @@ extends Resource
 @export_range(0.2, 3.0, 0.05) var lance_circle_diameter := 1.0
 @export_range(0.0, 1.5, 0.05) var lance_circle_ahead := 0.4
 ## The Fire Lance's circle sits this far (m) in front of your chest instead (user, 2026-11-20), and
-## the beam and circle are tinted this color (darker red).
+## the beam and circle are tinted this color (user, 2026-11-20: deeper, but still fire: orange to red;
+## white keeps your scene's own colors).
 @export_range(0.0, 3.0, 0.05) var lance_chest_ahead := 1.0
-@export var lance_tint := Color(0.7, 0.12, 0.08)
+@export var lance_tint := Color(1.0, 0.6, 0.3)
 ## Fired in the air pointing down (user, 2026-11-20), the lance's push carries you: away from where
 ## it points, this fast (m/s), so aiming at the ground under you lifts you up.
 @export_range(0.0, 40.0, 0.5) var lance_fly_speed := 12.0
@@ -388,9 +389,9 @@ extends Resource
 @export_range(0.0, 50.0, 0.5) var fall_damage := 6.0
 ## With a bow, crossbow or spell weapon the camera sits this far to the right (m), over your shoulder.
 @export_range(0.0, 2.0, 0.05) var aim_shoulder_offset := 0.8
-## The third-person camera stands this many degrees round to your right, looking over your right
-## shoulder (user, 2026-11-20; 0 = straight behind you).
-@export_range(0.0, 60.0, 1.0) var camera_side_deg := 30.0
+## The third-person camera swings this many degrees round to your right, still looking at you in the
+## middle of the screen (user, 2026-11-20: 15; 0 = straight behind you).
+@export_range(0.0, 60.0, 1.0) var camera_side_deg := 15.0
 
 @export_group("Allies and mini bosses")
 ## Warriors fighting beside you are this much tougher than their sheet health (so they last the fight).

@@ -3467,10 +3467,13 @@ func test_lance_flight_and_shoulder_camera() -> void:
 	p.abilities.defs = kept
 	p.input_source = null
 	await _until_on_floor()
-	# The camera looks over your right shoulder (camera_side_deg round to your right), still where you aim.
+	# The camera swings camera_side_deg round to your right, you still in the middle of the screen.
 	var rig: CameraRig = _arena.camera_rig
 	await _frames(30)
 	var to_cam: Vector3 = rig.camera.global_position - p.global_position
 	var right := Vector3(cos(rig.yaw), 0.0, -sin(rig.yaw))
-	check(to_cam.dot(right) > 1.5 and (-rig.camera.global_basis.z).dot(rig.forward()) > 0.8, "the camera stands off your right shoulder (%.1f m), looking where you aim" % to_cam.dot(right))
+	var look: Vector3 = -rig.camera.global_basis.z
+	var pivot: Vector3 = p.global_position + Vector3.UP * rig.height
+	var off_center := (pivot - rig.camera.global_position).cross(look).length()  # how far you are from the middle of its view
+	check(to_cam.dot(right) > 1.0 and off_center < 0.3, "the camera stands off your right side (%.1f m), you in the middle of the screen (%.2f m off)" % [to_cam.dot(right), off_center])
 
