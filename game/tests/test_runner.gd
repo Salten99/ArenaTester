@@ -1295,6 +1295,8 @@ func test_throwing_knife() -> void:
 		clips[HomingKnife.throw_clip(element)] = true
 		blasts[HomingKnife.STYLES.get(element, HomingKnife.STYLES["Physical"])[5]] = true
 		check(p.visual.anim.has_animation(HomingKnife.throw_clip(element)), "%s's throw animation exists" % element)
+		for a in GameData.abilities_for(g.god_id).values():  # the clips picked in the Arena Magic Attacks sheet
+			check(p.visual.anim.has_animation(GameData.text(a, "animation_name")), "%s plays %s" % [a.ability_id, a.animation_name])
 		p.setup("human", g.god_id)
 		await _frames(1)
 		get_tree().paused = false

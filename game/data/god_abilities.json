@@ -13,7 +13,7 @@
   "hits_or_projectiles": 1,
   "status_effect": "fire",
   "status_chance_pct": 100,
-  "animation_name": "forge_signature",
+  "animation_name": "Melee_1H_Attack_Jump_Chop",
   "shape": null,
   "vfx_sfx_notes": "Orange cracks spread, rumble + hiss"
  },
@@ -49,7 +49,7 @@
   "hits_or_projectiles": 1,
   "status_effect": "fire",
   "status_chance_pct": 100,
-  "animation_name": "forge_ultimate",
+  "animation_name": "Ranged_Magic_Raise",
   "shape": null,
   "vfx_sfx_notes": null
  },
@@ -499,7 +499,7 @@
   "hits_or_projectiles": 1,
   "status_effect": "ice",
   "status_chance_pct": 100,
-  "animation_name": "snow_signature",
+  "animation_name": "Melee_1H_Attack_Jump_Chop",
   "shape": null,
   "vfx_sfx_notes": null
  },
@@ -517,7 +517,7 @@
   "hits_or_projectiles": null,
   "status_effect": "ice",
   "status_chance_pct": 100,
-  "animation_name": "snow_movement",
+  "animation_name": "Dodge_Forward",
   "shape": null,
   "vfx_sfx_notes": null
  },
@@ -535,7 +535,7 @@
   "hits_or_projectiles": 1,
   "status_effect": "ice",
   "status_chance_pct": 100,
-  "animation_name": "snow_ultimate",
+  "animation_name": "Ranged_Magic_Summon",
   "shape": null,
   "vfx_sfx_notes": null
  },
@@ -661,7 +661,7 @@
   "hits_or_projectiles": 1,
   "status_effect": "lightning",
   "status_chance_pct": 100,
-  "animation_name": "storm_signature",
+  "animation_name": "Melee_2H_Attack_Chop",
   "shape": null,
   "vfx_sfx_notes": null
  },
@@ -679,7 +679,7 @@
   "hits_or_projectiles": 1,
   "status_effect": "lightning",
   "status_chance_pct": 100,
-  "animation_name": "storm_movement",
+  "animation_name": "Ranged_Magic_Raise",
   "shape": null,
   "vfx_sfx_notes": null
  },
@@ -697,7 +697,7 @@
   "hits_or_projectiles": 20,
   "status_effect": "lightning",
   "status_chance_pct": 100,
-  "animation_name": "storm_ultimate",
+  "animation_name": "Ranged_Magic_Raise",
   "shape": null,
   "vfx_sfx_notes": null
  },
@@ -769,7 +769,7 @@
   "hits_or_projectiles": 1,
   "status_effect": "stone",
   "status_chance_pct": 25,
-  "animation_name": "animal_signature",
+  "animation_name": "Ranged_Magic_Summon",
   "shape": "Spikes",
   "vfx_sfx_notes": null
  },
@@ -787,7 +787,7 @@
   "hits_or_projectiles": null,
   "status_effect": null,
   "status_chance_pct": null,
-  "animation_name": "animal_movement",
+  "animation_name": "Ranged_Magic_Raise",
   "shape": null,
   "vfx_sfx_notes": null
  },
@@ -805,7 +805,7 @@
   "hits_or_projectiles": null,
   "status_effect": "stone",
   "status_chance_pct": 20,
-  "animation_name": "animal_ultimate",
+  "animation_name": "Ranged_Magic_Summon",
   "shape": null,
   "vfx_sfx_notes": null
  }
