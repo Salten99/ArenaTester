@@ -52,6 +52,7 @@ func open_pause() -> void:
 	_button(box, "Restart", func(): arena.restart())
 	_button(box, "Tutorial", open_tutorial)
 	_button(box, "Change element", func(): open_loadout(Flow.practice_god if Flow.practice_god != "" else Arena.START_GOD))
+	_button(box, "Main menu", func(): get_tree().change_scene_to_file(StartMenu.SCENE))
 	_button(box, "Quit game", func(): get_tree().quit())
 
 

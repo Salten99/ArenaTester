@@ -54,7 +54,7 @@ func _ready() -> void:
 		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_spells", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_test_arena_and_start_menu",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -3222,3 +3222,33 @@ func test_tutorial() -> void:
 	p.equip("warhammer")
 	await _frames(2)
 	check(a.step == a.steps.size(), "taking up, throwing and taking back a weapon finish the tutorial")
+
+
+func test_test_arena_and_start_menu() -> void:
+	# Test mode (user, 2026-11-20): no enemies, switch element at will, no cooldowns, props to smash.
+	var menu: StartMenu = load(StartMenu.SCENE).instantiate()
+	add_child(menu)
+	check(menu.find_children("*", "Button", true, false).size() == 4, "the start menu has Tutorial, Play, Test and Quit")
+	menu.queue_free()
+	_arena.queue_free()
+	await _frames(1)
+	_arena = load(TestArena.SCENE).instantiate()
+	_arena.auto_start = false
+	add_child(_arena)
+	await _frames(2)
+	var a: TestArena = _arena
+	var p: Player = a.player
+	a.start_test()
+	await _frames(2)
+	check(get_tree().get_nodes_in_group("enemies").is_empty() and a.waves.reserve.is_empty(), "test mode has no enemies")
+	check(get_tree().get_nodes_in_group("breakables").size() == TestArena.TARGETS.size(), "a ring of props stands ready to smash")
+	check(p.god_mode, "nothing hurts you in test mode")
+	a.switch_element(1)
+	check(p.god_id == ArenaMenu.elements()[1], "a number key switches your element")
+	p.abilities.remaining["Ultimate"] = 30.0
+	await _frames(2)
+	check(p.abilities.ready_in("Ultimate") == 0.0, "spells have no cooldown")
+	var b: Breakable = get_tree().get_nodes_in_group("breakables")[0]
+	b.smash(p.global_position)
+	await _frames(2)
+	check(a._targets.size() == TestArena.TARGETS.size() - 1, "a smashed prop is gone")

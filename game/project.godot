@@ -12,7 +12,7 @@ config_version=5
 
 config/name="Arena Game"
 config/description="Mythical gladiator arena horde fighter: endless survival, built to tune movement and combat feel."
-run/main_scene="res://scenes/endless_arena.tscn"
+run/main_scene="res://scenes/start_menu.tscn"
 config/features=PackedStringArray("4.7")
 
 [autoload]
