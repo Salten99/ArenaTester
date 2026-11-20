@@ -651,6 +651,10 @@ func test_spells() -> void:
 	check(p.abilities.spells.caging(), "Kaminari stands round the aimed spot")
 	var cage: Dictionary = p.abilities.spells._cages[0]
 	check(caged.all(func(e): return cage.trapped.has(e)) and cage.bolts.size() >= t.cage_pillars, "who's inside is caught, and bolts already bounce off every pillar (%d)" % cage.bolts.size())
+	check(cage.bolts.all(func(b): return b.pieces.size() == t.cage_dragon_segments), "each bolt is a lightning dragon")
+	await _frames(20)
+	var dragon: Array = cage.bolts[0].pieces
+	check(dragon[-1].visible and dragon[0].global_position.distance_to(dragon[-1].global_position) > t.cage_dragon_gap * 2.0, "its body trails behind its head")
 	caged[0].global_position = spot + Vector3(0, 0, -15)  # knocked out of it
 	await _frames(2)
 	check(Vector2(caged[0].global_position.x - spot.x, caged[0].global_position.z - spot.z).length() < 6.0, "a caught one can't leave the circle")

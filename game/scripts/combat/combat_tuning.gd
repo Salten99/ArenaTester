@@ -279,6 +279,10 @@ extends Resource
 ## this much of its damage. You float this high (m) while it lasts.
 @export_range(0.0, 1.0, 0.05) var cage_trap_damage := 0.25
 @export_range(0.0, 20.0, 0.5) var cage_lift_height := 10.0
+## Kaminari's bolts are lightning dragons (user, 2026-11-20): this many pieces each, this big, this far apart (m).
+@export_range(2, 30) var cage_dragon_segments := 8
+@export_range(0.1, 2.0, 0.05) var cage_dragon_size := 0.45
+@export_range(0.1, 2.0, 0.05) var cage_dragon_gap := 0.5
 ## Ice Slide: how long the slide takes (s) and how long its ice trail stays (s).
 @export_range(0.1, 2.0, 0.05) var slide_time := 0.4
 @export_range(0.5, 10.0, 0.5) var ice_trail_time := 3.0

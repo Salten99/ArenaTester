@@ -24,25 +24,40 @@ const PACE_STEPS := 64
 
 func _ready() -> void:
 	add_to_group("fire_dragons")
-	var t: CombatTuning = GameData.tuning
-	var n := t.ult_dragon_segments
+	pieces = build(self, GameData.tuning.ult_dragon_segments, GameData.tuning.ult_dragon_size, "Fire", 3)
+	_build_pace()
+
+
+## A dragon body of `n` hidden pieces under `parent` (the head first, thinning to the tail), `size`
+## big, with `element` streaming off every `every`th piece. A `tint` recolors the models (the
+## Kaminari's lightning dragons, user 2026-11-20).
+static func build(parent: Node3D, n: int, size: float, element: String, every: int, tint := Color.TRANSPARENT) -> Array[Node3D]:
+	var out: Array[Node3D] = []
+	var mat: StandardMaterial3D = null
+	if tint.a > 0.0:
+		mat = StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.albedo_color = tint
 	for i in n:
-		var k := float(i) / (n - 1)  # 0 at the head, 1 at the tail
+		var k := float(i) / maxi(n - 1, 1)  # 0 at the head, 1 at the tail
 		var scene: PackedScene = HEAD if i == 0 else SEGMENT
 		var piece: Node3D = scene.instantiate()
 		for mesh in piece.get_children():  # the models were exported off center: keep their size, drop the offset
 			if mesh is Node3D:
 				(mesh as Node3D).position = Vector3.ZERO
-		piece.scale = Vector3.ONE * t.ult_dragon_size * lerpf(1.0, 0.25, k) * (t.ult_dragon_head_scale if i == 0 else 1.0)
-		piece.visible = false  # shown once it's out of the circle
-		if i % 3 == 0:  # flames streaming off the head and every third piece
-			var flames := ElementFx.trail("Fire")
-			if flames != null:
-				piece.add_child(flames)
-				flames.emitting = true
-		add_child(piece)
-		pieces.append(piece)
-	_build_pace()
+		if mat != null:
+			for m: MeshInstance3D in piece.find_children("*", "MeshInstance3D", true, false):
+				m.material_override = mat
+		piece.scale = Vector3.ONE * size * lerpf(1.0, 0.25, k) * (GameData.tuning.ult_dragon_head_scale if i == 0 else 1.0)
+		piece.visible = false  # shown once it's out
+		if i % every == 0:
+			var trail := ElementFx.trail(element)
+			if trail != null:
+				piece.add_child(trail)
+				trail.emitting = true
+		parent.add_child(piece)
+		out.append(piece)
+	return out
 
 
 ## Slower through tight bends, faster down the straights (user, 2026-11-20): each step of the curve

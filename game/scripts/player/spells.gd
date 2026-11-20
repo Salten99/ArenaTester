@@ -335,12 +335,49 @@ func _cage(a: Dictionary, player: Node, spot: Vector3) -> void:
 		r._hover_left = t.cage_time
 
 
-## A bolt flying from `from` to pillar `to` at `speed`.
+## A bolt flying from `from` to pillar `to` at `speed`: a lightning dragon (user, 2026-11-20), the
+## Fire ultimate's models recolored, its body following where its head has been.
 func _add_bolt(c: Dictionary, from: Vector3, to: int, speed: float) -> void:
-	var orb: MeshInstance3D = null
-	if not c.own:
-		orb = Vfx._spawn(UltimateFx._sphere(0.35), Color(1, 1, 1, 0.9), from)
-	c.bolts.append({"from": from, "to": to, "f": 0.0, "speed": speed, "orb": orb})
+	var t: CombatTuning = GameData.tuning
+	var orb: Node3D = null
+	var pieces: Array[Node3D] = []
+	var root := Vfx._root()
+	if not c.own and root != null:
+		orb = Node3D.new()
+		root.add_child(orb)
+		pieces = FireDragon.build(orb, t.cage_dragon_segments, t.cage_dragon_size, "Lightning", t.cage_dragon_segments,
+			ElementFx.color("Lightning").lightened(0.4))
+	var trail: Array[Vector3] = [from]
+	c.bolts.append({"from": from, "to": to, "f": 0.0, "speed": speed, "orb": orb, "pieces": pieces, "trail": trail})
+
+
+## Lays bolt `b`'s dragon along where its head (now at `at`) has been, a piece every cage_dragon_gap m;
+## pieces further back than it has flown yet stay hidden.
+func _move_dragon(b: Dictionary, at: Vector3) -> void:
+	var trail: Array[Vector3] = b.trail
+	trail.push_front(at)
+	var gap := GameData.tuning.cage_dragon_gap
+	var j := 0
+	var walked := 0.0  # from the head to trail[j]
+	var ahead := at + (at - trail[mini(1, trail.size() - 1)])  # where the head looks
+	for i: int in b.pieces.size():
+		var piece: Node3D = b.pieces[i]
+		var want := i * gap
+		while j < trail.size() - 1 and walked + trail[j].distance_to(trail[j + 1]) < want:
+			walked += trail[j].distance_to(trail[j + 1])
+			j += 1
+		piece.visible = j < trail.size() - 1 or i == 0
+		if not piece.visible:
+			continue
+		var here := trail[j]
+		if j < trail.size() - 1:
+			here = trail[j].move_toward(trail[j + 1], want - walked)
+		piece.global_position = here
+		var look := ahead - here
+		if look.length() > 0.001 and absf(look.normalized().y) < 0.999:
+			piece.look_at(ahead, Vector3.UP)
+		ahead = here
+	trail.resize(mini(trail.size(), j + 2))  # forget what's behind the tail
 
 
 ## A pillar other than `i`, picked at random.
@@ -375,7 +412,7 @@ func _update_cage(c: Dictionary, delta: float) -> void:
 		b.f += b.speed * delta / length
 		var at: Vector3 = (b.from as Vector3).lerp(target, minf(b.f, 1.0))
 		if is_instance_valid(b.orb):
-			b.orb.global_position = at
+			_move_dragon(b, at)
 		for e in Combat.enemies_in_radius(at, 1.3):  # what it passes is struck and tossed (the caught ones only shake)
 			if Combat.time - float(c.struck.get(e, -99.0)) >= t.cage_rehit:
 				c.struck[e] = Combat.time
