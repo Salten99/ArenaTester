@@ -5,7 +5,7 @@ extends Node
 ##   Rings   rings roll out from you to radius_m; the nearer, the harder (Lava Ripple, Ring of Ice)
 ##   Strike  one big bolt on the spot range_m ahead, throwing what's near (Thunder Crash)
 ##   Fan     hits_or_projectiles bolts fan across fan_arc_deg in front, range_m long (Bolt Fan)
-##   Cage    pillar bolts round the aimed spot and bolts bouncing between them (Storm Cage)
+##   Cage    pillar bolts round the aimed spot and bolts bouncing between them (Kaminari)
 ##   Slide   slide range_m on a trail of ice that slows (Ice Slide)
 ##   Freeze  everything within radius_m locks in ice, then shatters (Deep Freeze)
 ##   Slab    a stone slab bursts up ahead and launches what's on it (Stone Slab)
@@ -13,7 +13,7 @@ extends Node
 ## The looks are built in code; your models/own/fx/<ability_id>.tscn plays instead once you make it.
 ## The numbers are in combat_tuning.tres, group Spells.
 
-var _cages := []  # Storm Cages while they're on
+var _cages := []  # Kaminari cages while they're on
 
 
 func _runner() -> AbilityRunner:
@@ -184,7 +184,7 @@ func _fan(a: Dictionary, player: Node, dir: Vector3) -> void:
 	HitStop.trigger(t.hitstop_light)
 
 
-# ---------------------------------------------------------------- Cage: Storm Cage
+# ---------------------------------------------------------------- Cage: Kaminari
 
 func _cage(a: Dictionary, player: Node, spot: Vector3) -> void:
 	var t: CombatTuning = GameData.tuning

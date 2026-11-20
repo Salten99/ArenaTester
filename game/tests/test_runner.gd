@@ -610,14 +610,14 @@ func test_spells() -> void:
 	check(_hurt(fan) == 2 and back.health.hp == back.health.max_hp, "Bolt Fan hits across the front and not behind")
 	_free_all(fan + [back])
 
-	# Storm Cage: bolts bounce round the aimed spot until it collapses.
+	# Kaminari: bolts bounce round the aimed spot until it collapses.
 	var spot: Vector3 = p.global_position + Vector3(0, 0, -12)
 	var caged := [_dummy(Vector3(0, 0, -12)), _dummy(Vector3(2, 0, -13))]
 	p.abilities.cast("Ultimate", p, Vector3.FORWARD, spot)
 	await _frames(3)
-	check(p.abilities.spells.caging(), "Storm Cage stands round the aimed spot")
+	check(p.abilities.spells.caging(), "Kaminari stands round the aimed spot")
 	await _frames(int(t.cage_time * hz) + 6)
-	check(not p.abilities.spells.caging() and _hurt(caged) == 2, "Storm Cage strikes what's inside, then collapses (%d of 2)" % _hurt(caged))
+	check(not p.abilities.spells.caging() and _hurt(caged) == 2, "Kaminari strikes what's inside, then collapses (%d of 2)" % _hurt(caged))
 	_free_all(caged)
 
 	# Stone Slab: launches what's in front.

@@ -226,7 +226,7 @@ extends Resource
 @export_range(0.1, 4.0, 0.1) var icicle_stay := 1.0
 ## Bolt Fan: how wide the fan of bolts spreads in front of you (degrees).
 @export_range(10.0, 360.0, 5.0) var fan_arc_deg := 130.0
-## Storm Cage: how long it lasts (s), how many pillar bolts stand round the circle, the bouncing
+## Kaminari: how long it lasts (s), how many pillar bolts stand round the circle, the bouncing
 ## bolt's speed (m/s), how much faster each bounce makes it, the most bolts bouncing at once, and
 ## how soon the same enemy can be struck again (s).
 @export_range(1.0, 30.0, 0.5) var cage_time := 10.0
