@@ -324,8 +324,9 @@ func _cage(a: Dictionary, player: Node, spot: Vector3) -> void:
 	# it's at full tilt from the start (user, 2026-11-20).
 	var hand: Vector3 = player.global_position + Vector3.UP * 1.3 if _alive(player) else pillars[0]
 	_add_bolt(c, hand, 0, t.cage_bolt_speed)
-	for i in pillars.size():
-		_add_bolt(c, pillars[i] + Vector3.UP * 1.2, _other_pillar(c, i), t.cage_bolt_speed)
+	for i in pillars.size() * 2:  # two off every pillar (user, 2026-11-20: twice the bolts)
+		var from: int = i % pillars.size()
+		_add_bolt(c, pillars[from] + Vector3.UP * 1.2, _other_pillar(c, from), t.cage_bolt_speed)
 	_cages.append(c)
 	Combat.shake(t.shake_heavy)
 	if _alive(player):  # you float cage_lift_height up while it lasts

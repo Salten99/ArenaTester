@@ -267,7 +267,7 @@ extends Resource
 @export_range(3, 10) var cage_pillars := 5
 @export_range(2.0, 80.0, 0.5) var cage_bolt_speed := 28.0
 @export_range(1.0, 1.5, 0.01) var cage_speedup := 1.0
-@export_range(1, 30) var cage_max_bolts := 12
+@export_range(1, 60) var cage_max_bolts := 24
 @export_range(0.05, 2.0, 0.05) var cage_rehit := 0.4
 ## Whoever stands inside when it's cast is caught there until it ends, struck every cage_rehit s for
 ## this much of its damage. You float this high (m) while it lasts.
