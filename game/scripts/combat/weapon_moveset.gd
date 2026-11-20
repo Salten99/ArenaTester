@@ -56,6 +56,7 @@ func heavy_hit(p: Player) -> void:
 	var t: CombatTuning = GameData.tuning
 	var center := p.global_position + p.facing * 1.2
 	var radius := 4.0
+	ElementFx.play_own("hammer_slam", center, radius)  # your weapon effects (models/own/fx/weapons), built at 1 m
 	Vfx.ring(center, radius, Color(1.0, 0.8, 0.5))
 	Vfx.ring(center, radius * 0.6, Color(1, 1, 1, 0.9), 0.2)  # the hammer reel's white ring on the ground
 	var targets := Combat.enemies_in_radius(center, radius)
@@ -117,6 +118,7 @@ class Blade extends WeaponMoveset:
 
 	func light_hit(p: Player, finisher: bool) -> void:
 		var reach := _reach(p)
+		ElementFx.play_own("sword_slash", p.global_position)
 		var targets := Combat.enemies_in_radius(p.global_position, reach) if finisher else p.enemies_in_arc(reach, 85.0)
 		if finisher:
 			_smash_around(p, reach)
@@ -160,6 +162,7 @@ class Twin extends WeaponMoveset:
 		var t: CombatTuning = GameData.tuning
 		var radius := _reach(p) + 1.0
 		_smash_around(p, radius)
+		ElementFx.play_own("khopesh_spin", p.global_position, radius)
 		Vfx.ring(p.global_position, radius, Color(1.0, 0.85, 0.6))
 		p.hit_targets(Combat.enemies_in_radius(p.global_position, radius), _base(p) * p.heavy_mult(),
 			DamageInfo.Kind.HEAVY, t.knockback_light, false, t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], p.global_position)
@@ -192,6 +195,7 @@ class Polearm extends WeaponMoveset:
 		var t: CombatTuning = GameData.tuning
 		var radius := _reach(p) + 0.6
 		_smash_around(p, radius)
+		ElementFx.play_own("naginata_sweep", p.global_position, radius)
 		Vfx.ring(p.global_position, radius, Color(0.9, 0.9, 1.0))
 		p.hit_targets(Combat.enemies_in_radius(p.global_position, radius), _base(p) * p.heavy_mult(),
 			DamageInfo.Kind.HEAVY, t.knockback_heavy, false, t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], p.global_position)

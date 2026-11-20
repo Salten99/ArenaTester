@@ -54,7 +54,7 @@ func _ready() -> void:
 		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_spells", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_bestiary_saved", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_bestiary_saved", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head", "test_pixelfx_effects",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -1031,6 +1031,41 @@ func test_own_effects() -> void:
 	check(mine.call("Mine_*") == 0, "your effects free themselves when they're done")
 	ElementFx.OWN_FX = saved_path
 	ElementFx._own = {}
+
+
+## The pixelfx sprite-sheet effects (user, 2026-11-20): the four elements, four weapons, and landing.
+func test_pixelfx_effects() -> void:
+	var p: Player = _arena.player
+	var at := p.global_position + Vector3(0, 0, -5)
+	var played := func(file: String) -> int:
+		return Combat.effects_root.get_children().filter(func(n): return n.scene_file_path.ends_with("/" + file + ".tscn")).size()
+	for file in ["fire_blast", "water_hit", "air_blast", "stone_blast", "hammer_slam", "sword_slash", "khopesh_spin", "naginata_sweep", "landing"]:
+		var scene := ElementFx.own_scene(file)
+		var sprite: AnimatedSprite3D = scene.instantiate().find_child("Sprite") if scene != null else null
+		check(sprite != null and sprite.sprite_frames.get_frame_count("default") > 10, "%s is a sprite-sheet effect" % file)
+		if sprite != null:
+			var lasts := ElementFx._start(sprite)
+			check(lasts > 0.7 and lasts < 4.5, "%s lasts one play of its sheet (%.2f s)" % [file, lasts])
+			sprite.free()
+	for element in ["Fire", "Air", "Stone"]:
+		ElementFx.area(element, at, 3.0)
+		check(played.call(element.to_lower() + "_blast") == 1, "a %s blast plays its pixelfx effect" % element)
+	ElementFx._budget_left = 99
+	ElementFx.hit("Water", at + Vector3.UP)
+	check(played.call("water_hit") == 1, "a Water hit splashes")
+	for weapon in [["warhammer", "hammer_slam"], ["twin_khopesh", "khopesh_spin"], ["naginata", "naginata_sweep"]]:
+		p.setup("dwarf", p.god_id, weapon[0])
+		p.moveset.heavy_hit(p)
+		check(played.call(weapon[1]) == 1, "the %s's heavy attack plays %s" % weapon)
+	p.setup("dwarf", p.god_id, "greatsword")
+	p.moveset.light_hit(p, false)
+	check(played.call("sword_slash") == 1, "a greatsword swing plays the sword slash")
+	p.global_position += Vector3.UP * 6.0  # a fall from 6 m lands at about 13 m/s
+	for i in 120:
+		await _frames(1)
+		if played.call("landing") > 0:
+			break
+	check(played.call("landing") == 1, "a hard landing kicks up dust")
 
 
 func test_bestiary_and_wings() -> void:

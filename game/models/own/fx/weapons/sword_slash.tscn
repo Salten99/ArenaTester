@@ -1,0 +1,191 @@
+[gd_scene format=3]
+
+[ext_resource type="Texture2D" path="res://models/own/fx/weapons/sword_slash.png" id="sheet"]
+
+[sub_resource type="AtlasTexture" id="f0"]
+atlas = ExtResource("sheet")
+region = Rect2(0, 0, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f1"]
+atlas = ExtResource("sheet")
+region = Rect2(136, 0, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f2"]
+atlas = ExtResource("sheet")
+region = Rect2(272, 0, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f3"]
+atlas = ExtResource("sheet")
+region = Rect2(408, 0, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f4"]
+atlas = ExtResource("sheet")
+region = Rect2(544, 0, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f5"]
+atlas = ExtResource("sheet")
+region = Rect2(0, 104, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f6"]
+atlas = ExtResource("sheet")
+region = Rect2(136, 104, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f7"]
+atlas = ExtResource("sheet")
+region = Rect2(272, 104, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f8"]
+atlas = ExtResource("sheet")
+region = Rect2(408, 104, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f9"]
+atlas = ExtResource("sheet")
+region = Rect2(544, 104, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f10"]
+atlas = ExtResource("sheet")
+region = Rect2(0, 208, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f11"]
+atlas = ExtResource("sheet")
+region = Rect2(136, 208, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f12"]
+atlas = ExtResource("sheet")
+region = Rect2(272, 208, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f13"]
+atlas = ExtResource("sheet")
+region = Rect2(408, 208, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f14"]
+atlas = ExtResource("sheet")
+region = Rect2(544, 208, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f15"]
+atlas = ExtResource("sheet")
+region = Rect2(0, 312, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f16"]
+atlas = ExtResource("sheet")
+region = Rect2(136, 312, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f17"]
+atlas = ExtResource("sheet")
+region = Rect2(272, 312, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f18"]
+atlas = ExtResource("sheet")
+region = Rect2(408, 312, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f19"]
+atlas = ExtResource("sheet")
+region = Rect2(544, 312, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f20"]
+atlas = ExtResource("sheet")
+region = Rect2(0, 416, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f21"]
+atlas = ExtResource("sheet")
+region = Rect2(136, 416, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f22"]
+atlas = ExtResource("sheet")
+region = Rect2(272, 416, 136, 104)
+
+[sub_resource type="AtlasTexture" id="f23"]
+atlas = ExtResource("sheet")
+region = Rect2(408, 416, 136, 104)
+
+[sub_resource type="SpriteFrames" id="frames"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("f0")
+}, {
+"duration": 1.0,
+"texture": SubResource("f1")
+}, {
+"duration": 1.0,
+"texture": SubResource("f2")
+}, {
+"duration": 1.0,
+"texture": SubResource("f3")
+}, {
+"duration": 1.0,
+"texture": SubResource("f4")
+}, {
+"duration": 1.0,
+"texture": SubResource("f5")
+}, {
+"duration": 1.0,
+"texture": SubResource("f6")
+}, {
+"duration": 1.0,
+"texture": SubResource("f7")
+}, {
+"duration": 1.0,
+"texture": SubResource("f8")
+}, {
+"duration": 1.0,
+"texture": SubResource("f9")
+}, {
+"duration": 1.0,
+"texture": SubResource("f10")
+}, {
+"duration": 1.0,
+"texture": SubResource("f11")
+}, {
+"duration": 1.0,
+"texture": SubResource("f12")
+}, {
+"duration": 1.0,
+"texture": SubResource("f13")
+}, {
+"duration": 1.0,
+"texture": SubResource("f14")
+}, {
+"duration": 1.0,
+"texture": SubResource("f15")
+}, {
+"duration": 1.0,
+"texture": SubResource("f16")
+}, {
+"duration": 1.0,
+"texture": SubResource("f17")
+}, {
+"duration": 1.0,
+"texture": SubResource("f18")
+}, {
+"duration": 1.0,
+"texture": SubResource("f19")
+}, {
+"duration": 1.0,
+"texture": SubResource("f20")
+}, {
+"duration": 1.0,
+"texture": SubResource("f21")
+}, {
+"duration": 1.0,
+"texture": SubResource("f22")
+}, {
+"duration": 1.0,
+"texture": SubResource("f23")
+}],
+"loop": false,
+"name": &"default",
+"speed": 30.0
+}]
+
+[node name="sword_slash" type="Node3D"]
+
+[node name="Sprite" type="AnimatedSprite3D" parent="."]
+centered = false
+offset = Vector2(-44, -12)
+pixel_size = 0.02500
+billboard = 2
+no_depth_test = true
+texture_filter = 0
+sprite_frames = SubResource("frames")
+autoplay = "default"

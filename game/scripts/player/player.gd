@@ -50,6 +50,7 @@ var _stamina_used_msec := -100000
 ## How far the current heavy attack is charged (0..1); sets its damage (heavy_mult).
 var heavy_charge := 0.0
 var _heavy_hit_at := 0.0
+var _fall_speed := 0.0  ## how fast you're falling (m/s), for the landing dust
 var max_stamina := 100.0
 
 var _god: Dictionary
@@ -359,6 +360,11 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 		velocity.y -= t.gravity * delta
 		if race_id in GLIDERS:
 			velocity.y = maxf(velocity.y, -t.glide_fall_speed)  # a slow glide down
+		_fall_speed = maxf(-velocity.y, 0.0)
+	elif _fall_speed > 0.0:  # just touched down
+		if _fall_speed >= t.landing_fx_speed:
+			ElementFx.play_own("landing", global_position)
+		_fall_speed = 0.0
 	_wall_jump_timer = maxf(_wall_jump_timer - delta, 0.0)
 	var speed_mult := stats.mult("move_speed_pct") * (1.0 - statuses.slow_fraction())
 	var h := Vector2(velocity.x, velocity.z)

@@ -36,7 +36,10 @@ const STYLES := {
 ##   models/own/fx/<element>_<moment>.tscn   a whole effect: hit, heavy (a heavy attack landing), kill, blast, burst, beam, aura, bolt
 ##   models/own/fx/<ability_id>.tscn          a god ability's effect (God Abilities sheet ids)
 ##   models/own/fx/fx_<element>.glb           one particle piece used in place of the code's shape
+##   models/own/fx/<name>.tscn               weapons and movement: hammer_slam, sword_slash, khopesh_spin,
+##                                           naginata_sweep (built at 1 m radius), landing
 ## Anything you haven't made keeps the code effect. Element names are lower case: fire_hit.tscn.
+## Sprite-sheet effects from pixelfx (MIT, PIXELFX_LICENSE.txt) are made with tools/pixelfx_scene.py.
 static var OWN_FX := "res://models/own/fx/"  ## tests point it at their own folder
 static var _own := {}  ## file name -> PackedScene or Mesh, or null if you haven't made it
 ## While a god ability with its own scene plays, the code's element particles stay quiet.
@@ -318,6 +321,11 @@ static func _start(n: Node) -> float:
 		if c is GPUParticles3D or c is CPUParticles3D:
 			c.restart()
 			longest = maxf(longest, c.lifetime)
+		elif c is AnimatedSprite3D:  # a sprite sheet (the pixelfx ones): a looping one lasts one loop
+			var sprite := c as AnimatedSprite3D
+			var frames := sprite.sprite_frames
+			sprite.play(sprite.animation)
+			longest = maxf(longest, frames.get_frame_count(sprite.animation) / maxf(frames.get_animation_speed(sprite.animation), 1.0))
 		elif c is AnimationPlayer:
 			var ap := c as AnimationPlayer
 			if ap.current_animation == "" and not ap.get_animation_list().is_empty():

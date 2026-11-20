@@ -50,6 +50,9 @@ extends Resource
 ## Extra jump velocity per m/s of horizontal speed.
 @export_range(0.0, 2.0, 0.01) var jump_speed_scale := 0.25
 @export_range(1.0, 40.0, 0.5) var jump_velocity_max := 18.0
+## Landing this fast or faster (m/s down) kicks up the landing dust (models/own/fx/movement/landing.tscn).
+## A standing jump lands at about jump_velocity_base, so the default skips those.
+@export_range(1.0, 40.0, 0.5) var landing_fx_speed := 10.0
 ## Speed added on top of current speed when a slide starts.
 @export_range(0.0, 20.0, 0.1) var slide_speed_gain := 2.5
 ## Extra speed when jumping out of a slide.
