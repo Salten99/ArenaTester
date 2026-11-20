@@ -34,7 +34,7 @@ var steps: Array = [
 		func(_seen: Dictionary) -> bool: return player.weapon_id != GameData.FISTS, "weapon"],
 	["Throw: hold {throw} to wind up (longer is harder), let go to throw it through them.",
 		func(_seen: Dictionary) -> bool: return player.weapon_id == GameData.FISTS],
-	["A thrown weapon lies where it lands. Go and take it back.",
+	["A thrown weapon lies where it lands, or sticks in the wall with a new one laid out. Take one up.",
 		func(_seen: Dictionary) -> bool: return player.weapon_id != GameData.FISTS],
 ]
 var step := -1  ## the lesson now (-1: not begun; steps.size(): all done)

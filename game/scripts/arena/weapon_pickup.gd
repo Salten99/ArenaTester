@@ -2,7 +2,8 @@ class_name WeaponPickup
 extends Node3D
 ## A weapon lying in the arena (user, 2026-11-20: you start with only your fists and the chain;
 ## weapons are found around the map). Walk over it with empty hands to take it up. A thrown weapon
-## lies where it lands, as one of these, until you take it again.
+## lies where it lands on the floor, as one of these, until you take it again; one thrown into a wall
+## sticks there (stick) and a new one is laid out.
 
 const REACH := 1.6
 ## A weapon's longest side, lying here or flying (m).
@@ -43,6 +44,20 @@ static func add_model(parent: Node3D, id: String) -> Node3D:
 	elif size.x >= size.z:
 		m.rotation.y = PI * 0.5
 	return pivot
+
+
+## Weapon `id` stuck in a wall at `at`, flying along `dir`: its point in, the rest sticking out.
+static func stick(id: String, parent: Node, at: Vector3, dir: Vector3) -> Node3D:
+	var holder := Node3D.new()
+	holder.name = "StuckWeapon"
+	parent.add_child(holder)
+	holder.global_position = at
+	if dir.length() > 0.01:
+		holder.look_at(at + dir, Vector3.UP if absf(dir.normalized().y) < 0.99 else Vector3.RIGHT)
+	var pivot := add_model(holder, id)
+	if pivot != null:
+		pivot.position.z = LENGTH * 0.3  # back out of the wall along the flight
+	return holder
 
 
 func _ready() -> void:

@@ -16,7 +16,7 @@ var hostile := false
 ## An enemy's shot also hits this (the player); your warriors are in "allies".
 var player: Node3D
 var homing: Node3D
-## Called with where the shot ends: the first wall or ground, or the last enemy it goes into.
+## Called with (where, surface normal) the shot ends: the first wall or ground, or the last enemy it goes into (normal UP).
 var on_land: Callable
 var pull_deg := 0.0
 ## How fast it falls (arrows and bolts).
@@ -80,7 +80,7 @@ func _physics_process(delta: float) -> void:
 			if not hostile:  # your shots knock chunks out of buildings
 				Breakable.smash_near(get_tree(), wall.position, 0.6, global_position)
 			if on_land.is_valid():
-				on_land.call(wall.position)
+				on_land.call(wall.position, wall.normal)
 			_stick(wall.position, Combat.effects_root)
 			queue_free()
 			return
@@ -95,7 +95,7 @@ func _physics_process(delta: float) -> void:
 		_hit.append(e)
 		if _hit.size() > pierce:
 			if on_land.is_valid():
-				on_land.call(global_position)
+				on_land.call(global_position, Vector3.UP)
 			if is_instance_valid(e) and not e.is_dead():
 				_stick(global_position, e)
 			queue_free()

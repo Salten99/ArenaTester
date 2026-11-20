@@ -1207,21 +1207,15 @@ func test_weapons_and_classes() -> void:
 	# Classes (user, 2026-11-09): a weapon's class counts while you hold it.
 	check(GameData.text(GameData.weapon("warhammer"), "class_name") == "Barbarian" and GameData.text(GameData.weapon("twin_khopesh"), "class_name") == "Rogue",
 		"the warhammer is the Barbarian's, the twin blades the Rogue's")
+	# Weapons differ only in damage and attack speed (user, 2026-11-20): holding one changes no stat.
 	p.equip(GameData.FISTS)
+	var plain := {}
+	for stat in PlayerStats.READ_STATS:
+		plain[stat] = p.stats.get_stat(stat)
 	var plain_hp: float = p.health.max_hp
-	var plain_move: float = p.stats.get_stat("move_speed_pct")
-	p.equip("warhammer")
-	check(p.health.max_hp > plain_hp and p.stats.get_stat("magic_pct") < 0.0 and p.stats.get_stat("melee_pct") > 0.0,
-		"holding the Barbarian's warhammer: more health and melee damage, less magic (%.0f -> %.0f hp)" % [plain_hp, p.health.max_hp])
-	p.equip("twin_khopesh")
-	check(p.stats.get_stat("move_speed_pct") > plain_move and p.stats.get_stat("stealth_pct") > 0.0 and p.stats.get_stat("missile_pct") > 0.0,
-		"the Rogue's twin blades: faster, harder to spot, and they hit harder thrown")
-	var foe: Enemy = _cluster(1, 30.0)[0]
-	foe.aggro_radius = 20.0  # arena units see the whole arena
-	var hidden := foe._notice_distance()
-	p.equip("greatsword")
-	check(hidden < foe._notice_distance(), "enemies notice a Rogue closer (%.1f m vs %.1f m)" % [hidden, foe._notice_distance()])
-	foe.queue_free()
+	for w in GameData.pickup_weapons():
+		p.equip(w)
+		check(p.health.max_hp == plain_hp and PlayerStats.READ_STATS.all(func(s): return p.stats.get_stat(s) == plain[s]), "holding the %s changes none of your stats" % w)
 	check(not InputMap.has_action("sidearm") and not InputMap.has_action("switch_weapon"), "no bow to switch to any more (user, 2026-11-20)")
 
 
@@ -1652,13 +1646,16 @@ func test_fists_pickups_and_throws() -> void:
 	for i in 120:
 		get_tree().paused = false
 		await _frames(1)
-		landed = landed or get_tree().get_nodes_in_group("weapon_pickups").any(func(w): return w.weapon_id == "warhammer")
+		landed = landed or _arena.find_children("StuckWeapon", "", false, false).size() > 0
 		if landed and foes.all(func(e): return e._pinned):
 			break
 	check(foes.all(func(e): return e.health.hp < e.health.max_hp), "it went through both enemies")
 	check(foes.all(func(e): return e._pinned), "and pinned them to the wall")
 	check(foes.all(func(e): return is_instance_valid(e._pin_bolt) and e._pin_weapon == "warhammer"), "the warhammer itself through them")
-	check(landed, "the warhammer lies where it landed, to be picked up again")
+	check(landed, "the warhammer sticks in the wall it hit")
+	check(get_tree().get_nodes_in_group("weapon_pickups").any(func(w): return w.weapon_id == "warhammer"), "and a new warhammer is laid out")
+	for w in _arena.find_children("StuckWeapon", "", false, false):
+		w.queue_free()
 	for e in foes:
 		e.queue_free()
 	for w in get_tree().get_nodes_in_group("weapon_pickups"):

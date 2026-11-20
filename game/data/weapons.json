@@ -11,17 +11,7 @@
   "light_combo_hits": 3,
   "heavy_attack_description": "A front kick that knocks the one in front of you back.",
   "weapon_model_file": null,
-  "class_name": null,
-  "class_description": null,
-  "hp_mod_pct": null,
-  "melee_damage_mod_pct": null,
-  "missile_damage_mod_pct": null,
-  "magic_damage_mod_pct": null,
-  "attack_speed_mod_pct": null,
-  "move_speed_mod_pct": null,
-  "stamina_mod_pct": null,
-  "armor_pct": null,
-  "stealth_pct": null
+  "class_name": null
  },
  {
   "weapon_id": "warhammer",
@@ -35,17 +25,7 @@
   "light_combo_hits": 3,
   "heavy_attack_description": "Ground slam: 4 m shockwave that knocks enemies down.",
   "weapon_model_file": "weapon_warhammer.glb",
-  "class_name": "Barbarian",
-  "class_description": "More health and melee damage; weaker magic and less stamina.",
-  "hp_mod_pct": 25,
-  "melee_damage_mod_pct": 15,
-  "missile_damage_mod_pct": null,
-  "magic_damage_mod_pct": -25,
-  "attack_speed_mod_pct": null,
-  "move_speed_mod_pct": null,
-  "stamina_mod_pct": -20,
-  "armor_pct": null,
-  "stealth_pct": null
+  "class_name": "Barbarian"
  },
  {
   "weapon_id": "greatsword",
@@ -59,17 +39,7 @@
   "light_combo_hits": 4,
   "heavy_attack_description": "Dash-slash through every enemy in a line.",
   "weapon_model_file": "weapon_greatsword.glb",
-  "class_name": "Guardian",
-  "class_description": "Takes less damage and a bit more health; a little slower.",
-  "hp_mod_pct": 10,
-  "melee_damage_mod_pct": null,
-  "missile_damage_mod_pct": null,
-  "magic_damage_mod_pct": null,
-  "attack_speed_mod_pct": null,
-  "move_speed_mod_pct": -5,
-  "stamina_mod_pct": null,
-  "armor_pct": 20,
-  "stealth_pct": null
+  "class_name": "Guardian"
  },
  {
   "weapon_id": "twin_khopesh",
@@ -83,17 +53,7 @@
   "light_combo_hits": 5,
   "heavy_attack_description": "A spinning flurry of both blades all around you.",
   "weapon_model_file": "weapon_twin_khopesh.glb",
-  "class_name": "Rogue",
-  "class_description": "Faster on foot and with the blades, harder to spot, and their thrown weapons hit harder.",
-  "hp_mod_pct": null,
-  "melee_damage_mod_pct": null,
-  "missile_damage_mod_pct": 20,
-  "magic_damage_mod_pct": null,
-  "attack_speed_mod_pct": 15,
-  "move_speed_mod_pct": 12,
-  "stamina_mod_pct": null,
-  "armor_pct": null,
-  "stealth_pct": 35
+  "class_name": "Rogue"
  },
  {
   "weapon_id": "naginata",
@@ -107,16 +67,6 @@
   "light_combo_hits": 4,
   "heavy_attack_description": "Full-circle sweep that hits everything around you.",
   "weapon_model_file": "weapon_naginata.glb",
-  "class_name": "Lancer",
-  "class_description": "More stamina and reach in the long sweeps; less health up close.",
-  "hp_mod_pct": -10,
-  "melee_damage_mod_pct": 5,
-  "missile_damage_mod_pct": null,
-  "magic_damage_mod_pct": null,
-  "attack_speed_mod_pct": null,
-  "move_speed_mod_pct": null,
-  "stamina_mod_pct": 20,
-  "armor_pct": null,
-  "stealth_pct": null
+  "class_name": "Lancer"
  }
 ]

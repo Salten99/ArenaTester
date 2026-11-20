@@ -357,7 +357,7 @@ extends Resource
 @export_range(0.5, 20.0, 0.5) var pin_seconds := 5.0
 @export_range(0.0, 500.0, 5.0) var pin_damage := 40.0
 ## Throwing your weapon (G, user 2026-11-20): it flies through every enemy in its path and pins them
-## to walls, then lies where it lands to be picked up again. A tap throws at weapon_throw_speed; held
+## to walls, then lies where it lands (or sticks in a wall, a new one laid out). A tap throws at weapon_throw_speed; held
 ## for weapon_throw_charge_time it flies at weapon_throw_speed_max and hits twice as hard.
 ## Its hit is the weapon's damage times weapon_throw_damage_mult.
 @export_range(5.0, 150.0, 1.0) var weapon_throw_speed := 35.0

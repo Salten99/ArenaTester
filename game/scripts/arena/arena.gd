@@ -126,8 +126,13 @@ func scatter_weapons() -> void:
 	var kinds := GameData.pickup_weapons()
 	var lying := get_tree().get_nodes_in_group("weapon_pickups").filter(func(w): return not w.is_queued_for_deletion()).size()
 	for i in maxi(0, GameData.tuning.weapon_pickups - lying):
-		var a := RunRng.randf_range(0.0, TAU)
-		WeaponPickup.make(kinds[(lying + i) % kinds.size()], self, Vector3(cos(a), 0.0, sin(a)) * RunRng.randf_range(5.0, 14.0))
+		spawn_weapon(kinds[(lying + i) % kinds.size()])
+
+
+## Lays weapon `id` somewhere about the arena (a new one for one stuck in a wall).
+func spawn_weapon(id: String) -> WeaponPickup:
+	var a := RunRng.randf_range(0.0, TAU)
+	return WeaponPickup.make(id, self, Vector3(cos(a), 0.0, sin(a)) * RunRng.randf_range(5.0, 14.0))
 
 
 ## Glowing motes of magic drifting slowly up over the arena floor (arena_motes, arena_mote_color).

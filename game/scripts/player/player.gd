@@ -161,19 +161,12 @@ func _on_element_hit(target: Node, element: String, source: Node) -> void:
 		statuses.remove("void")
 
 
-## Takes `id` in hand (a weapon picked up, or your fists once it's thrown). The weapon's row on the
-## Weapons sheet gives its damage, reach and moveset; while you hold it, its class columns count
-## (the sword and shield's Guardian parries). Your body stays as it was built.
+## Takes `id` in hand (a weapon picked up, or your fists once it's thrown). The weapon's row gives
+## its damage, attack speed, reach and moveset, nothing else (user, 2026-11-20: no stat effects;
+## the sword and shield still parries). Your body stays as it was built.
 func equip(id: String) -> void:
 	weapon_id = id
 	_weapon = GameData.weapon(id)
-	var n := GameData.num
-	stats.set_source("class", {
-		"max_hp_pct": n.call(_weapon, "hp_mod_pct"), "melee_pct": n.call(_weapon, "melee_damage_mod_pct"),
-		"missile_pct": n.call(_weapon, "missile_damage_mod_pct"), "magic_pct": n.call(_weapon, "magic_damage_mod_pct"),
-		"attack_speed_pct": n.call(_weapon, "attack_speed_mod_pct"), "move_speed_pct": n.call(_weapon, "move_speed_mod_pct"),
-		"stamina_pct": n.call(_weapon, "stamina_mod_pct"), "armor_pct": n.call(_weapon, "armor_pct"), "stealth_pct": n.call(_weapon, "stealth_pct"),
-	})
 	moveset = WeaponMoveset.for_class(GameData.text(_weapon, "weapon_class", "Fists"))
 	_combo_index = 0
 	if visual != null:
@@ -560,7 +553,7 @@ func _update_throw(delta: float, intent: PlayerIntent) -> void:
 
 ## Throws the weapon in your hand where the crosshair is, with the wound-up force: it goes through
 ## every enemy in its path, pins them to walls like the old bow's bolt (Enemy.launch_from_hit: a
-## heavy Missile hit), and lies where it lands to be picked up again. Your hands are empty after.
+## heavy Missile hit), and lies where it lands to be picked up again, or sticks in the wall it hits. Your hands are empty after.
 func throw_weapon(aim_yaw: float) -> Projectile:
 	if weapon_id == GameData.FISTS:
 		return null
@@ -585,7 +578,14 @@ func throw_weapon(aim_yaw: float) -> Projectile:
 	p.on_hit = _projectile_hit.bind(["on_heavy_hit"])
 	var thrown := weapon_id
 	var root: Node = Combat.effects_root
-	p.on_land = func(at: Vector3) -> void: WeaponPickup.make(thrown, root, at)
+	var dir := p.velocity.normalized()
+	p.on_land = func(at: Vector3, normal: Vector3) -> void:
+		if normal.y > 0.7:  # on the floor: it lies there to be taken again
+			WeaponPickup.make(thrown, root, at)
+			return
+		WeaponPickup.stick(thrown, root, at, dir)  # in a wall it stays (user, 2026-11-20), and a new one is laid out
+		if root is Arena:
+			root.spawn_weapon(thrown)
 	p._mesh.queue_free()  # the weapon itself flies, not a bolt
 	p._mesh = null
 	var spin := WeaponPickup.add_model(p, weapon_id)
