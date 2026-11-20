@@ -43,14 +43,22 @@ func open_loadout(god: String) -> void:
 			GameData.text(row, "short_description"), func(): _god = g; _mark(element_row, g))
 	_mark(element_row, _god)
 	_button(box, "Fight!", func(): loadout_chosen.emit(_god))
+	_button(box, "Tutorial", func(): Flow.practice_god = _god; EndlessArena.loadout_picked = true; open_tutorial())
 
 
 func open_pause() -> void:
 	var box := _open("pause", "Paused")
 	_button(box, "Resume", close)
 	_button(box, "Restart", func(): arena.restart())
+	_button(box, "Tutorial", open_tutorial)
 	_button(box, "Change element", func(): open_loadout(Flow.practice_god if Flow.practice_god != "" else Arena.START_GOD))
 	_button(box, "Quit game", func(): get_tree().quit())
+
+
+## The tutorial scene (TutorialArena): every chain attack, the grab and hurl, weapons.
+func open_tutorial() -> void:
+	get_tree().paused = false
+	get_tree().change_scene_to_file(TutorialArena.SCENE)
 
 
 func close() -> void:
