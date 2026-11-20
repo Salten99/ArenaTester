@@ -6,7 +6,7 @@ Solo hobby side project: Godot 4.7, a mythical gladiator arena horde fighter. En
 Copied from Pantheon Valley's `game/` folder on 2026-11-19 (Pantheon Valley commit `ed3b96e`). The valley, world, run-flow and save code was removed on 2026-11-19; the arena is the whole game now.
 
 ## Working rules
-- Main scene: `game/scenes/endless_arena.tscn` (`scripts/arena/endless_arena.gd`, built on `Arena`).
+- Main scene: `game/scenes/start_menu.tscn` (Tutorial, Play, Test). Play is `game/scenes/endless_arena.tscn` (`scripts/arena/endless_arena.gd`, built on `Arena`); Test is `test_arena.tscn` (`TestArena`, built on `EndlessArena`).
 - Run `tools\run_tests.bat` after every change; all checks must pass. Add a test for each new system.
 - Feel numbers belong in `game/tuning/combat_tuning.tres` so the user can tune them in the Inspector.
 - Game data is `game/data/*.json`. There is no spreadsheet here; edit the JSON directly.
