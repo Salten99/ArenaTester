@@ -8,7 +8,7 @@ extends Node
 ##   Cage    pillar bolts round the aimed spot and bolts bouncing between them (Kaminari)
 ##   Slide   slide range_m on a trail of ice that slows (Ice Slide)
 ##   Freeze  everything within radius_m locks in ice, then shatters (Deep Freeze)
-##   Slab    a stone slab bursts up ahead and launches what's on it (Stone Slab)
+##   Slab    a square stone pillar shoots up ahead, launches what's on it, then bursts into dust (Stone Slab)
 ##   Crush   two stone pillars slam together on the aimed spot (Crushing Pillars)
 ## The looks are built in code; your models/own/fx/<ability_id>.tscn plays instead once you make it.
 ## The numbers are in combat_tuning.tres, group Spells.
@@ -385,21 +385,23 @@ func _slab(a: Dictionary, player: Node, dir: Vector3) -> void:
 	var mid := feet + dir * (length * 0.5 + 0.5)
 	if not _own(a):
 		var box := BoxMesh.new()
-		box.size = Vector3(half_w * 2.0, 0.6, length)
-		var slab := Vfx._spawn(box, UltimateFx.STONE, mid - Vector3.UP * 0.6)
+		box.size = Vector3(half_w * 2.0, 3.0, half_w * 2.0)  # a square pillar
+		var slab := Vfx._spawn(box, UltimateFx.STONE, mid - Vector3.UP * 1.5)
 		if slab != null:
-			slab.basis = Basis.looking_at(dir, Vector3.UP).rotated(dir.cross(Vector3.UP).normalized(), deg_to_rad(-18.0))  # tilts away from you
+			slab.basis = Basis.looking_at(dir, Vector3.UP)
 			var tw := slab.create_tween()
-			tw.tween_property(slab, "global_position", mid + Vector3.UP * 0.9, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			tw.tween_property(slab, "global_position", mid + Vector3.UP * 1.5, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			tw.tween_interval(t.slab_stay)
-			tw.tween_property(slab, "global_position", mid - Vector3.UP * 0.8, 0.5).set_ease(Tween.EASE_IN)
-			tw.tween_callback(slab.queue_free)
-		UltimateFx._cracks(mid, Vector3.UP, length * 0.6)
+			tw.tween_callback(func() -> void:
+				_crumble(slab)
+				ElementFx.area("Stone", slab.global_position, half_w * 1.5)
+				slab.queue_free())
+		UltimateFx._cracks(mid, Vector3.UP, half_w * 2.0)
 		ElementFx.area("Stone", mid, half_w * 1.5)
-	for e in Combat.enemies_in_radius(mid, length * 0.5 + half_w + 1.0):
-		var to := _flat(e.global_position - feet)
-		var along := to.dot(dir)
-		if along >= 0.0 and along <= length + 1.0 and absf(to.dot(dir.cross(Vector3.UP))) <= half_w + 0.5:
+	for e in Combat.enemies_in_radius(mid, half_w * 1.5 + 1.0):
+		var to := _flat(e.global_position - mid)
+		# what stands on the pillar's square is launched
+		if absf(to.dot(dir)) <= half_w + 0.5 and absf(to.dot(dir.cross(Vector3.UP))) <= half_w + 0.5:
 			_runner()._strike(a, player, e, feet - dir * 2.0, true)  # launched up and away from you
 	Combat.shake(t.shake_explosion)
 	HitStop.trigger(t.hitstop_light)
@@ -426,8 +428,7 @@ func _crush(a: Dictionary, player: Node, dir: Vector3, spot: Vector3) -> void:
 			pillar.basis = Basis(Quaternion(Vector3.UP, right))
 			pillar.scale = Vector3(1, 0.05, 1)  # still inside the circle
 			var tw := pillar.create_tween()
-			tw.tween_property(pillar, "scale", Vector3.ONE, 0.25).set_delay(t.pillar_delay * 0.5)
-			tw.tween_interval(maxf(0.0, t.pillar_delay * 0.5 - 0.25))
+			tw.tween_property(pillar, "scale", Vector3.ONE, t.pillar_delay * 0.5).set_delay(t.pillar_delay * 0.5)
 			tw.tween_property(pillar, "global_position", spot + right * s * half * 0.5 + Vector3.UP * 1.6, t.pillar_time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 			tw.tween_interval(0.35)
 			tw.tween_callback(_crumble.bind(pillar))

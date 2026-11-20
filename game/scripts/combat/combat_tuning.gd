@@ -242,13 +242,13 @@ extends Resource
 ## before shattering (s).
 @export_range(0.0, 2.0, 0.05) var deep_freeze_delay := 0.4
 @export_range(0.5, 10.0, 0.25) var deep_freeze_time := 3.0
-## Stone Slab: how long the slab stands before sinking (s).
+## Stone Slab: how long the pillar stands before it bursts into dust (s).
 @export_range(0.1, 5.0, 0.1) var slab_stay := 1.0
 ## Crushing Pillars: how far apart the two circles open (m), the wait before the pillars move (s),
-## and how long they take to meet (s).
+## and how long they take to meet (s). (user 2026-11-20: faster.)
 @export_range(4.0, 30.0, 0.5) var pillar_gap := 10.0
-@export_range(0.0, 2.0, 0.05) var pillar_delay := 0.5
-@export_range(0.05, 2.0, 0.05) var pillar_time := 0.4
+@export_range(0.0, 2.0, 0.05) var pillar_delay := 0.25
+@export_range(0.05, 2.0, 0.05) var pillar_time := 0.2
 
 @export_group("Enemies")
 ## How many enemies may be winding up or striking at once (attack tokens).
