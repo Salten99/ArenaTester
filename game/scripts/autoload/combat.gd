@@ -206,6 +206,8 @@ func _copy(template: DamageInfo) -> DamageInfo:
 	d.can_chain = template.can_chain
 	d.no_launch = template.no_launch
 	d.explosive = template.explosive
+	d.launch_scale = template.launch_scale
+	d.pin_weapon = template.pin_weapon
 	d.statuses = template.statuses.duplicate(true)
 	return d
 

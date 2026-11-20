@@ -275,6 +275,13 @@ extends Resource
 @export_range(0, 20, 1) var weapon_pickups := 6
 ## Your heavy and magic hits launch enemies: how fast and how high (m/s), before launch_velocity_mult.
 @export_range(0.0, 40.0, 0.5) var launch_speed := 9.0
+## A weapon's hit (melee heavies, the kick, thrown weapons and bodies; user 2026-11-20) launches back,
+## not up: this fast and this high instead. The body knocks into enemies behind it for ram_damage and
+## launches them the same way, each one ram_chain_falloff as hard as the one that hit it.
+@export_range(0.0, 40.0, 0.5) var weapon_launch_speed := 14.0
+@export_range(0.0, 20.0, 0.5) var weapon_launch_lift := 2.5
+@export_range(0.0, 200.0, 1.0) var ram_damage := 10.0
+@export_range(0.1, 1.0, 0.05) var ram_chain_falloff := 0.8
 @export_range(0.0, 20.0, 0.5) var launch_lift := 7.0  # 4 before the reels' frame-by-frame (2026-11-18): launched enemies hang high
 ## Every launched enemy flies this many times faster (user, 2026-11-01: 30% more).
 @export_range(0.5, 3.0, 0.05) var launch_velocity_mult := 1.3

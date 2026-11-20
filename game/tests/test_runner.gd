@@ -54,7 +54,7 @@ func _ready() -> void:
 		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -1150,7 +1150,7 @@ func test_launches_and_ragdolls() -> void:
 		"an explosion launches 33%% faster (%.1f vs %.1f m/s)" % [blown._throw_vel.length(), plain_speed])
 	var v: Vector3 = foe._throw_vel
 	var t: CombatTuning = GameData.tuning
-	check(is_equal_approx(Vector2(v.x, v.z).length(), t.launch_speed * 1.3 * _arena.player.moveset.launch_scale()), "launched 30%% faster (times the weapon class) (%.1f m/s)" % Vector2(v.x, v.z).length())
+	check(is_equal_approx(Vector2(v.x, v.z).length(), t.weapon_launch_speed * 1.3 * _arena.player.moveset.launch_scale()), "launched 30%% faster (times the weapon class) (%.1f m/s)" % Vector2(v.x, v.z).length())
 	foe.queue_free()
 	var mage: Enemy = _cluster(1, 3.0)[0]
 	Combat.deal(mage, hard.call(DamageInfo.Kind.ABILITY, "Magic"))
@@ -1285,6 +1285,53 @@ func test_aiming() -> void:
 	p.setup("dwarf", "forge_god", "warhammer")
 
 
+## User, 2026-11-20: a weapon's blow launches back, not up, and the body knocks into whoever is
+## behind, launching them the same way; spells still throw high.
+func test_weapon_launch_knocks_on() -> void:
+	var p: Player = _arena.player
+	var t: CombatTuning = GameData.tuning
+	p.god_mode = true
+	p.equip("warhammer")
+	await _until_on_floor()
+	var flight := func(e: Enemy) -> Vector3:
+		var hips: PhysicsBody3D = e.model.ragdoll_hips() if e.model != null and e.model.is_ragdoll() else null
+		return (hips as PhysicalBone3D).linear_velocity if hips is PhysicalBone3D else e._throw_vel
+	var line: Array = []
+	for d in [2.0, 4.5, 7.0]:
+		var e: Enemy = _cluster(1, d)[0]
+		e.global_position = p.global_position + p.facing * d
+		e.health.setup(99999.0)
+		line.append(e)
+	await _frames(2)
+	var blow := DamageInfo.make(1.0, "Physical", DamageInfo.Kind.HEAVY, p)
+	blow.knockback_dir = p.facing
+	Combat.deal(line[0], blow)
+	var v: Vector3 = flight.call(line[0])
+	check(Vector2(v.x, v.z).length() > v.y * 2.0 and v.dot(p.facing) > 0.0, "a weapon blow launches back, not up (%.1f m/s back, %.1f up)" % [Vector2(v.x, v.z).length(), v.y])
+	var hp: Array = line.map(func(e): return e.health.hp)
+	for i in 90:
+		get_tree().paused = false
+		await _frames(1)
+		if line[1].thrown and line[2].thrown:
+			break
+	check(line[1].thrown and line[1].health.hp < hp[1], "the body knocks into the one behind it and launches it")
+	check(line[2].thrown, "which knocks on into the next")
+	check(line[1].global_position.distance_to(p.global_position) > 4.5, "all of them away from you")
+	for e in line:
+		e.queue_free()
+	await _frames(1)
+	var foe: Enemy = _cluster(1, 3.0)[0]
+	await _frames(2)
+	var spell := DamageInfo.make(1.0, "Fire", DamageInfo.Kind.ABILITY, p)
+	spell.category = "Magic"
+	spell.knockback_dir = p.facing
+	Combat.deal(foe, spell)
+	v = flight.call(foe)
+	check(v.y > Vector2(v.x, v.z).length() * 0.5 and foe._ram_left <= 0.0, "a spell still throws high, and doesn't knock on (%.1f up)" % v.y)
+	foe.queue_free()
+	check(t.weapon_launch_lift < t.launch_lift, "weapons lift less than spells")
+
+
 ## User, 2026-11-20: you start with your fists and the chain; weapons lie about the arena, are picked
 ## up by walking over them, and are thrown with G: through every enemy in the path, pinning them to
 ## walls, landing to be picked up again.
@@ -1359,7 +1406,7 @@ func test_fists_pickups_and_throws() -> void:
 			break
 	check(foes.all(func(e): return e.health.hp < e.health.max_hp), "it went through both enemies")
 	check(foes.all(func(e): return e._pinned), "and pinned them to the wall")
-	check(foes.all(func(e): return is_instance_valid(e._pin_bolt) and e._pin_bolt.find_children("*", "MeshInstance3D", true, false).size() > 1), "the warhammer itself through them")
+	check(foes.all(func(e): return is_instance_valid(e._pin_bolt) and e._pin_weapon == "warhammer"), "the warhammer itself through them")
 	check(landed, "the warhammer lies where it landed, to be picked up again")
 	for e in foes:
 		e.queue_free()
@@ -2693,6 +2740,7 @@ func test_arena_tactics() -> void:
 	zerk.queue_free()
 
 	# Shields block from the front only.
+	await _frames(int(Enemy.RAM_SECONDS * 60.0) + 5)  # the finished one's body has stopped knocking into others
 	var s: Enemy = a.waves.spawn(WaveDirector.BASIC_UNIT + WaveDirector.SHIELD_TAG)
 	s.health.setup(10000.0)
 	ahead.call(s, 2.0)

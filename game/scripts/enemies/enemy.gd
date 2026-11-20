@@ -96,6 +96,14 @@ var _pinned_left := 0.0
 var _pin_watch_left := 0.0
 var _pin_dir := Vector3.ZERO
 var _pin_bolt: Node3D
+var _ram_left := 0.0  ## seconds a weapon-launched body still knocks into enemies it passes
+var _ram_hit: Array = []  ## who it already knocked (and who knocked it)
+var _ram_power := 1.0
+var _ram_by: Node  ## the player whose blow started it
+const RAM_SECONDS := 1.2
+const RAM_RADIUS := 1.2
+const RAM_MIN_SPEED := 3.0  ## m/s along the ground: slower, it just tumbles
+const RAM_MIN_POWER := 0.35  ## a chain stops passing it on below this
 var _pin_weapon := ""  ## the thrown weapon carrying it, shown through it once pinned ("" = a plain bolt)
 const DETOUR_TIME := 0.9
 var _marker: MeshInstance3D
@@ -345,6 +353,8 @@ func _think(delta: float) -> void:
 		return
 	if _pinning:
 		_watch_for_wall(delta)
+	if _ram_left > 0.0:
+		_update_ram(delta)
 	if thrown and not (state == State.DEAD and _throw_ragdoll):
 		_update_throw(delta)  # a dead animal still falls to the ground
 		return
@@ -492,13 +502,23 @@ func launch_from_hit(info: DamageInfo) -> void:
 		k *= t.explosion_launch_scale
 	if state == State.DEAD:
 		k *= DEATH_LAUNCH  # the killing blow sends it flying harder (user, 2026-11-19)
+	k *= info.launch_scale
+	# A weapon's blow drives it back, not up, into whoever stands behind (user, 2026-11-20).
+	var weapon := info.source is Player and info.kind == DamageInfo.Kind.HEAVY and info.category in ["Melee", "Missile"]
+	var speed := t.weapon_launch_speed if weapon else t.launch_speed
+	var lift := t.weapon_launch_lift if weapon else t.launch_lift
+	if weapon and info.category == "Melee" and info.launch_scale >= RAM_MIN_POWER:  # a thrown weapon goes through them all itself
+		_ram_left = RAM_SECONDS
+		_ram_hit = [self]
+		_ram_power = info.launch_scale
+		_ram_by = info.source
 	if info.kind == DamageInfo.Kind.HEAVY and info.category == "Missile":  # may pin it to whatever it hits
 		k *= t.pin_launch_scale
 		_pinning = true
 		_pin_watch_left = PIN_WATCH_SECONDS
 		_pin_dir = dir
 		_pin_weapon = info.pin_weapon
-	throw((dir * t.launch_speed + Vector3.UP * t.launch_lift) * k, info.source)
+	throw((dir * speed + Vector3.UP * lift) * k, info.source)
 
 
 ## Whether a hit draws blood: not from bones, slime or wood.
@@ -702,8 +722,8 @@ func throw(vel: Vector3, by: Node) -> void:
 	if state == State.DEAD:
 		if model != null and model.is_ragdoll():
 			model.push_ragdoll(vel)  # the hit killed it: the body flies
-			if _pinning:
-				set_physics_process(true)  # a dead body can be pinned too
+			if _pinning or _ram_left > 0.0:
+				set_physics_process(true)  # a dead body can be pinned too, and knocks into others
 		return
 	if is_large:
 		vel *= 0.35
@@ -732,7 +752,7 @@ func _watch_for_wall(delta: float) -> void:
 	var body: Node3D = model.ragdoll_hips() if model != null and model.is_ragdoll() else self
 	if body == null or _pin_watch_left <= 0.0:
 		_pinning = false
-		if state == State.DEAD:
+		if state == State.DEAD and _ram_left <= 0.0:
 			set_physics_process(false)
 		return
 	var from: Vector3 = body.global_position + (Vector3.ZERO if body != self else Vector3.UP)
@@ -740,6 +760,34 @@ func _watch_for_wall(delta: float) -> void:
 	var hit := get_world_3d().direct_space_state.intersect_ray(q)
 	if hit and hit.normal.y < 0.5:
 		_pin_to(hit.position, hit.normal)
+
+
+## A body a weapon launched (launch_from_hit): whoever it flies into is knocked back the same way
+## for ram_damage, a little less hard, and knocks on into whoever is behind them.
+func _update_ram(delta: float) -> void:
+	_ram_left -= delta
+	var limp: bool = model != null and model.is_ragdoll() and model.ragdoll_hips() != null
+	var body: Node3D = model.ragdoll_hips() if limp else self
+	var v: Vector3 = (body as PhysicsBody3D).linear_velocity if body is PhysicalBone3D else _throw_vel
+	var flat := Vector3(v.x, 0.0, v.z)
+	if _ram_left <= 0.0 or not is_instance_valid(_ram_by) or _pinned:
+		_ram_left = 0.0
+		if state == State.DEAD and not _pinning:
+			set_physics_process(false)
+		return
+	if flat.length() < RAM_MIN_SPEED:
+		return
+	var t: CombatTuning = GameData.tuning
+	var at: Vector3 = body.global_position + (Vector3.ZERO if limp else Vector3.UP)
+	for e in Combat.enemies_in_radius(at, RAM_RADIUS * size_scale, _ram_hit):
+		_ram_hit.append(e)
+		var info := DamageInfo.make(t.ram_damage, "Physical", DamageInfo.Kind.HEAVY, _ram_by)
+		info.category = "Melee"
+		info.knockback_dir = flat.normalized()
+		info.launch_scale = _ram_power * t.ram_chain_falloff
+		Combat.deal(e, info)
+		if e is Enemy:
+			e._ram_hit.append(self)  # it doesn't knock back into the one that hit it
 
 
 ## Sticks the body to the wall at `at`, a bolt through it.
