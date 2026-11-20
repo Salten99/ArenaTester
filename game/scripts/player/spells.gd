@@ -10,6 +10,7 @@ extends Node
 ##   Freeze  everything within radius_m locks in ice, then shatters (Deep Freeze)
 ##   Slab    a square stone pillar shoots up ahead, launches what's on it, then bursts into dust (Stone Slab)
 ##   Crush   two stone pillars slam together on the aimed spot (Crushing Pillars)
+##   Magma   reach into the ground, pull out a magma ball and hurl it at the aimed spot (Magma Ball)
 ## The looks are built in code; your models/own/fx/<ability_id>.tscn plays instead once you make it.
 ## The numbers are in combat_tuning.tres, group Spells.
 
@@ -28,7 +29,7 @@ func cast(a: Dictionary, player: Node, dir: Vector3, at: Vector3) -> bool:
 		"Rings":
 			_later(t.spell_release_delay, _rings.bind(a, player))
 		"Strike":
-			var spot: Vector3 = player.global_position + dir * GameData.num(a, "range_m", 4.0)
+			var spot: Vector3 = at if at != Vector3.INF else player.global_position + dir * GameData.num(a, "range_m", 4.0)
 			if not _own(a):  # the mark on the ground while the blade comes down
 				UltimateFx.circle("Lightning", spot + Vector3.UP * 0.06, Vector3.UP, GameData.num(a, "radius_m", 3.0) * 0.6, t.spell_release_delay + 0.3)
 			_later(t.spell_release_delay, _strike_down.bind(a, player, spot))
@@ -37,7 +38,9 @@ func cast(a: Dictionary, player: Node, dir: Vector3, at: Vector3) -> bool:
 		"Cage":
 			_cage(a, player, at)
 		"Slide":
-			_slide(a, player, dir)
+			_slide(a, player, dir, at)
+		"Magma":
+			_magma(a, player, at if at != Vector3.INF else player.global_position + dir * GameData.num(a, "range_m", 15.0))
 		"Freeze":
 			_freeze(a, player)
 		"Slab":
@@ -116,6 +119,97 @@ func _ring_hit(a: Dictionary, player: Node, e: Node, center: Vector3, k: float) 
 func _freeze_one(e, seconds: float) -> void:  # untyped: it may be freed by now
 	if _alive(e):
 		e.freeze(seconds)
+
+
+# ---------------------------------------------------------------- Magma: Fire Q
+
+var _magma_balls := []  # in your hand or in the air
+
+
+## You reach down into the ground (user, 2026-11-20) and pull out a ball of magma, then hurl it at
+## `spot`: it bursts there (the spell's damage over radius_m) and the ground burns.
+func _magma(a: Dictionary, player: Node, spot: Vector3) -> void:
+	var t: CombatTuning = GameData.tuning
+	var feet: Vector3 = player.global_position
+	var ground: Vector3 = feet + player.facing * 0.7 + (player.facing as Vector3).cross(Vector3.UP) * 0.3
+	if not _own(a):
+		UltimateFx.circle("Fire", ground + Vector3.UP * 0.06, Vector3.UP, 0.6, t.magma_pull_time + 0.2)
+		ElementFx.area("Fire", ground, 0.6)  # the ground bubbles where your hand goes in
+	var ball := Vfx._spawn(UltimateFx._sphere(t.magma_ball_size), Color(1.0, 0.45, 0.08), ground - Vector3.UP * 0.4) if not _own(a) else null
+	if ball != null:
+		var core := MeshInstance3D.new()  # the white-hot middle showing through
+		core.mesh = UltimateFx._sphere(t.magma_ball_size * 0.7)
+		core.material_override = Vfx.material(Color(1.0, 0.9, 0.5))
+		ball.add_child(core)
+		var flames := ElementFx.trail("Fire")
+		if flames != null:
+			ball.add_child(flames)
+			flames.emitting = true
+	_magma_balls.append({"a": a, "player": player, "spot": spot, "ball": ball, "from": ground, "time": 0.0, "thrown": false, "hurled_at": Vector3.ZERO})
+
+
+## Where the ball sits in your raised right hand.
+func _hand(player: Node) -> Vector3:
+	var f: Vector3 = player.facing
+	return player.global_position + Vector3.UP * 1.7 + f.cross(Vector3.UP) * 0.35 - f * 0.2
+
+
+func _update_magma(m: Dictionary, delta: float) -> void:
+	var t: CombatTuning = GameData.tuning
+	var player: Node = m.player
+	m.time += delta
+	var ball: Node3D = m.ball if is_instance_valid(m.ball) else null
+	if not m.thrown:
+		if not _alive(player) or player.state != Player.State.CAST:  # knocked out of it: the ball drops and cools
+			if ball != null:
+				ElementFx.hit("Fire", ball.global_position, 0.6)
+				ball.queue_free()
+			_magma_balls.erase(m)
+			return
+		if ball != null:  # up out of the ground into your hand
+			var up := clampf(m.time / t.magma_pull_time, 0.0, 1.0)
+			ball.global_position = (m.from as Vector3).lerp(_hand(player), up * up) if up < 1.0 else _hand(player)
+		if m.time >= t.magma_pull_time + t.magma_hold_time:
+			m.thrown = true
+			m.time = 0.0
+			var to: Vector3 = m.spot - player.global_position
+			player._face_yaw(atan2(-to.x, -to.z))
+			player.cast_again("Throw", t.magma_throw_windup, t.magma_throw_windup + 0.3)
+		return
+	if m.time < t.magma_throw_windup:  # drawn back for the throw
+		if ball != null:
+			ball.global_position = _hand(player) if _alive(player) else ball.global_position
+		m.hurled_at = ball.global_position if ball != null else player.global_position + Vector3.UP * 1.7
+		return
+	var from: Vector3 = m.hurled_at
+	var spot: Vector3 = m.spot
+	var flight := maxf(from.distance_to(spot) / t.magma_speed, 0.2)
+	var f := clampf((m.time - t.magma_throw_windup) / flight, 0.0, 1.0)
+	if ball != null:  # an arc: up a little, then down onto the spot
+		ball.global_position = from.lerp(spot, f) + Vector3.UP * sin(f * PI) * from.distance_to(spot) * 0.12
+	if f >= 1.0:
+		_magma_balls.erase(m)
+		if ball != null:
+			ball.queue_free()
+		_magma_burst(m.a, player, spot)
+
+
+func _magma_burst(a: Dictionary, player: Node, spot: Vector3) -> void:
+	if not _alive(player):
+		return
+	var radius := GameData.num(a, "radius_m", 3.0)
+	if not _own(a):
+		UltimateFx._cracks(spot, Vector3.UP, radius)
+		for k in 6:
+			Vfx.chunk(spot + UltimateFx._in_disc(radius * 0.4), Vector3(randf_range(-4, 4), randf_range(4, 8), randf_range(-4, 4)), Color(1.0, 0.4, 0.05), 0.3)
+	ElementFx.quiet = _own(a)
+	_runner()._blast(a, player, spot, radius)  # damage, the throw outward, shake, hit-stop
+	_runner()._burn_ground(a, player, spot, radius * 0.6)
+	ElementFx.quiet = false
+
+
+func holding_magma() -> bool:
+	return not _magma_balls.is_empty()
 
 
 ## `n` icicles shoot up round a circle of radius `r`, leaning out; they stand, then shatter.
@@ -234,6 +328,8 @@ func _other_pillar(c: Dictionary, i: int) -> int:
 func _physics_process(delta: float) -> void:
 	for c: Dictionary in _cages.duplicate():
 		_update_cage(c, delta)
+	for m: Dictionary in _magma_balls.duplicate():
+		_update_magma(m, delta)
 
 
 func _update_cage(c: Dictionary, delta: float) -> void:
@@ -292,12 +388,12 @@ func caging() -> bool:
 
 # ---------------------------------------------------------------- Slide: Ice Slide
 
-func _slide(a: Dictionary, player: Node, dir: Vector3) -> void:
+func _slide(a: Dictionary, player: Node, dir: Vector3, at := Vector3.INF) -> void:
 	var t: CombatTuning = GameData.tuning
 	var r := _runner()
 	r.invulnerable = true
 	var start: Vector3 = player.global_position
-	var goal := start + dir * GameData.num(a, "range_m", 9.0)
+	var goal := at if at != Vector3.INF else start + dir * GameData.num(a, "range_m", 9.0)
 	var trail := {"last": start}
 	_ice_patch(a, player, start)
 	var tw := create_tween()

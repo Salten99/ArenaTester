@@ -6,7 +6,7 @@
   "weapon_class": "Fists",
   "attack_category": "Melee",
   "weapon_base_damage": 8,
-  "weapon_attacks_per_sec": 2.4,
+  "weapon_attacks_per_sec": 3.6,
   "weapon_range_m": 1.6,
   "light_combo_hits": 3,
   "heavy_attack_description": "A front kick that knocks the one in front of you back.",

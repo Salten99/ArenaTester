@@ -324,7 +324,28 @@ func _physics_process(delta: float) -> void:
 	_think(delta)
 
 
+## A blow rocks it back the way it was hit (user, 2026-11-20): the body leans enemy_hit_lean_deg
+## that way and straightens over enemy_hit_lean_time.
+var _lean_dir := Vector3.ZERO
+var _lean_left := 0.0
+var _attack_lock := 0.0  ## s until it may strike again after being hit (enemy_hit_attack_lock)
+
+
+func _update_lean(delta: float) -> void:
+	var t: CombatTuning = GameData.tuning
+	_lean_left = maxf(0.0, _lean_left - delta)
+	var k := _lean_left / maxf(t.enemy_hit_lean_time, 0.01)
+	if thrown or state == State.DEAD or k <= 0.0:
+		_lean_left = 0.0
+		k = 0.0
+	var axis := global_basis.inverse() * Vector3.UP.cross(_lean_dir)  # the top tips toward _lean_dir
+	_visual.quaternion = Quaternion(axis.normalized(), deg_to_rad(t.enemy_hit_lean_deg) * k * k) if axis.length() > 0.01 and k > 0.0 else Quaternion.IDENTITY
+
+
 func _think(delta: float) -> void:
+	_attack_lock -= delta
+	if _lean_left > 0.0 or _visual.quaternion != Quaternion.IDENTITY:
+		_update_lean(delta)
 	if held_by != null:
 		_follow_hand()
 		return
@@ -377,7 +398,7 @@ func _think(delta: float) -> void:
 				_charge_dir = to_target.normalized()
 				_enter(State.CHARGE_WIND, CHARGE_WIND)
 				Vfx.ring(global_position + Vector3.UP * 0.05, 1.4, Color(1.0, 0.25, 0.1), CHARGE_WIND)
-			elif dist <= reach + 0.2 and _may_attack(at_player):
+			elif dist <= reach + 0.2 and _attack_lock <= 0.0 and _may_attack(at_player):
 				_enter(State.WINDUP, t.enemy_telegraph * (t.large_slowdown if is_large else 1.0))
 			elif at_player and dist <= t.wait_ring_distance + 0.5 and director != null and director.full():
 				state = State.WAIT
@@ -391,7 +412,7 @@ func _think(delta: float) -> void:
 		State.WINDUP:
 			if is_ranged() and _aim_at == Vector3.INF and target != null and _state_len - _state_time <= t.ranged_aim_lock:
 				_aim_at = target.global_position + Vector3.UP  # stop tracking: the shot goes where you were
-			if _state_time >= _state_len:
+			if _state_time >= _state_len and _attack_lock <= 0.0:  # just hit: the blow waits
 				_strike(reach, to_target, dist)
 				_enter(State.STRIKE, 0.12)
 		State.STRIKE:
@@ -695,6 +716,8 @@ func _fall_mult(vy: float) -> float:
 func throw(vel: Vector3, by: Node) -> void:
 	if _pinned_left > 0.0:
 		return  # stuck to the wall
+	if held_by != null and state != State.DEAD:
+		return  # on your chain or in your hand: it stays there, whatever hits it (user, 2026-11-20)
 	vel *= GameData.tuning.launch_velocity_mult
 	if state == State.DEAD:
 		if model != null and model.is_ragdoll():
@@ -1209,7 +1232,16 @@ func take_hit(info: DamageInfo) -> float:
 	var resist := 0.35 if is_large else 1.0
 	if info.knockback > 0.0:
 		_knock = info.knockback_dir * info.knockback * resist
-	if state == State.DEAD or thrown:
+	if info.is_direct():
+		_attack_lock = t.enemy_hit_attack_lock  # it can't land a blow for a moment after taking one
+		var away := Vector3(info.knockback_dir.x, 0.0, info.knockback_dir.z)
+		if away.length() < 0.01 and info.source is Node3D and is_instance_valid(info.source):
+			away = global_position - (info.source as Node3D).global_position
+			away.y = 0.0
+		if away.length() > 0.01:
+			_lean_dir = away.normalized()
+			_lean_left = t.enemy_hit_lean_time
+	if state == State.DEAD or thrown or held_by != null:  # on the chain it keeps hanging as it is
 		return dealt
 	if civilian and is_instance_valid(info.source) and info.source is Node3D:
 		flee_from = info.source.global_position

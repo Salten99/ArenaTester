@@ -54,7 +54,7 @@ func _ready() -> void:
 		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_spells", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_bestiary_saved", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head", "test_pixelfx_effects",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_bestiary_saved", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head", "test_pixelfx_effects", "test_hit_reactions", "test_aim_every_spell",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -318,6 +318,7 @@ func test_stamina() -> void:
 	await _frames(2)
 	check(p.state == Player.State.CAST and p.stamina <= p.max_stamina - t.signature_stamina + 1.0, "casting a spell costs stamina")
 	# Out of stamina with Shift held: you walk while it refills, then sprint again.
+	await _frames(60)  # the Magma Ball's pull and throw done
 	p.stamina = 0.0
 	s.hold({"move": Vector2(0, 1), "sprint": true}, 60)
 	await _frames(60)
@@ -400,10 +401,12 @@ func test_aimed_ultimate() -> void:
 	s.hold({"ultimate": true, "ultimate_held": true, "aim_point": target}, 1)
 	s.hold({"ultimate_held": true, "aim_point": target}, 20)
 	await _frames(10)
-	check(p._aiming and p._aim_ring != null and p._aim_ring.global_position.distance_to(target) < 1.0, "holding the ultimate key shows where it will land")
+	check(p._aim_slot == "Ultimate" and p._aim_ring != null and p._aim_ring.global_position.distance_to(target) < 1.0, "holding the ultimate key shows where it will land")
 	s.hold({"ultimate_released": true, "aim_point": target}, 1)
-	await _frames(int(UltimateFx.impact_time() * Engine.physics_ticks_per_second) + 15)
-	check(not p._aiming and p.abilities.ready_in("Ultimate") > 0.0, "releasing casts it")
+	var t: CombatTuning = GameData.tuning
+	var lands := maxf(UltimateFx.impact_time(), t.ult_dragon_delay + t.ult_dragon_time)  # the Fire one's dragon takes longer
+	await _frames(int(lands * Engine.physics_ticks_per_second) + 15)
+	check(p._aim_slot == "" and p.abilities.ready_in("Ultimate") > 0.0, "releasing casts it")
 	check(far.all(func(e): return e.health.hp < e.health.max_hp), "the ultimate lands where you aimed")
 	check(near.all(func(e): return e.health.hp == e.health.max_hp), "and not around you")
 	var way_off := p.aim_target(p.global_position + Vector3(0, 0, -200))
@@ -441,47 +444,45 @@ func test_ultimate_circles() -> void:
 	check(get_tree().get_nodes_in_group("magic_circle").is_empty(), "the circles close afterwards")
 
 
-## The Fire ultimate (user, 2026-11-19): boot jets lift you ult_lift_height up, three magic circles
-## open around your head and each fires a giant Fire Lance beam at the aimed spot, hurting what's
-## there; then you come back down.
+## The Fire ultimate (user, 2026-11-20): five magic circles open in an arc over your head, a flame
+## dragon pours out of them, snakes through the air and dives into the aimed spot; the ground burns.
 func test_fire_ultimate() -> void:
 	var p: Player = _arena.player
 	var kept: Dictionary = p.abilities.defs
+	var hz := Engine.physics_ticks_per_second
 	p.abilities.load_for("forge_god")
 	p.abilities.remaining["Ultimate"] = 0.0
 	var enemies := _cluster(3, 12.0, "barb_warlord")
 	for e in enemies:
-		e.freeze(5.0)
+		e.freeze(8.0)
 	var t: CombatTuning = GameData.tuning
-	var ground_y: float = p.global_position.y
 	var spot: Vector3 = p.global_position + Vector3(0, 0, -12)
 	check(p.abilities.cast("Ultimate", p, Vector3.FORWARD, spot), "the Fire ultimate casts")
-	await _frames(int(t.ult_lift_time * Engine.physics_ticks_per_second) + 3)
-	check(p.global_position.y > ground_y + t.ult_lift_height - 0.5, "the boot jets lift you %.0f m up (%.1f)" % [t.ult_lift_height, p.global_position.y - ground_y])
-	check(p.abilities._jets.all(func(j): return is_instance_valid(j) and j.get_parent() == p), "the jets ride along under your boots")
+	await _frames(int(t.ult_arc_gap * 2.0 * hz) + 4)
 	var over := get_tree().get_nodes_in_group("magic_circle").filter(func(c):
 		var to: Vector3 = c.global_position - p.global_position
-		return to.y > 0.5 and to.length() < 5.0)
-	check(over.size() == 3, "three magic circles open around your head up there (%d)" % over.size())
-	check(enemies.all(func(e): return e.health.hp == e.health.max_hp), "the beams haven't fired yet")
-	await _frames(int((t.ult_beam_delay + t.ult_beam_gap * 2.0) * Engine.physics_ticks_per_second) + 4)
-	check(enemies.any(func(e): return e.health.hp < e.health.max_hp), "a fire lance beam shoots from each circle to where you aimed")
-	var fires := get_tree().get_nodes_in_group("hazards").filter(func(h): return Vector2(h.global_position.x - spot.x, h.global_position.z - spot.z).length() < 3.0)
-	check(fires.size() == 3, "and the ground burns where each one lands (%d)" % fires.size())
-	await _frames(int(Engine.physics_ticks_per_second * 0.6))
-	check(enemies.any(func(e): return e.statuses.has("fire")), "setting alight whoever stands in it")
-	check(p.abilities.levitating(), "you stay up while the beams burn")
-	var beam: Dictionary = p.abilities._ult_beams[0]
-	p._crosshair = beam.from + Vector3(8, -4, -6)
-	p.abilities._ult_beam_aim(beam)
-	check((beam.dir as Vector3).dot((p._crosshair + beam.side - beam.from).normalized()) > 0.99, "the beams follow your aim")
-	await _frames(int((t.ult_beam_time + 1.5) * Engine.physics_ticks_per_second))
-	check(not p.abilities.levitating() and p.global_position.y < ground_y + 0.5 and p.abilities._jets.is_empty(), "then the jets stop and you come back down")
+		return to.y > 1.0 and to.length() < 7.0)
+	check(over.size() == 5, "five magic circles open in an arc over your head (%d)" % over.size())
+	var heights: Array = over.map(func(c): return c.global_position.y - p.global_position.y)
+	heights.sort()
+	check(heights[4] > 3.0 and heights[0] < heights[4] - 1.0, "arching up over it, the middle one highest")
+	check(enemies.all(func(e): return e.health.hp == e.health.max_hp), "nothing is hit yet")
+	await _frames(int((t.ult_dragon_delay + t.ult_dragon_time * 0.5) * hz))
+	var dragon: Dictionary = p.abilities._dragons[0] if not p.abilities._dragons.is_empty() else {}
+	var head: Node3D = dragon.body[0] if not dragon.is_empty() and not dragon.body.is_empty() else null
+	check(head != null and head.visible and head.global_position.y > spot.y + 3.0, "a flame dragon pours out and snakes through the air")
+	check(dragon.body.size() == t.ult_dragon_segments, "a long body behind its head (%d pieces)" % dragon.body.size())
+	await _frames(int(t.ult_dragon_time * 0.6 * hz) + 4)
+	check(enemies.all(func(e): return e.health.hp < e.health.max_hp), "it dives into the aimed spot, hitting everything there")
+	var fires := get_tree().get_nodes_in_group("hazards").filter(func(h): return Vector2(h.global_position.x - spot.x, h.global_position.z - spot.z).length() < 1.0)
+	check(fires.size() == 1, "and the ground burns there")
+	await _frames(int(t.ult_dragon_time * hz) + 10)
+	check(p.abilities._dragons.is_empty(), "then its tail pours into the ground and it's gone")
 	for e in enemies:
 		e.queue_free()
 	p.abilities.defs = kept
-	await _frames(40)
-	check(get_tree().get_nodes_in_group("magic_circle").is_empty(), "the shoulder circles close afterwards")
+	await _frames(int(t.ult_dragon_time * hz) + 40)
+	check(get_tree().get_nodes_in_group("magic_circle").is_empty(), "the circles close afterwards")
 
 
 ## The Stone special (user, 2026-11-16): a circle on the aimed ground, then spikes erupt there:
@@ -552,17 +553,29 @@ func test_spells() -> void:
 	t.cage_time = 1.5
 	t.deep_freeze_time = 1.0
 
-	# Lava Ripple: rings roll out all round you, the near ones hit harder.
+	# Magma Ball (Fire Q, user 2026-11-20): hold Q to aim, let go: you pull a ball of magma out of the
+	# ground and hurl it at the aimed spot.
 	p.abilities.load_for("forge_god")
-	var near := _dummy(Vector3(0, 0, -1.2))
-	var far := _dummy(Vector3(0, 0, 4.4))
-	p.abilities.cast("Signature", p, Vector3.FORWARD)
-	await _frames(3)
-	check(near.health.hp == near.health.max_hp, "Lava Ripple waits for the slam")
-	await _frames(int((t.spell_release_delay + 5.0 / t.ripple_speed) * hz) + 10)
-	check(far.health.hp < far.health.max_hp, "Lava Ripple reaches behind you too")
-	check(near.health.max_hp - near.health.hp > far.health.max_hp - far.health.hp, "Lava Ripple hits the near ones harder")
-	_free_all([near, far])
+	var aimed: Vector3 = home + Vector3(4, 0, -10)
+	var hit_one := _dummy(aimed - home)
+	var missed := _dummy(Vector3(0, 0, -4))
+	var s := _scripted()
+	s.hold({"signature": true, "signature_held": true, "aim_point": aimed}, 1)
+	s.hold({"signature_held": true, "aim_point": aimed}, 30)
+	s.hold({"aim_point": aimed}, 1)
+	await _frames(20)
+	check(p._aim_slot == "Signature" and p._aim_ring != null and Vector2(p._aim_ring.global_position.x - aimed.x, p._aim_ring.global_position.z - aimed.z).length() < 0.5,
+		"holding Q shows a circle on the ground where it will land, as long as you hold it")
+	check(p.state == Player.State.FREE and p.abilities.ready_in("Signature") == 0.0, "nothing is cast while you aim")
+	await _frames(int((t.magma_pull_time * 0.8) * hz) + 12)
+	check(p.state == Player.State.CAST and p.abilities.spells.holding_magma(), "letting go: you reach down and pull out a ball of magma")
+	check(p.crosshair_shown(), "the crosshair shows while you hold it")
+	await _frames(int((t.magma_pull_time + t.magma_hold_time + t.magma_throw_windup + 0.6) * hz))
+	check(hit_one.health.hp < hit_one.health.max_hp and missed.health.hp == missed.health.max_hp, "and hurl it where you aimed: it bursts there")
+	check(not p.abilities.spells.holding_magma(), "and it's gone")
+	_free_all([hit_one, missed])
+	p.input_source = null
+	p.global_position = home
 
 	# Ring of Ice: icicles all round you; what they hit is frozen.
 	p.abilities.load_for("snow_god")
@@ -603,12 +616,18 @@ func test_spells() -> void:
 	await _frames(int(t.spell_release_delay * hz) + 6)
 	check(ahead.health.hp < ahead.health.max_hp and behind.health.hp == behind.health.max_hp, "Thunder Crash strikes ahead of you")
 	_free_all([ahead, behind])
-	var fan := [_dummy(Vector3(-3, 0, -4)), _dummy(Vector3(3, 0, -4))]
-	var back := _dummy(Vector3(0, 0, 5))
+	# Lightning Beam (E, user 2026-11-20): from a magic circle before your forehead, straight where you aim, for lightning_beam_time.
+	p.facing = Vector3.FORWARD
+	var line := [_dummy(Vector3(0, 0, -6)), _dummy(Vector3(0, 0, -25))]
+	var off := [_dummy(Vector3(0, 0, 5)), _dummy(Vector3(6, 0, -4))]
 	p.abilities.cast("Movement", p, Vector3.FORWARD)
-	await _frames(int(t.spell_release_delay * hz) + 6)
-	check(_hurt(fan) == 2 and back.health.hp == back.health.max_hp, "Bolt Fan hits across the front and not behind")
-	_free_all(fan + [back])
+	await _frames(int(AbilityRunner.LUNGE_TIME * hz) + 4)
+	check(p.abilities.beaming() and _hurt(line) == 2 and _hurt(off) == 0, "Lightning Beam strikes all along the line ahead, nothing behind or beside (%d of 2)" % _hurt(line))
+	var brow: Vector3 = p.abilities._brow(p, p.facing)
+	check(get_tree().get_nodes_in_group("magic_circle").any(func(c): return c.global_position.distance_to(brow) < 0.5), "it fires from a magic circle before your forehead")
+	await _frames(int(t.lightning_beam_time * hz) + 4)
+	check(not p.abilities.beaming(), "and stops after %.1f s" % t.lightning_beam_time)
+	_free_all(line + off)
 
 	# Kaminari: bolts bounce round the aimed spot until it collapses.
 	var spot: Vector3 = p.global_position + Vector3(0, 0, -12)
@@ -668,10 +687,12 @@ func test_ragdoll_death() -> void:
 
 func test_ability_cast() -> void:
 	var p: Player = _arena.player
-	var enemies := _cluster(4, 1.5, "barb_warlord")
+	var enemies := _cluster(4, 20.0, "barb_warlord")  # where the Magma Ball lands, unaimed: range_m ahead
+	for e in enemies:
+		e.freeze(5.0)
 	var s := _scripted()
 	s.press("signature")
-	await _frames(45)  # the slam, then the lava rings roll out (Lava Ripple)
+	await _frames(110)  # reach down, pull the ball out, hurl it
 	check(p.abilities.ready_in("Signature") > 0.0, "the Fire Special went on cooldown")
 	var hurt := enemies.filter(func(e): return e.health.hp < e.health.max_hp).size()
 	check(hurt == 4, "the Fire Special hit all 4 nearby enemies (got %d)" % hurt)
@@ -2436,6 +2457,15 @@ func test_chain_grab() -> void:
 	foe.health.hp = 10000.0  # a light hit wouldn't kill it, so it lands in your hand
 	await hook.call(foe)
 	check(p.state == Player.State.CHAIN and p.chain.mode == Chain.Mode.HOOKED and foe.held_by == p, "a held light attack hooks a minion 8 m away")
+	var blow := DamageInfo.make(1.0, "Physical", DamageInfo.Kind.HEAVY, p)
+	blow.knockback = 10.0
+	blow.knockback_dir = Vector3.RIGHT
+	Combat.deal(foe, blow)
+	foe.throw(Vector3(6, 4, 0), p)  # what a launching blow or a body flying into it does
+	s.hold({"light_held": true}, 3)
+	await _frames(3)
+	check(foe.held_by == p and not foe.thrown and (foe.model == null or not foe.model.is_ragdoll()) and p.chain.mode == Chain.Mode.HOOKED,
+		"hit while on the chain, it stays on the chain (user, 2026-11-20)")
 	var links: int = p.chain._line.multimesh.visible_instance_count if p.chain._line != null else 0
 	check(p.chain._line != null and p.chain._line.visible and links >= 30, "you see the chain: %d links from hand to hook" % links)
 	var in_way: Enemy = _cluster(1, 8.0)[0]
@@ -2587,6 +2617,7 @@ func test_chain_grab() -> void:
 	check(Chain.pulls_you(ogre), "an ogre is too big to hook")
 	var start := p.global_position
 	ogre.health.hp = 10000.0
+	var in_the_way: Enemy = _dummy(p.facing * 4.0 + p.facing.cross(Vector3.UP) * 0.7)  # beside the line, but shoulder to shoulder with you
 	await hook.call(ogre)
 	s.hold({"light_held": true}, 10)
 	await _frames(10)
@@ -2595,7 +2626,8 @@ func test_chain_grab() -> void:
 	s.hold({"light_held": true}, 40)
 	await _frames(41)
 	check(p.global_position.distance_to(start) > 3.0, "the chain pulls you to it (%.1f m)" % p.global_position.distance_to(start))
-	check(ogre.health.hp < 10000.0, "and you land a drop kick")
+	check(ogre.health.hp < 10000.0, "and you land a drop kick, through the crowd in the way (user, 2026-11-20)")
+	in_the_way.queue_free()
 	var gap := ogre.global_position.distance_to(p.global_position)
 	check(not ogre.thrown and gap > t.chain_kick_reach + 1.0, "it's driven back on its feet, not launched (%.1f m away)" % gap)
 	s.hold({}, 2)
@@ -3347,3 +3379,58 @@ func test_test_arena_and_start_menu() -> void:
 	b.smash(p.global_position)
 	await _frames(2)
 	check(a._targets.size() == TestArena.TARGETS.size() - 1, "a smashed prop is gone")
+
+
+## Enemy hit reactions (user, 2026-11-20): a blow rocks the body back the way it was hit, and for a
+## quarter second it can't land a blow of its own, large ones too.
+func test_hit_reactions() -> void:
+	var p: Player = _arena.player
+	var t: CombatTuning = GameData.tuning
+	var e: Enemy = _cluster(1, 3.0)[0]
+	await _frames(2)
+	var blow := DamageInfo.make(1.0, "Physical", DamageInfo.Kind.LIGHT, p)
+	blow.knockback_dir = Vector3.RIGHT
+	Combat.deal(e, blow)
+	await _frames(2)
+	check(e._visual.global_basis.y.normalized().dot(Vector3.RIGHT) > sin(deg_to_rad(t.enemy_hit_lean_deg) * 0.5), "a blow from the left leans it to the right")
+	await _frames(int(t.enemy_hit_lean_time * 60.0) + 4)
+	check(e._visual.quaternion.is_equal_approx(Quaternion.IDENTITY), "then it straightens up")
+	e.queue_free()
+	var ogre: Enemy = _cluster(1, 2.0, "human_hired_ogre")[0]
+	await _frames(2)
+	var to: Vector3 = p.global_position - ogre.global_position
+	ogre.rotation.y = atan2(-to.x, -to.z)
+	ogre.target = p
+	ogre._enter(Enemy.State.WINDUP, 0.05)
+	Combat.deal(ogre, DamageInfo.make(1.0, "Physical", DamageInfo.Kind.LIGHT, p))
+	await _frames(int(t.enemy_hit_attack_lock * 60.0) - 5)
+	check(ogre.state == Enemy.State.WINDUP, "a big one hit as it winds up holds its blow")
+	await _frames(15)
+	check(ogre.state != Enemy.State.WINDUP, "until a quarter second has passed")
+	ogre.queue_free()
+
+
+## Every spell is aimed (user, 2026-11-20): hold its key, a circle on the ground shows where it lands
+## (at your feet for one that goes off around you); the crosshair only for one that shoots forward.
+func test_aim_every_spell() -> void:
+	var p: Player = _arena.player
+	var kept: Dictionary = p.abilities.defs
+	var home: Vector3 = p.global_position
+	var s := _scripted()
+	var aimed: Vector3 = home + Vector3(0, 0, -8)
+	for c in [["storm_god", "movement", "Movement", true], ["storm_god", "signature", "Signature", false], ["snow_god", "signature", "Signature", false]]:
+		p.abilities.load_for(c[0])
+		s.hold({c[1]: true, c[1] + "_held": true, "aim_point": aimed}, 1)
+		s.hold({c[1] + "_held": true, "aim_point": aimed}, 8)
+		await _frames(6)
+		var ring: Vector3 = p._aim_ring.global_position if p._aim_ring != null else Vector3.INF
+		var reach: float = p.abilities.aim_reach(c[2])
+		var want: Vector3 = home + (aimed - home).limit_length(reach)
+		check(p._aim_slot == c[2] and Vector2(ring.x - want.x, ring.z - want.z).length() < 0.5, "%s %s: the circle shows where it lands (%.1f m out)" % [c[0], c[2], reach])
+		check(p.crosshair_shown() == c[3], "%s %s: the crosshair %s" % [c[0], c[2], "shows: it shoots forward" if c[3] else "stays hidden"])
+		p._stop_aiming()  # not cast: these are checked in test_spells
+		s.queue.clear()
+		await _frames(2)
+	p.abilities.defs = kept
+	p.input_source = null
+

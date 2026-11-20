@@ -274,16 +274,18 @@ func _physics_process(delta: float) -> void:
 	if intent.race_active and state == State.FREE:
 		race_active.cast()
 	_update_throw(delta, intent)
-	if state == State.FREE:
-		if intent.signature:
-			_cast("Signature", intent.aim_yaw, intent.aim_point)  # only a Spikes ability uses the point
-		elif intent.movement:
-			_cast("Movement", intent.aim_yaw)
-		elif intent.ultimate and abilities.ready_in("Ultimate") <= 0.0:
-			if intent.ultimate_held and intent.aim_point != Vector3.INF:
-				_aiming = true  # hold to aim, release to cast
+	if state == State.FREE and _aim_slot == "":
+		# Every spell (user, 2026-11-20): hold its key to aim (a circle on the ground where it lands),
+		# as long as you like; let go to cast it there. Without an aim point (scripted) it casts at once.
+		for slot in ["Signature", "Movement", "Ultimate"]:
+			var pressed: bool = {"Signature": intent.signature, "Movement": intent.movement, "Ultimate": intent.ultimate}[slot]
+			if not pressed or abilities.ready_in(slot) > 0.0:
+				continue
+			if _slot_held(intent, slot) and intent.aim_point != Vector3.INF:
+				_aim_slot = slot
 			else:
-				_cast("Ultimate", intent.aim_yaw)
+				_cast(slot, intent.aim_yaw, intent.aim_point)
+			break
 	_update_aim(intent)
 
 	_update_state(delta, intent)
@@ -354,11 +356,6 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 		velocity = move_dir.normalized() * fly
 		velocity.y = fly * 0.7 * (float(intent.jump_held) - float(intent.dodge_held))
 		_finish_move(delta)
-		return
-	if abilities.levitating():  # the Fire ultimate's boot jets hold you up, eased toward its top
-		velocity = Vector3(0.0, (abilities.hover_y - global_position.y) * 10.0, 0.0)
-		_finish_move(delta)
-		velocity.y = 0.0  # you drop from rest when it lets go
 		return
 	if not on_floor:
 		velocity.y -= t.gravity * delta
@@ -1011,8 +1008,8 @@ func _start_dodge(dir: Vector3) -> void:
 	_ghost_at = 0.0
 	facing = _dodge_dir
 	_queued_light = false
-	collision_mask = 0b001  # pass through enemies while dodging
 	_set_state(State.DODGE)
+	collision_mask = 0b001  # pass through enemies while dodging (after: a cancelled chain pull restores it)
 	_reset_visual()
 	statuses.consume("void")  # dodging shakes off one Void stack
 	godly_gifts.trigger("on_dodge", {"position": global_position})
@@ -1057,52 +1054,80 @@ func _parry(attacker: Node) -> void:
 	Run.note("parries", 1)
 
 
-# ---------------------------------------------------------------- aiming the ultimate
+# ---------------------------------------------------------------- aiming spells
 
-var _aiming := false
+var _aim_slot := ""  ## the spell whose key you hold to aim it ("" = none)
 var _aim_ring: MeshInstance3D
 
 
-## While the ultimate key is held: a ring shows where it will land; release casts it there.
+func _slot_held(intent: PlayerIntent, slot: String) -> bool:
+	return {"Signature": intent.signature_held, "Movement": intent.movement_held, "Ultimate": intent.ultimate_held}[slot]
+
+
+## While a spell's key is held: a ring on the ground shows where it will land (at your feet for one
+## that goes off around you); release casts it there.
 func _update_aim(intent: PlayerIntent) -> void:
-	if not _aiming:
+	if _aim_slot == "":
 		return
-	if is_dead() or state == State.DODGE or abilities.ready_in("Ultimate") > 0.0:
+	var slot := _aim_slot
+	if is_dead() or state == State.DODGE or abilities.ready_in(slot) > 0.0:
 		_stop_aiming()
 		return
-	var point := aim_target(intent.aim_point)
+	var point := aim_target(intent.aim_point, slot)
 	if _aim_ring == null:
 		_aim_ring = MeshInstance3D.new()
 		var torus := TorusMesh.new()
 		torus.inner_radius = 0.9
 		torus.outer_radius = 1.0
 		_aim_ring.mesh = torus
-		_aim_ring.material_override = Vfx.material(Color(1.0, 0.45, 0.1, 0.8))
+		_aim_ring.material_override = Vfx.material(Color(ElementFx.color(GameData.text(abilities.defs.get(slot, {}), "damage_type", "Fire")), 0.8))
 		_aim_ring.top_level = true
 		add_child(_aim_ring)
-	var r := abilities.ultimate_radius()
+	var r := abilities.aim_radius(slot)
 	_aim_ring.global_position = point + Vector3.UP * 0.15
 	_aim_ring.scale = Vector3(r, 1.0, r)
-	if intent.ultimate_released or not intent.ultimate_held:
+	if not _slot_held(intent, slot):
 		_stop_aiming()
 		if state == State.FREE:
 			var to := point - global_position
-			_cast("Ultimate", atan2(-to.x, -to.z) if Vector2(to.x, to.z).length() > 0.5 else intent.aim_yaw, point)
+			_cast(slot, atan2(-to.x, -to.z) if Vector2(to.x, to.z).length() > 0.5 else intent.aim_yaw, point)
 
 
 func _stop_aiming() -> void:
-	_aiming = false
+	_aim_slot = ""
 	if _aim_ring != null:
 		_aim_ring.queue_free()
 		_aim_ring = null
 
 
-## Where an aimed ultimate lands: the camera's ground point, pulled in to the
-## aim range and dropped onto the floor below it.
-func aim_target(camera_point: Vector3) -> Vector3:
+## Whether a spell aimed now shoots forward (a beam, a thrown ball, a fan): the crosshair shows.
+func aiming_a_shot() -> bool:
+	return _aim_slot != "" and GameData.text(abilities.defs.get(_aim_slot, {}), "shape") in ["Cone", "Beam", "Magma", "Fan"]
+
+
+## The crosshair shows whenever something is aimed (user, 2026-11-20): your weapon wound up to throw,
+## a minion or item in your hand or swinging on the chain, a spell that shoots forward, a beam firing.
+func crosshair_shown() -> bool:
+	return aims_with_body() or state == State.GRAB or aiming_a_shot() or abilities.beaming() or abilities.spells.holding_magma() \
+		or (state == State.CHAIN and chain.mode in [Chain.Mode.HOOKED, Chain.Mode.SWING])
+
+
+## A spell's second move (the Magma ball's throw): you stay casting `seconds` more, the clip's
+## blow landing `windup` s in.
+func cast_again(clip: String, windup: float, seconds: float) -> void:
+	_cast_clip = clip if visual != null and visual.anim != null and visual.anim.has_animation(clip) else "Throw"
+	_cast_slow = seconds / CAST_TIME
+	_set_state(State.CAST)
+	if visual != null:
+		visual.play_strike(_cast_clip, windup, seconds)
+
+
+## Where an aimed spell lands: the camera's ground point, pulled in to its reach (none: at your
+## feet) and dropped onto the floor below it.
+func aim_target(camera_point: Vector3, slot := "Ultimate") -> Vector3:
 	var p := camera_point if camera_point != Vector3.INF else global_position + facing * 6.0
 	var flat := Vector3(p.x - global_position.x, 0.0, p.z - global_position.z)
-	var reach := abilities.aim_range()
+	var reach := abilities.aim_reach(slot)
 	if flat.length() > reach:
 		flat = flat.normalized() * reach
 	p = global_position + flat
@@ -1127,6 +1152,8 @@ func _cast(slot: String, aim_yaw: float, at := Vector3.INF) -> void:
 		_cast_slow = GameData.tuning.lance_stab_slow if GameData.text(abilities.defs.get(slot, {}), "shape") == "Cone" and slot == "Movement" else 1.0
 		if slot == "Ultimate":
 			_cast_slow = GameData.tuning.ult_raise_time / CAST_TIME
+		if GameData.text(abilities.defs.get(slot, {}), "shape") == "Magma":  # bent down pulling the ball out, until the throw
+			_cast_slow = (GameData.tuning.magma_pull_time + GameData.tuning.magma_hold_time + 0.1) / CAST_TIME
 		_set_state(State.CAST)
 		godly_gifts.trigger({"Signature": "on_signature_cast", "Movement": "on_movement_cast", "Ultimate": "on_ultimate_cast"}[slot], {"position": global_position})
 

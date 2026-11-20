@@ -35,10 +35,10 @@ extends Resource
 @export_range(1.0, 30.0, 0.5) var knockback_friction := 9.0
 
 @export_group("Player movement")
-## Walking speed, m/s (sam-movement SPEED 5.0, lowered 45% on 2026-10-22).
-@export_range(1.0, 15.0, 0.05) var move_speed := 2.75
-## Speed while holding Sprint (sam-movement 15, lowered 45%).
-@export_range(1.0, 40.0, 0.05) var sprint_speed := 8.25
+## Walking speed, m/s (sam-movement SPEED 5.0, lowered 45% on 2026-10-22; 33% faster on 2026-11-20).
+@export_range(1.0, 15.0, 0.05) var move_speed := 3.65
+## Speed while holding Sprint (sam-movement 15, lowered 45%; 33% faster on 2026-11-20).
+@export_range(1.0, 40.0, 0.05) var sprint_speed := 11.0
 ## Hard ceiling on horizontal speed, whatever the source.
 @export_range(1.0, 60.0, 0.5) var max_speed := 30.0
 @export_range(1.0, 40.0, 0.5) var gravity := 15.0
@@ -161,6 +161,16 @@ extends Resource
 @export_range(0.0, 1.5, 0.05) var lance_circle_ahead := 0.4
 ## How much faster the circle spins while the beam fires (degrees a second, on top of its own turn; user, 2026-11-19).
 @export_range(0.0, 2000.0, 10.0) var lance_circle_beam_spin := 540.0
+## The Lightning beam (E, user 2026-11-20): it shoots from a magic circle before your forehead for this long (s).
+@export_range(0.1, 3.0, 0.05) var lightning_beam_time := 0.5
+## The Magma ball (Fire Q, user 2026-11-20): you reach into the ground and pull it out over this long (s),
+## hold it this long (s), then hurl it where you aimed: the throw releases this long (s) after it starts
+## and the ball flies this fast (m/s), this big (radius, m), bursting where it lands.
+@export_range(0.05, 1.5, 0.05) var magma_pull_time := 0.4
+@export_range(0.0, 1.0, 0.05) var magma_hold_time := 0.15
+@export_range(0.05, 1.0, 0.05) var magma_throw_windup := 0.15
+@export_range(5.0, 80.0, 1.0) var magma_speed := 24.0
+@export_range(0.1, 2.0, 0.05) var magma_ball_size := 0.45
 
 @export_group("Ultimate magic circle")
 ## Every Ultimate (user, 2026-11-10): you raise your weapon, a magic circle opens in the sky over
@@ -184,26 +194,23 @@ extends Resource
 @export_range(1, 30) var ult_storm_strikes := 7
 ## Stone: how many rock shards rain down.
 @export_range(1, 80) var ult_shard_count := 26
-## Fire (user, 2026-11-19): Fire Lance jets blast down from your boots and lift you this high (m);
-## it takes this long (s) to rise, and you hang there until the beams end. The jets are this wide
-## each side (m).
-@export_range(0.0, 15.0, 0.5) var ult_lift_height := 5.0
-@export_range(0.1, 2.0, 0.05) var ult_lift_time := 0.4
-@export_range(0.05, 2.0, 0.05) var ult_jet_width := 0.3
-## Then three circles open this far (m) around your head (left, right, above), all facing where you
-## aim, this big (radius, m); after this long (s) each fires a gigantic Fire Lance beam, this far
-## apart in time (s), at where you aimed, landing this far apart to each side (m). A beam lasts this
-## long (s), is this wide each side (m) and deals this much of the ultimate's damage to each enemy it
-## touches.
-@export_range(0.5, 5.0, 0.1) var ult_circle_around := 2.0
-@export_range(0.2, 4.0, 0.05) var ult_circle_size := 1.6
-@export_range(0.0, 2.0, 0.05) var ult_beam_delay := 0.35
-@export_range(0.0, 1.0, 0.05) var ult_beam_gap := 0.15
-@export_range(0.0, 6.0, 0.1) var ult_beam_spread := 1.5
-@export_range(0.5, 10.0, 0.1) var ult_beam_time := 2.0
-@export_range(0.2, 5.0, 0.1) var ult_beam_width := 1.5
-@export_range(0.1, 1.0, 0.05) var ult_beam_share := 0.4
-## Where a beam lands the ground burns this long (s), over this much of the ultimate's radius,
+## Fire (user, 2026-11-20): five magic circles open in an arc over your head, this far above it (m),
+## the arc this wide (radius, m), each circle this big (radius, m), one after another this far apart
+## (s). After this long (s) a flame dragon pours out of the middle one, snakes out and up, and dives
+## into the aimed spot, taking this long (s) from the circle to the ground; the blast lands then.
+## Its body is this many pieces, this thick at the head (radius, m), weaving this far each side (m)
+## this many times on the way.
+@export_range(0.5, 6.0, 0.1) var ult_arc_height := 1.6
+@export_range(0.5, 6.0, 0.1) var ult_arc_radius := 2.2
+@export_range(0.2, 3.0, 0.05) var ult_arc_circle_size := 0.7
+@export_range(0.0, 0.5, 0.01) var ult_arc_gap := 0.08
+@export_range(0.1, 3.0, 0.05) var ult_dragon_delay := 0.6
+@export_range(0.3, 4.0, 0.05) var ult_dragon_time := 1.2
+@export_range(6, 80) var ult_dragon_segments := 30
+@export_range(0.2, 3.0, 0.05) var ult_dragon_size := 0.9
+@export_range(0.0, 8.0, 0.1) var ult_dragon_wave := 2.5
+@export_range(0.0, 6.0, 0.25) var ult_dragon_coils := 2.0
+## Where the dragon lands the ground burns this long (s), over this much of the ultimate's radius,
 ## setting alight whoever is in it and dealing this much of the ultimate's damage a second.
 @export_range(0.0, 15.0, 0.5) var ult_fire_ground_time := 4.0
 @export_range(0.1, 2.0, 0.05) var ult_fire_ground_radius := 0.5
@@ -294,6 +301,11 @@ extends Resource
 @export_range(0.1, 3.0, 0.05) var enemy_speed_scale := 1.0
 ## Short stagger when hit, in seconds.
 @export_range(0.0, 1.0, 0.01) var hit_stagger := 0.18
+## After any blow (yours or a spell's) an enemy can't land a strike for this long, large ones too (user, 2026-11-20).
+@export_range(0.0, 2.0, 0.05) var enemy_hit_attack_lock := 0.25
+## A blow rocks it back: its body leans this far (degrees) the way it was hit, straightening over this long (s).
+@export_range(0.0, 45.0, 1.0) var enemy_hit_lean_deg := 15.0
+@export_range(0.05, 1.5, 0.05) var enemy_hit_lean_time := 0.3
 @export_range(0.3, 3.0, 0.05) var separation_radius := 1.2
 
 ## Outside fights you heal this % of your max health per second...

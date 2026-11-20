@@ -3,7 +3,7 @@ extends RefCounted
 ## How a god's Ultimate looks (user, 2026-11-10): you raise your weapon, a glowing magic circle
 ## opens and spins in the sky over the aimed spot (lying parallel to the ground there), then it
 ## calls the element down:
-##   Fire (its own way: Fire Lance boot jets lift you, three circles around your head, a giant Fire Lance beam from each; all in AbilityRunner) · Lightning a storm of strikes · Ice giant icicles · Stone a rain of rock shards
+##   Fire (its own way: five circles in an arc over your head and a flame dragon diving out of them; in AbilityRunner) · Lightning a storm of strikes · Ice giant icicles · Stone a rain of rock shards
 ##   Sand a tornado that moves across · Poison a gas bomb and its cloud · Light an orbital laser sweep
 ## The damage lands once, impact_time() after the cast (AbilityRunner deals it, God Abilities sheet
 ## rules); what comes after (more strikes, the tornado moving on, the cloud) is for the eye.

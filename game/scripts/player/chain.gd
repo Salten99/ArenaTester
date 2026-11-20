@@ -71,10 +71,14 @@ func find_target(intent: PlayerIntent) -> Node3D:
 	for e in pool:
 		if not is_instance_valid(e) or e.is_dead() or (e is Enemy and (e.civilian or e.held_by != null)):
 			continue
-		var to: Vector3 = e.global_position + Vector3.UP * e.aim_height() - eye
-		if to.length() > t.chain_range:
+		# Anywhere on its body counts, feet to head, plus its width: a big one is a big target.
+		var feet: Vector3 = e.global_position
+		var near := Geometry3D.get_closest_point_to_segment(eye + aim * eye.distance_to(feet), feet, feet + Vector3.UP * e.aim_height() * 2.0)
+		var to: Vector3 = near - eye
+		if to.length() > t.chain_range + 1.0:
 			continue
-		var angle := aim.angle_to(to)
+		var width: float = 0.4 * e.size_scale if e is Enemy else 0.3
+		var angle := maxf(0.0, aim.angle_to(to) - atan2(width, maxf(to.length(), 0.5)))
 		if angle <= best_angle:
 			best_angle = angle
 			best = e
@@ -230,17 +234,20 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 			if intent.heavy or intent.wheel_back:  # right click (user, 2026-11-19) or the wheel: in for the drop kick
 				mode = Mode.PULL
 				_time = 0.0
+				player.collision_mask = 0b001  # hauled through the crowd, so nobody stops you short
 		Mode.PULL:
 			var to: Vector3 = target.global_position - player.global_position
-			if not _kick_started and to.length() <= t.chain_kick_reach + t.chain_pull_speed * KICK_LEAD:
+			var gap := Vector2(to.x, to.z).length()  # along the ground: a tall one's middle is no farther
+			if not _kick_started and gap <= t.chain_kick_reach + t.chain_pull_speed * KICK_LEAD:
 				_kick_started = true
 				if player.visual != null:
 					player.visual.play_strike("Melee_Unarmed_Attack_Kick", KICK_LEAD, KICK_LEAD + 0.35)
-			if to.length() <= t.chain_kick_reach:
+			if gap <= t.chain_kick_reach or (_time > 1.5 and gap <= t.chain_kick_reach * 2.0):  # stopped close by: kick anyway
 				mode = Mode.KICK
 				_time = 0.0
 				_show_line(false)
 				player.velocity = Vector3.ZERO
+				player.collision_mask = 0b101
 				kick(target)
 			elif _time > 2.0:
 				return _end()  # something's in the way
@@ -427,6 +434,8 @@ func _end() -> bool:
 
 
 func _stop() -> void:
+	if mode == Mode.PULL:
+		player.collision_mask = 0b101  # solid to enemies again
 	mode = Mode.OFF
 	_kick_started = false
 	target = null

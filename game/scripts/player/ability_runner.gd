@@ -10,7 +10,8 @@ extends Node
 ##   hits_or_projectiles > 1  -> repeated hits on the nearest enemy (radius 0)
 ##   shape Cone               -> the Fire Lance: lunge forward (lance_lunge_m), then a beam
 ##                               range_m long, radius_m wide each side, following your aim a moment
-##   shape Rings, Strike, Fan, Cage, Slide, Freeze, Slab, Crush -> the arena's spells (spells.gd)
+##   shape Beam               -> the Lightning beam: the same beam without the lunge, lightning_beam_time long
+##   shape Rings, Strike, Fan, Cage, Slide, Freeze, Slab, Crush, Magma -> the arena's spells (spells.gd)
 ## Abilities count as Magic damage.
 
 signal cooldowns_changed
@@ -23,11 +24,8 @@ const LANCE_FX_WIDTH := 1.78  # meters across it at scale 1 (its 31 px tall fram
 var defs := {}        # slot -> ability row
 var remaining := {}   # slot -> seconds left on cooldown
 var invulnerable := false
-var _beam := {}  # the Fire Lance's beam while it's on (user, 2026-11-19)
-var hover_y := 0.0  # the Fire ultimate's lift: the height you hang at, for this many seconds more
-var _hover_left := 0.0
-var _ult_beams := []  # the Fire ultimate's three beams while they're on
-var _jets := []  # its boot jets while you hang in the air
+var _beam := {}  # the Fire Lance's (or Lightning beam's) beam while it's on (user, 2026-11-19)
+var _dragons := []  # the Fire ultimate's flame dragons while they fly
 var spells := Spells.new()  # the shapes that aren't a plain blast (spells.gd)
 
 
@@ -43,16 +41,10 @@ func load_for(god_id: String) -> void:
 func _physics_process(delta: float) -> void:
 	for slot in remaining:
 		remaining[slot] = maxf(0.0, remaining[slot] - delta)
-	_hover_left = maxf(0.0, _hover_left - delta)
-	if _hover_left <= 0.0 and not _jets.is_empty():
-		for j in _jets:
-			if is_instance_valid(j):
-				j.queue_free()
-		_jets.clear()
 	if not _beam.is_empty():
 		_update_beam(delta)
-	if not _ult_beams.is_empty():
-		_update_ult_beams(delta)
+	for d: Dictionary in _dragons.duplicate():
+		_update_dragon(d, delta)
 
 
 func ready_in(slot: String) -> float:
@@ -78,7 +70,24 @@ func ultimate_radius() -> float:
 	return r if r > 0.0 else 3.0
 
 
-## Returns true if the ability fired. `at`: where an aimed ultimate lands (INF = the old way).
+## How far from you a spell can be aimed (user, 2026-11-20: every spell is aimed): 0 for one that
+## goes off around you.
+func aim_reach(slot: String) -> float:
+	var a: Dictionary = defs.get(slot, {})
+	if GameData.text(a, "shape") in ["Rings", "Freeze"]:
+		return 0.0
+	return aim_range() if slot == "Ultimate" else GameData.num(a, "range_m")
+
+
+## How wide the aiming circle on the ground is.
+func aim_radius(slot: String) -> float:
+	if slot == "Ultimate":
+		return ultimate_radius()
+	var r := GameData.num(defs.get(slot, {}), "radius_m")
+	return r if r > 0.0 else 1.0
+
+
+## Returns true if the ability fired. `at`: where it was aimed on the ground (INF = straight ahead).
 func cast(slot: String, player: Node, dir: Vector3, at := Vector3.INF) -> bool:
 	var a: Dictionary = defs.get(slot, {})
 	if a.is_empty() or remaining.get(slot, 0.0) > 0.0:
@@ -87,12 +96,11 @@ func cast(slot: String, player: Node, dir: Vector3, at := Vector3.INF) -> bool:
 	# you, turned your way; the code's element particles stay quiet while the ability runs.
 	if GameData.text(a, "shape") == "Spikes":
 		at = _erupt_spot(player, dir, at, GameData.num(a, "range_m"))
-	elif slot != "Ultimate":
-		at = Vector3.INF  # the others go off from where you stand
 	var id := GameData.text(a, "ability_id")
 	var own := ElementFx.own_scene(id) != null
 	if own and GameData.text(a, "shape") != "Cone":  # a cone plays yours when it bursts out
-		ElementFx.play_own(id, at if at != Vector3.INF else (player as Node3D).global_position, 1.0, dir)
+		var lands := slot == "Ultimate" or GameData.text(a, "shape") == "Spikes"  # the others play on you
+		ElementFx.play_own(id, at if at != Vector3.INF and lands else (player as Node3D).global_position, 1.0, dir)
 	ElementFx.quiet = own
 	var cast_ok := _cast_now(slot, a, player, dir, at)
 	ElementFx.quiet = false
@@ -125,12 +133,12 @@ func _cast_now(slot: String, a: Dictionary, player: Node, dir: Vector3, at: Vect
 		return true
 	if GameData.text(a, "shape") == "Spikes":
 		_erupt(a, player, at, radius)
-	elif GameData.text(a, "shape") == "Cone":
+	elif GameData.text(a, "shape") in ["Cone", "Beam"]:
 		_lance(a, player, dir, reach, radius)
 	elif slot == "Movement" and reach > 0.0:
-		_leap(a, player, dir, reach, radius)
+		_leap(a, player, dir, reach, radius, at)
 	elif reach > 0.0 and radius > 0.0:
-		_blast(a, player, player.global_position + dir * reach, radius)
+		_blast(a, player, at if at != Vector3.INF else player.global_position + dir * reach, radius)
 	elif radius > 0.0:
 		_blast(a, player, player.global_position, radius)
 	else:
@@ -138,89 +146,126 @@ func _cast_now(slot: String, a: Dictionary, player: Node, dir: Vector3, at: Vect
 	return true
 
 
-## The Fire ultimate (user, 2026-11-19): Fire Lance jets blast down from your boots and lift you
-## ult_lift_height up; there three magic circles open around your head, facing the aimed spot, and
-## each fires a gigantic Fire Lance beam at it for ult_beam_time. You drop when they end.
+## The Fire ultimate (user, 2026-11-20): five magic circles open in an arc over your head, facing
+## where you aimed; a flame dragon pours out of the middle one, snakes out and up, and dives into
+## the aimed spot: the blast, and the ground there burns.
 func _fire_ultimate(a: Dictionary, player: Node, spot: Vector3, radius: float) -> void:
-	var t: CombatTuning = GameData.tuning
-	var feet: Vector3 = player.global_position
-	hover_y = feet.y + t.ult_lift_height
-	_hover_left = t.ult_lift_time + t.ult_beam_delay + t.ult_beam_gap * 2.0 + t.ult_beam_time
-	var right: Vector3 = (player.facing as Vector3).cross(Vector3.UP).normalized()
-	for s in [-1.0, 1.0]:  # one jet under each boot, riding along with you
-		var jet := _lance_fx("forge_fire_lance", feet + right * s * 0.15, Vector3.DOWN, t.ult_lift_height + 0.5, t.ult_jet_width, _hover_left)
-		if jet != null:
-			jet.reparent(player)
-			_jets.append(jet)
-	get_tree().create_timer(t.ult_lift_time, false).timeout.connect(_circles_from_above.bind(a, player, spot, radius))
-
-
-func _circles_from_above(a: Dictionary, player: Node, spot: Vector3, radius: float) -> void:
-	if not is_instance_valid(player) or player.is_dead():
-		return
 	var t: CombatTuning = GameData.tuning
 	var from: Vector3 = player.global_position
 	var flat := Vector3(spot.x - from.x, 0.0, spot.z - from.z)
 	var ahead: Vector3 = flat.normalized() if flat.length() > 0.5 else player.facing
 	var right := ahead.cross(Vector3.UP).normalized()
-	var each := a.duplicate()
-	each["base_damage"] = GameData.num(a, "base_damage") * t.ult_beam_share
-	var head := _brow(player, Vector3.ZERO)
-	for i in 3:
-		var s := float(i - 1)  # left of your head, above it, right of it
-		var circle_at: Vector3 = head + (right * s if s != 0.0 else Vector3.UP) * t.ult_circle_around
-		var side: Vector3 = right * s * t.ult_beam_spread
-		var wait := t.ult_beam_delay + t.ult_beam_gap * i
-		var circle := UltimateFx.circle("Fire", circle_at, (spot + side - circle_at).normalized(), t.ult_circle_size, wait + t.ult_beam_time)
-		get_tree().create_timer(wait, false).timeout.connect(_ult_beam.bind(each, player, circle_at, spot, side, radius, circle))
+	var top := _brow(player, Vector3.ZERO) + Vector3.UP * t.ult_arc_height  # the arc's middle
+	var lasts := t.ult_dragon_delay + t.ult_dragon_time * 1.6
+	for i in 5:  # 20..160 degrees round, like a rainbow over you
+		var ang := deg_to_rad(lerpf(20.0, 160.0, i / 4.0))
+		var at := top + (right * cos(ang) + Vector3.UP * (sin(ang) - 1.0)) * t.ult_arc_radius
+		get_tree().create_timer(t.ult_arc_gap * absf(i - 2), false).timeout.connect(  # from the middle outward
+			func(): UltimateFx.circle("Fire", at, ahead, t.ult_arc_circle_size * (1.3 if i == 2 else 1.0), lasts))
+	var d := {"a": a, "player": player, "spot": spot, "radius": radius, "right": right, "time": -t.ult_dragon_delay,
+		"p0": top, "p1": top + ahead * flat.length() * 0.2 + Vector3.UP * 7.0, "p2": spot + Vector3.UP * 9.0 - ahead * 2.0,
+		"p3": spot, "landed": false, "body": []}
+	_dragons.append(d)
+	Combat.shake(t.shake_light)
 
 
-## One of the three beams: from the circle `from` at the aimed spot (`side` off it, so the three land
-## side by side), for ult_beam_time; it follows your aim while it fires (user, 2026-11-19), burns
-## each enemy it touches once, and the ground where it first lands burns.
-func _ult_beam(a: Dictionary, player: Node, from: Vector3, spot: Vector3, side: Vector3, radius: float, circle: Node3D) -> void:
+## Where the dragon's body is at `u` (0 the circle, 1 the ground): a curve out, up and down onto the
+## spot, weaving side to side (and a little up and down) in between.
+func _dragon_at(d: Dictionary, u: float) -> Vector3:
+	var t: CombatTuning = GameData.tuning
+	var p: Vector3 = (d.p0 as Vector3).bezier_interpolate(d.p1, d.p2, d.p3, u)
+	var weave := sin(u * PI) * t.ult_dragon_wave
+	return p + (d.right as Vector3) * sin(u * TAU * t.ult_dragon_coils) * weave + Vector3.UP * cos(u * TAU * t.ult_dragon_coils) * weave * 0.3
+
+
+func _update_dragon(d: Dictionary, delta: float) -> void:
+	var t: CombatTuning = GameData.tuning
+	d.time += delta
+	if d.time < 0.0:
+		return
+	var n := t.ult_dragon_segments
+	var gap := 0.6 / n  # the body is 0.6 of the path long
+	if (d.body as Array).is_empty():
+		_build_dragon(d, n)
+	var f: float = d.time / t.ult_dragon_time
+	var head_u := pow(f, 1.4) if f < 1.0 else 1.0 + (f - 1.0) * 1.2  # it gathers speed into the dive, then pours in
+	if head_u >= 1.0 and not d.landed:
+		d.landed = true
+		_dragon_lands(d)
+	for i in n:
+		var u := head_u - i * gap
+		var piece: Node3D = d.body[i]
+		if not is_instance_valid(piece):
+			continue
+		piece.visible = u > 0.0 and u < 1.0  # still in the circle, or already in the ground
+		if piece.visible:
+			var here := _dragon_at(d, u)
+			var ahead := _dragon_at(d, minf(u + 0.01, 1.0)) - here
+			piece.global_position = here
+			if ahead.length() > 0.001 and absf(ahead.normalized().y) < 0.999:
+				piece.look_at(here + ahead, Vector3.UP)
+	if head_u - n * gap >= 1.0:  # the tail is in: done
+		for piece in d.body:
+			if is_instance_valid(piece):
+				piece.queue_free()
+		_dragons.erase(d)
+
+
+## The dragon: a head with a snout and horns, and a body of glowing pieces thinning to the tail.
+func _build_dragon(d: Dictionary, n: int) -> void:
+	var t: CombatTuning = GameData.tuning
+	var root := Vfx._root()
+	for i in n:
+		var k := float(i) / (n - 1)
+		var r := t.ult_dragon_size * lerpf(1.0, 0.25, k) * (1.0 if i > 0 else 1.15)
+		var col := Color(1.0, 0.85, 0.35).lerp(Color(0.85, 0.12, 0.02), k)
+		var piece := Vfx._spawn(UltimateFx._sphere(r), col, d.p0)
+		if piece == null:
+			d.body.append(null)
+			continue
+		piece.scale = Vector3(1.0, 0.85, 1.4)  # long along the body
+		piece.visible = false
+		if i == 0:  # the head: a snout ahead (-Z), two horns swept back
+			var snout := MeshInstance3D.new()
+			snout.mesh = UltimateFx._spike(r * 0.6, r * 1.6)
+			snout.material_override = Vfx.material(Color(1.0, 0.95, 0.6))
+			snout.rotation.x = -PI / 2.0
+			snout.position = Vector3(0, -r * 0.15, -r * 1.1)
+			piece.add_child(snout)
+			for s in [-1.0, 1.0]:
+				var horn := MeshInstance3D.new()
+				horn.mesh = UltimateFx._spike(r * 0.18, r * 1.4)
+				horn.material_override = Vfx.material(Color(1.0, 0.55, 0.1))
+				horn.rotation = Vector3(PI * 0.3, 0.0, s * 0.4)
+				horn.position = Vector3(s * r * 0.45, r * 0.6, r * 0.4)
+				piece.add_child(horn)
+			var flames := ElementFx.trail("Fire")
+			if flames != null:
+				piece.add_child(flames)
+				flames.emitting = true
+		elif i % 3 == 0 and root != null:  # flames streaming off the body
+			var flames := ElementFx.trail("Fire")
+			if flames != null:
+				piece.add_child(flames)
+				flames.emitting = true
+		d.body.append(piece)
+
+
+## The dive hits the ground: the ultimate's blast, cracks, and the ground there burns.
+func _dragon_lands(d: Dictionary) -> void:
+	var player: Node = d.player
 	if not is_instance_valid(player) or player.is_dead():
 		return
 	var t: CombatTuning = GameData.tuning
-	var b := {"a": a, "player": player, "from": from, "spot": spot, "side": side, "circle": circle, "left": t.ult_beam_time, "hit": {}}
-	_ult_beam_aim(b)
-	b.fx = _lance_fx("forge_fire_lance", from, b.dir, b.reach, t.ult_beam_width, t.ult_beam_time)
-	_ult_beams.append(b)
-	_burn_ground(a, player, spot + side, radius * t.ult_fire_ground_radius)
-	Combat.shake(t.shake_heavy)
-	HitStop.trigger(t.hitstop_light)
-
-
-## Points beam `b` at the crosshair (or the spot first aimed, without one), a little past it.
-func _ult_beam_aim(b: Dictionary) -> void:
-	var aim: Vector3 = b.player.aim_point()
-	var target: Vector3 = (aim if aim != Vector3.INF else b.spot) + b.side
-	b.dir = (target - b.from).normalized()
-	b.reach = minf(b.from.distance_to(target) + 2.0, aim_range() + 10.0)
-
-
-func _update_ult_beams(delta: float) -> void:
-	var t: CombatTuning = GameData.tuning
-	for b: Dictionary in _ult_beams.duplicate():
-		b.left -= delta
-		if b.left <= 0.0 or not is_instance_valid(b.player) or b.player.is_dead():
-			if is_instance_valid(b.fx):
-				b.fx.queue_free()
-			_ult_beams.erase(b)
-			continue
-		_ult_beam_aim(b)
-		var fx: Node3D = b.fx if is_instance_valid(b.fx) else null
-		if fx != null and absf(b.dir.y) < 0.99:
-			fx.scale.z = b.reach / LANCE_FX_LENGTH
-			fx.look_at(b.from + b.dir, Vector3.UP)
-		if is_instance_valid(b.circle):
-			b.circle.quaternion = Quaternion(Vector3.UP, b.dir)
-		_beam_hits(b.a, b.player, b.hit, b.from, b.dir, b.reach, t.ult_beam_width)
-
-
-## While the Fire ultimate holds you up: the Player hangs at hover_y.
-func levitating() -> bool:
-	return _hover_left > 0.0
+	var spot: Vector3 = d.spot
+	var radius: float = d.radius
+	_blast(d.a, player, spot, radius)
+	ElementFx.area("Fire", spot, radius * 1.2)
+	Vfx.burst(spot, radius, Color(1.0, 0.7, 0.2, 0.8), 0.2)
+	UltimateFx._cracks(spot, Vector3.UP, radius)
+	_burn_ground(d.a, player, spot, radius * t.ult_fire_ground_radius)
+	for k in 8:
+		Vfx.chunk(spot + UltimateFx._in_disc(radius * 0.5), Vector3(randf_range(-5, 5), randf_range(5, 10), randf_range(-5, 5)), Color(1.0, 0.4, 0.05), 0.35)
 
 
 ## The ground at `land` burns a while (user, 2026-11-19), setting alight whoever stands in it.
@@ -236,10 +281,10 @@ func _burn_ground(a: Dictionary, player: Node, land: Vector3, r: float) -> void:
 			h.add_child(flames)
 			flames.emitting = true
 
-func _leap(a: Dictionary, player: Node, dir: Vector3, reach: float, radius: float) -> void:
+func _leap(a: Dictionary, player: Node, dir: Vector3, reach: float, radius: float, at := Vector3.INF) -> void:
 	invulnerable = true
 	var start: Vector3 = player.global_position
-	var goal := start + dir * reach
+	var goal := at if at != Vector3.INF else start + dir * reach  # where you aimed it
 	var tw := create_tween()
 	tw.tween_method(_leap_step.bind(player, start, goal), 0.0, 1.0, LEAP_TIME)
 	tw.tween_callback(_land.bind(a, player, radius))
@@ -293,19 +338,22 @@ func _strike(a: Dictionary, player: Node, e: Node, center: Vector3, explosive :=
 	Combat.deal(e, info)
 
 
-## Lunge forward (Movement only), then the beam bursts out where you land.
+## Lunge forward (a Fire Lance in the Movement slot), then the beam bursts out where you land. A
+## Beam (the Lightning beam, user 2026-11-20) doesn't lunge: it fires from the circle for lightning_beam_time.
 func _lance(a: Dictionary, player: Node, dir: Vector3, reach: float, half_width: float) -> void:
 	dir = Vector3(dir.x, 0.0, dir.z).normalized()
-	var lunge: float = GameData.tuning.lance_lunge_m if a.get("slot") == "Movement" else 0.0
-	invulnerable = true
+	var lance := GameData.text(a, "shape") == "Cone"
+	var lunge: float = GameData.tuning.lance_lunge_m if a.get("slot") == "Movement" and lance else 0.0
+	invulnerable = lunge > 0.0
 	var start: Vector3 = player.global_position
 	# A magic circle opens in front of your forehead as you lunge (user, 2026-11-19); the beam
 	# fires out of it when you land.
 	var t: CombatTuning = GameData.tuning
+	var time := t.lance_beam_time if lance else t.lightning_beam_time
 	var circle := UltimateFx.circle(GameData.text(a, "damage_type", "Fire"), _brow(player, dir), dir,
-		t.lance_circle_diameter * 0.5, LUNGE_TIME + t.lance_beam_time)
+		t.lance_circle_diameter * 0.5, LUNGE_TIME + time)
 	_beam = {"a": a, "player": player, "reach": reach, "width": maxf(half_width, 0.5), "circle": circle,
-		"fx": null, "on": false, "left": t.lance_beam_time, "hit": {}, "spin": 0.0}
+		"fx": null, "on": false, "left": time, "hit": {}, "spin": 0.0, "flicker": 0.0}
 	var tw := create_tween()
 	tw.tween_method(_leap_step.bind(player, start, start + dir * lunge, 0.0), 0.0, 1.0, LUNGE_TIME)
 	tw.tween_callback(_start_beam)
@@ -331,7 +379,8 @@ func _start_beam() -> void:
 	b.on = true
 	var player: Node = b.player
 	var dir: Vector3 = player.facing
-	b.fx = _lance_fx(GameData.text(b.a, "ability_id"), _brow(player, dir), dir, b.reach, b.width, t.lance_beam_time)
+	if GameData.text(b.a, "shape") == "Cone":  # the Lightning beam is drawn fresh each moment (_update_beam)
+		b.fx = _lance_fx(GameData.text(b.a, "ability_id"), _brow(player, dir), dir, b.reach, b.width, t.lance_beam_time)
 	_update_beam(0.0)
 	Combat.shake(t.shake_explosion)
 	HitStop.trigger(t.hitstop_light)
@@ -362,6 +411,13 @@ func _update_beam(delta: float) -> void:
 	if fx != null and absf(dir.y) < 0.99:
 		fx.global_position = from
 		fx.look_at(from + dir, Vector3.UP)
+	elif fx == null and GameData.text(b.a, "shape") == "Beam":
+		b.flicker -= delta
+		if b.flicker <= 0.0:  # a crackling bolt redrawn every moment, round a white-hot core
+			b.flicker = 0.04
+			var to: Vector3 = from + dir * b.reach
+			ElementFx.beam(GameData.text(b.a, "damage_type", "Lightning"), from, to)
+			Vfx.bolt(from, to, Color(1, 1, 1, 0.9), 0.06)
 	_beam_hits(b.a, player, b.hit, from, dir, b.reach, b.width)
 
 

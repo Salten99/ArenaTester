@@ -20,6 +20,8 @@ var slide := false            ## just pressed
 var slide_held := false       ## held (stationary slide = crouch while held)
 var signature := false
 var movement := false
+var signature_held := false    ## held: aiming the special (release casts it)
+var movement_held := false     ## held: aiming the movement spell
 var ultimate := false          ## just pressed
 var ultimate_held := false     ## held: aiming the ultimate
 var ultimate_released := false ## just released: cast it at aim_point

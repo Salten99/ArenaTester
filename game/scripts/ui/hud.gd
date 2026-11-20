@@ -92,7 +92,7 @@ func _ready() -> void:
 	_place(_wave, Vector2(0.5, 0.0), Rect2(-200, 38, 400, 30))  # under the valley's compass
 	_wave.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
-	var dot := ColorRect.new()  # the crosshair: only while you hold an attack with a bow or spell weapon
+	var dot := ColorRect.new()  # the crosshair: only while something is aimed (Player.crosshair_shown)
 	dot.color = Color(1.0, 1.0, 1.0, 0.75)
 	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(dot)
@@ -192,8 +192,8 @@ func _process(delta: float) -> void:
 		_boss_name.text = GameData.text(boss.unit, "display_name", boss.unit_id)
 		_boss_bar.max_value = boss.health.max_hp
 		_boss_bar.value = boss.health.hp
-	_reticle.visible = player.aiming
-	_dot.visible = player.aiming
+	_reticle.visible = player.crosshair_shown()
+	_dot.visible = _reticle.visible
 	var charge: float = player.charge_shown()
 	_charge.visible = charge >= 0.0
 	if _charge.visible:

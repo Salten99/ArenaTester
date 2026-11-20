@@ -70,11 +70,14 @@ func read() -> PlayerIntent:
 	i.throw_held = captured and Input.is_action_pressed("throw_weapon")
 	i.race_active_held = Input.is_action_pressed("race_active")
 	i.movement = Input.is_action_just_pressed("ability_movement")
+	i.signature_held = Input.is_action_pressed("ability_signature")
+	i.movement_held = Input.is_action_pressed("ability_movement")
 	i.ultimate = Input.is_action_just_pressed("ability_ultimate")
 	i.ultimate_held = Input.is_action_pressed("ability_ultimate")
 	i.ultimate_released = Input.is_action_just_released("ability_ultimate")
-	if i.ultimate_held or i.ultimate_released or i.signature:  # the Stone special lands where you aim
-		i.aim_point = _camera_ground_point()
+	if i.ultimate_held or i.ultimate_released or i.signature_held or i.movement_held \
+			or Input.is_action_just_released("ability_signature") or Input.is_action_just_released("ability_movement"):
+		i.aim_point = _camera_ground_point()  # every spell lands where you aim
 	return i
 
 
