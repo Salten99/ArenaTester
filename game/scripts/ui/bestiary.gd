@@ -1,7 +1,7 @@
 class_name Bestiary
 extends PanelContainer
 ## The bestiary (user, 2026-11-06): every creature you've discovered across your runs, by
-## coming near it, killing it, or looking at it through the spyglass (Meta codex "creature:<id>").
+## coming near it or killing it (Meta codex "creature:<id>").
 ## The rest show as "???". Opened from the start screen and the Esc menu; works while paused.
 
 signal closed
@@ -118,7 +118,7 @@ func _ready() -> void:
 	_info = Label.new()
 	_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_info.text = "Nothing discovered yet. Creatures go in the book when you come near them, kill one, or look at one through the spyglass." if first == "" else ""
+	_info.text = "Nothing discovered yet. Creatures go in the book when you come near them or kill one." if first == "" else ""
 	right.add_child(_info)
 	var done := Button.new()
 	done.text = "Done"

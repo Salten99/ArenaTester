@@ -37,7 +37,7 @@ func cast() -> bool:
 	cooldown = GameData.num(r, "active_cooldown_s", 60.0)
 	var seconds := GameData.num(r, "duration", 5.0)  # the minotaur's is words: its charge ignores it
 	var bonus := GameData.num(r, "active_bonus_damage", 0.0)
-	if player.visual != null and player.mount != null and not player.mount.riding:
+	if player.visual != null:
 		player.visual.play("Melee_1H_Attack_Chop", 0.5, true)
 	match player.race_id:
 		"dwarf":

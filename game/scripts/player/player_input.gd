@@ -61,7 +61,6 @@ func read() -> PlayerIntent:
 	i.wheel_back = captured and _wheel_back
 	_switch = false
 	_wheel_back = false
-	i.spyglass_held = captured and Input.is_action_pressed("spyglass")
 	i.dodge = Input.is_action_just_pressed("dodge")
 	i.jump = Input.is_action_just_pressed("jump")
 	i.jump_held = Input.is_action_pressed("jump")
@@ -81,8 +80,6 @@ func read() -> PlayerIntent:
 	i.ultimate_released = Input.is_action_just_released("ability_ultimate")
 	if i.ultimate_held or i.ultimate_released or i.signature:  # the Stone special lands where you aim
 		i.aim_point = _camera_ground_point()
-	i.mount = Input.is_action_just_pressed("mount")
-	i.mount_held = Input.is_action_pressed("mount")
 	return i
 
 

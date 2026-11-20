@@ -45,12 +45,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action("debug_god_mode") or event.is_action("god_mode"):
 		player.god_mode = not player.god_mode
 		player.flying = player.god_mode
-		if player.flying and player.mount != null and player.mount.riding:
-			player.mount.dismount()
 		arena.hud.show_message("God mode: can't be hurt, fly with Space / Ctrl (Shift: fast)." if player.god_mode else "God mode off.", 3.0)
-	elif event.is_action("debug_final_battle"):
-		if arena.has_method("debug_final_battle"):
-			arena.debug_final_battle()
 	elif event.is_action("debug_kill_all"):
 		for e in get_tree().get_nodes_in_group("enemies"):
 			Combat.deal(e, DamageInfo.make(99999.0, "Physical", DamageInfo.Kind.GODLY_GIFT, player))

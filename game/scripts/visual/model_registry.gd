@@ -1,6 +1,6 @@
 class_name ModelRegistry
 extends RefCounted
-## Which model, weapon and scale each race, weapon, unit, beast and mount uses.
+## Which model, weapon and scale each race, weapon, unit and beast uses.
 ##
 ## Every model is named in the spreadsheet (Races player_model_file, Weapons
 ## weapon_model_file, Army Units / Tribe Members / Champions / Mounts /
@@ -187,36 +187,6 @@ const BEASTS := {"barb_warhound": true, "horde_slime": true, "horde_evil_dragon"
 static func for_beast(unit_id: String) -> Dictionary:
 	var mine := own(GameData.unit(unit_id).get("model_file"))
 	return {"model": mine, "scale": 1.0} if mine != "" else {}
-
-
-## Seat height (meters) by rig type, for mounts without their own. Generated mounts
-## list theirs in models/gen/mounts.json, your converted ones in models/own/mounts.json
-## (tools/blender/make_mount_from_blend.py), free ones in models/free/mounts.json.
-const MOUNT_SADDLE := {"Horse-type": 1.7, "Canine": 1.45, "Two-legged runner": 1.65, "Quadruped heavy": 2.9, "Hopper": 1.35, "Feline": 1.4}
-
-static var _seats: Dictionary = {}  ## folder -> {file name: seat height}
-
-
-## A mount model's own seat height (from its folder's mounts.json), or -1.
-static func seat_height(file_name, folder := GEN) -> float:
-	if not _seats.has(folder):
-		var text := FileAccess.get_file_as_string(folder + "mounts.json") if FileAccess.file_exists(folder + "mounts.json") else ""
-		var parsed = JSON.parse_string(text) if text != "" else null
-		_seats[folder] = parsed if parsed is Dictionary else {}
-	return float(_seats[folder].get(str(file_name), -1.0))
-
-
-## A mount row's look ({} = no model, e.g. the centaur gallops on its own legs).
-static func for_mount(row: Dictionary) -> Dictionary:
-	if row.is_empty():
-		return {}
-	var mine := own(row.get("model_file"))
-	if mine == "":
-		return {}
-	var seat := seat_height(row.get("model_file"), mine.get_base_dir() + "/")
-	if seat < 0.0:
-		seat = float(MOUNT_SADDLE.get(row.get("rig_type", ""), 1.7))
-	return {"model": mine, "scale": 1.0, "saddle": seat}
 
 
 ## The look of a living tribe's unit, champion or villager.

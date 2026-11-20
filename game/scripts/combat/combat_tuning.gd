@@ -90,7 +90,7 @@ extends Resource
 @export_range(0.0, 200.0, 1.0) var stamina_regen := 35.0
 ## Seconds after spending stamina before it starts coming back.
 @export_range(0.0, 3.0, 0.05) var stamina_regen_delay := 0.6
-## Stamina per second while sprinting on foot (riding: the mount runs, free).
+## Stamina per second while sprinting.
 @export_range(0.0, 100.0, 1.0) var sprint_stamina := 12.0
 ## Hostile people (not animals or monsters without a body like yours) get this x
 ## their sheet health (user, 2026-10-30: +50%), except minions (Melee, Ranged and
@@ -130,9 +130,6 @@ extends Resource
 @export_range(5.0, 100.0, 1.0) var sure_range_bow := 30.0
 ## A jump crouches at least this long (s) first: knees bend even on a tap (user, 2026-11-06).
 @export_range(0.0, 0.4, 0.02) var jump_crouch_min := 0.12
-## The spyglass: how narrow the view gets (degrees) and how far it identifies creatures (m).
-@export_range(4.0, 40.0, 1.0) var spyglass_fov := 12.0
-@export_range(50.0, 1000.0, 10.0) var spyglass_range := 450.0
 ## The camera's view while you hold an attack with a bow or spell weapon (it's 70 otherwise).
 @export_range(30.0, 90.0, 1.0) var aim_fov := 58.0
 ## Half-angle of the light attack arc, in degrees.
@@ -260,12 +257,7 @@ extends Resource
 ## XP needed scales with this; lower = faster level-ups.
 @export_range(0.1, 5.0, 0.05) var xp_scale := 1.0
 
-@export_group("Mounts")
-## Multiplies the Mounts sheet's speed_mps / sprint_mps. 1.0 = the sheet's speeds
-## (a horse sprints 16 m/s, about twice your 8.25 m/s run).
-@export_range(0.5, 4.0, 0.05) var mount_speed_scale := 1.0
-## A mount's health = its sheet hp x this (user, 2026-10-30: half).
-@export_range(0.1, 3.0, 0.05) var mount_health_mult := 0.5
+@export_group("Weapons, shots and launches")
 ## Every weapon in a hand is drawn this much bigger (user, 2026-11-01: 30%).
 @export_range(0.5, 3.0, 0.05) var weapon_scale := 1.3
 ## A heavy shot from a bow or crossbow: the launch is this much harder, and if it carries
@@ -299,15 +291,14 @@ extends Resource
 ## combat feel plan, 2026-11-18: over the top).
 @export_range(0, 60) var blood_hit_drops := 24
 @export_range(0, 120) var blood_slam_drops := 40
-## Trampled at a full gallop (sprinting): the enemy is thrown back this fast (m/s, and up), goes
-## ragdoll (people; animals fly whole) and gets back up if it lives.
-@export_range(0.0, 40.0, 0.5) var mount_throw_speed := 16.0
-@export_range(0.0, 20.0, 0.5) var mount_throw_lift := 6.0
-## A charging mount attacks just before it hits someone (user, 2026-11-01): it starts this
-## many seconds before reaching them, and the attack plays over mount_butt_time seconds.
-## The head comes down about a third of the way through, so keep lead near time x 0.36.
-@export_range(0.0, 1.0, 0.05) var mount_butt_lead := 0.25
-@export_range(0.2, 1.5, 0.05) var mount_butt_time := 0.7
+## A minotaur's bull rush (sprinting flat out, Player._bull_rush): each enemy it tramples takes this
+## damage and knockback; after rush_throw_after s at full speed they're thrown back this fast (m/s,
+## and up), go ragdoll (people; animals fly whole) and get back up if they live.
+@export_range(0.0, 200.0, 1.0) var rush_damage := 40.0
+@export_range(0.0, 60.0, 0.5) var rush_force := 20.0
+@export_range(0.0, 10.0, 0.1) var rush_throw_after := 2.0
+@export_range(0.0, 40.0, 0.5) var rush_throw_speed := 16.0
+@export_range(0.0, 20.0, 0.5) var rush_throw_lift := 6.0
 ## A thrown enemy that suddenly loses this much speed hit something (a tree, a
 ## house, a rock) and takes this much damage per m/s lost.
 @export_range(1.0, 20.0, 0.5) var throw_impact_min := 6.0
@@ -316,13 +307,8 @@ extends Resource
 ## fall_damage per m/s over it. You take none for now.
 @export_range(1.0, 40.0, 0.5) var fall_safe_speed := 12.0
 @export_range(0.0, 50.0, 0.5) var fall_damage := 6.0
-## Upward speed of a mount's jump (Space while riding). Gravity is 15, so 6.5 is
-## about 0.9 s in the air: a full gallop clears about 25 m (the narrow parts of a river).
-@export_range(0.0, 20.0, 0.5) var mount_jump_velocity := 6.5
 ## With a bow, crossbow or spell weapon the camera sits this far to the right (m), over your shoulder.
 @export_range(0.0, 2.0, 0.05) var aim_shoulder_offset := 0.8
-## Trampled enemies are thrown only after this many seconds at a full gallop (user, 2026-11-05).
-@export_range(0.0, 10.0, 0.1) var mount_throw_after := 2.0
 
 @export_group("Allies and mini bosses")
 ## Warriors fighting beside you are this much tougher than their sheet health (so they last the fight).

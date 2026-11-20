@@ -17,7 +17,6 @@ enum State { FREE, LIGHT, HEAVY, DODGE, CAST, PARRY, DEAD, GRAB, CHAIN }
 @export var weapon_id := "warhammer"  ## main (melee) weapon
 @export var sidearm_id := "bow"  ## held on its own key (user, 2026-11-06: a melee weapon and a sidearm, as in shooter-brawlers)
 var using_sidearm := false
-var spying := false  ## looking through the spyglass (the HUD names what's in the middle)
 var _main: Dictionary
 var _side: Dictionary
 var _main_moveset: WeaponMoveset
@@ -43,14 +42,9 @@ var _cast_slow := 1.0  ## the cast animation plays this many times longer (the F
 const CAST_TIME := 0.25  ## a cast holds you this long (s)...
 const CAST_CLIP := 0.4  ## ...while its animation plays this long
 var input_source: Object  ## anything with read() -> PlayerIntent
-## The race's mount (X to ride).
-var mount: Mount
 var is_large := false
 var god_mode := false
-## Thrown off a dying mount: limp (ragdoll) for THROWN_TIME, then you get up.
-const THROWN_TIME := 2.0
 var _sidearm_out := false  ## switched to your bow (C or the wheel), until you switch back
-var _thrown_left := 0.0
 ## God mode (F6) also flies: Space up, Ctrl down, Shift fast. No gravity.
 var flying := false
 const FLY_SPEED := 30.0
@@ -113,9 +107,6 @@ func _ready() -> void:
 		input_source = PlayerInput.new()
 		add_child(input_source)
 	health.died.connect(_on_died)
-	mount = Mount.new()
-	mount.name = "Mount"
-	add_child(mount)
 	stats.stats_changed.connect(_on_stats_changed)
 	Combat.element_hit.connect(_on_element_hit)
 	setup(race_id, god_id, weapon_id)
@@ -139,10 +130,6 @@ func setup(p_race: String, p_god: String, p_weapon := "", p_sidearm := "") -> vo
 	max_stamina = t.base_stamina * stats.mult("stamina_pct")
 	stamina = max_stamina
 	abilities.load_for(god_id)
-	if mount != null and mount.is_inside_tree():
-		if mount.riding:
-			mount.dismount()
-		mount.refresh()
 	equip(p_weapon if p_weapon != "" else weapon_id, p_sidearm if p_sidearm != "" else sidearm_id)
 	if visual != null:
 		visual.set_weapon_aura(god_id)
@@ -246,9 +233,6 @@ func _physics_process(delta: float) -> void:
 	if state == State.DEAD:
 		velocity = Vector3.ZERO
 		return
-	if _thrown_left > 0.0:
-		_update_thrown(delta)
-		return
 	var intent: PlayerIntent = input_source.read() if input_source != null else PlayerIntent.new()
 	aiming = aims_with_body() and (using_sidearm or intent.light_held or intent.heavy_held)
 	_bull_rush(delta)
@@ -265,12 +249,10 @@ func _physics_process(delta: float) -> void:
 	if visual != null:
 		# Holding a minion or item, or the Fire Lance's beam, your upper body aims it (user, 2026-11-19).
 		var held_aim := state == State.GRAB or abilities.beaming()
-		visual.set_aim_pitch(intent.aim_pitch if (aims_with_body() or held_aim) and (mount == null or not mount.riding) else 0.0)
+		visual.set_aim_pitch(intent.aim_pitch if aims_with_body() or held_aim else 0.0)
 	var move_dir := _world_dir(intent.move, intent.aim_yaw)
-	var riding := mount != null and mount.riding
 	if flying:
 		intent.dodge = false  # Ctrl flies down instead
-	spying = intent.spyglass_held
 	# C or the wheel switches to your bow and back; your class keeps its one melee weapon
 	# (user, 2026-11-09). Holding an attack is just an attack. Changes between attacks, never mid-swing.
 	if state == State.CHAIN:  # the wheel reels the chain in, it doesn't switch weapons
@@ -299,11 +281,7 @@ func _physics_process(delta: float) -> void:
 	elif intent.light and intent.light_held and _can_grab() and (state == State.FREE or (state == State.LIGHT and _hit_done)):
 		_light_hold = 0.0
 		light_now = false
-	if mount != null and state == State.FREE and intent.mount:
-		mount.toggle()
-	elif intent.dodge and riding:
-		pass  # dodge does nothing while riding (user, 2026-11-08): you stay on
-	elif intent.dodge and (parries() or (parry_for_all and not intent.dash and not using_sidearm and move_dir.length() < 0.1)):
+	if intent.dodge and (parries() or (parry_for_all and not intent.dash and not using_sidearm and move_dir.length() < 0.1)):
 		if state != State.PARRY and stamina >= t.parry_stamina_cost:
 			_start_parry(intent.aim_yaw)
 	elif intent.dodge and state != State.DODGE and stamina >= t.dodge_stamina_cost:
@@ -409,7 +387,7 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 		return
 	if not on_floor:
 		velocity.y -= t.gravity * delta
-		if race_id in GLIDERS and _thrown_left <= 0.0:
+		if race_id in GLIDERS:
 			velocity.y = maxf(velocity.y, -t.glide_fall_speed)  # a slow glide down
 	_wall_jump_timer = maxf(_wall_jump_timer - delta, 0.0)
 	var speed_mult := stats.mult("move_speed_pct") * (1.0 - statuses.slow_fraction())
@@ -426,26 +404,15 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 		return
 
 	var free := state == State.FREE
-	var riding := mount != null and mount.riding
 	var nimble := free or state in [State.GRAB, State.CHAIN]  # you can jump and slide with something on your hand or chain
 	var chained := state == State.CHAIN  # the chain never slows you (user, 2026-11-19)
 	var factor := 1.0 if free or chained else (t.attack_move_factor if state in [State.LIGHT, State.CAST] else (t.grab_move_factor if state == State.GRAB else 0.0))
-	if riding:
-		factor = 1.0 if free or chained else 0.6  # a mount keeps moving while you swing
-	var sprinting := intent.sprint and (free or chained or riding) and (riding or _can_sprint())
-	if sprinting and not riding and move_dir.length() > 0.1:
+	var sprinting := intent.sprint and (free or chained) and _can_sprint()
+	if sprinting and move_dir.length() > 0.1:
 		spend_stamina(t.sprint_stamina * delta)
 	var skip_update := false
 
-	if riding:
-		# A mount jumps (no sliding or wall-jumps), as high as its own jump; some jump again in the air.
-		if on_floor:
-			_mount_air_jump = true
-		if intent.jump and (on_floor or (_mount_air_jump and mount.double_jump())):
-			if not on_floor:
-				_mount_air_jump = false
-			velocity.y = mount.jump_speed() * (t.glide_jump_mult if race_id in GLIDERS else 1.0)
-	elif nimble and _jump_now(intent, delta, on_floor):
+	if nimble and _jump_now(intent, delta, on_floor):
 		# Ground jump, with a small speed boost if it cancels a slide.
 		if is_sliding:
 			var boosted := minf(h.length() + t.slide_jump_speed_gain, t.max_speed)
@@ -475,7 +442,7 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 		is_crouching = false
 		skip_update = true
 
-	if nimble and not riding and intent.slide and on_floor and not is_sliding and not is_crouching:
+	if nimble and intent.slide and on_floor and not is_sliding and not is_crouching:
 		if move_dir.length() > 0.0:
 			is_sliding = true
 			_slide_timer = t.slide_duration_sprint if sprinting else t.slide_duration
@@ -500,7 +467,7 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 			velocity.x = move_dir.x * t.crouch_speed
 			velocity.z = move_dir.z * t.crouch_speed
 		else:
-			var base_speed: float = mount.speed(sprinting) if riding else (t.sprint_speed if sprinting else t.move_speed)
+			var base_speed: float = t.sprint_speed if sprinting else t.move_speed
 			var target := base_speed * speed_mult * factor
 			var current := Vector2(velocity.x, velocity.z).length()
 			if move_dir.length() > 0.0 and factor > 0.0:
@@ -520,15 +487,13 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 			# Airborne with no input: keep momentum.
 
 	var cap := Vector2(velocity.x, velocity.z)
-	var limit: float = maxf(t.max_speed, mount.speed(true) * speed_mult * 1.1) if riding else t.max_speed
-	if cap.length() > limit:
-		cap = cap.normalized() * limit
+	if cap.length() > t.max_speed:
+		cap = cap.normalized() * t.max_speed
 		velocity.x = cap.x
 		velocity.z = cap.y
-	if (free or riding) and Vector2(velocity.x, velocity.z).length() > 0.5 and move_dir.length() > 0.1:
-		var turn := 6.0 if riding else 14.0  # mounts turn wider
-		facing = _turn_toward(move_dir, turn * delta)
-	if free and not riding and _first_person():
+	if free and Vector2(velocity.x, velocity.z).length() > 0.5 and move_dir.length() > 0.1:
+		facing = _turn_toward(move_dir, 14.0 * delta)
+	if free and _first_person():
 		# First person (user, 2026-11-19): you face where you look and strafe, so a swing lands on what's in view.
 		facing = _turn_toward(Vector3(-sin(intent.aim_yaw), 0.0, -cos(intent.aim_yaw)), 20.0 * delta)
 	if abilities.beaming():  # the Fire Lance's beam turns with your aim while the legs keep walking
@@ -552,17 +517,6 @@ func _turn_toward(dir: Vector3, amount: float) -> Vector3:
 ## Adds knockback, moves, and turns the body to face `facing`.
 ## Height of the first solid floor (terrain, bridge, roof) under (x, z), casting
 ## down from `from_y`; -INF if there is none.
-## Your mount died under you: you go limp and fly (a ragdoll), then get up where you land.
-func throw_off(impulse: Vector3) -> void:
-	if visual == null:
-		return
-	visual.ignore_ragdoll_cap = true
-	if not visual.ragdoll(impulse):
-		return
-	_set_state(State.FREE)
-	_thrown_left = THROWN_TIME
-
-
 ## From `from` to what the crosshair is on. Straight ahead if it's unknown, or behind you
 ## (the crosshair on something between the camera and you).
 ## Where a shot from `from` should head to land on the crosshair (user, 2026-11-05: you aim,
@@ -634,33 +588,14 @@ func throw_knife(aim_yaw: float) -> bool:
 	return true
 
 
-## Where the camera looks: your limp body while you're flying off a dying mount, otherwise you.
+## Where the camera looks.
 func camera_focus() -> Vector3:
-	if _thrown_left > 0.0 and visual != null:
-		var hips: PhysicsBody3D = visual.ragdoll_hips()
-		if hips != null:
-			return hips.global_position - Vector3.UP * 0.9
-	if mount != null and mount.riding:  # the view (and the crosshair) rise with the saddle
-		return global_position + Vector3.UP * maxf(mount.seat_height() - 1.0, 0.0)
 	return global_position
 
 
 ## A hit draws blood, unless you're made of wood.
 func bleeds() -> bool:
 	return race_id != "treekin"
-
-
-func _update_thrown(delta: float) -> void:
-	_thrown_left -= delta
-	velocity = Vector3.ZERO
-	if _thrown_left > 0.0:
-		return
-	var hips: PhysicsBody3D = visual.ragdoll_hips()
-	var at := hips.global_position if hips != null else global_position
-	visual.unragdoll()
-	var ground := floor_below(at.x, at.z, at.y + 3.0)
-	global_position = Vector3(at.x, ground + 0.05 if ground != -INF else global_position.y, at.z)
-	visual.play("Spawn_Ground", 0.8, true)
 
 
 func floor_below(x: float, z: float, from_y: float) -> float:
@@ -765,7 +700,7 @@ var _light_hold := -1.0  ## seconds light attack has been held since its press (
 
 ## Whether a held light attack may become a grab: your melee weapon out, on foot.
 func _can_grab() -> bool:
-	return not using_sidearm and not (mount != null and mount.riding)
+	return not using_sidearm
 
 
 ## Grabs the minion in reach, if there is one; else fires the chain at what's in the crosshair.
@@ -871,10 +806,11 @@ func hit_targets(targets: Array, base: float, kind: DamageInfo.Kind, knockback: 
 		godly_gifts.trigger(event, {"target": landed[0], "position": impact, "phase": "swing", "targets": landed})
 
 
-var _mount_air_jump := true
-## Minotaurs charge like a mount (user, 2026-11-05): sprinting flat out on foot they trample
-## what's in front (their mount's charge damage and force), and after 2 s at full speed they throw it.
+## Minotaurs charge (user, 2026-11-05): sprinting flat out they trample what's in front
+## (rush_damage, rush_force), and after rush_throw_after s at full speed they throw it.
 const RUSH_RACES := ["minotaur"]
+const RUSH_RANGE := 2.2  ## who's in front of you within this range
+const RUSH_REPEAT := 0.8  ## s before the same enemy can be trampled again
 var _rush_time := 0.0
 var _rushed := {}  ## enemy instance id -> seconds before it can be trampled again
 
@@ -886,23 +822,22 @@ func _bull_rush(delta: float) -> void:
 			_rushed.erase(id)
 	var t: CombatTuning = GameData.tuning
 	var speed := Vector2(velocity.x, velocity.z).length()
-	if not race_id in RUSH_RACES or (mount != null and mount.riding) or not is_on_floor() or speed < t.sprint_speed * 0.85:
+	if not race_id in RUSH_RACES or not is_on_floor() or speed < t.sprint_speed * 0.85:
 		_rush_time = 0.0
 		return
 	_rush_time += delta
-	var row: Dictionary = mount.data if mount != null else {}
-	for e in enemies_in_arc(Mount.TRAMPLE_RANGE, 50.0):
+	for e in enemies_in_arc(RUSH_RANGE, 50.0):
 		if _rushed.has(e.get_instance_id()):
 			continue
-		_rushed[e.get_instance_id()] = Mount.TRAMPLE_REPEAT
-		var info := make_hit(GameData.num(row, "charge_damage", 40.0), "Physical", "Melee", e, DamageInfo.Kind.HEAVY)
-		info.knockback = GameData.num(row, "attack_force", 20.0)
+		_rushed[e.get_instance_id()] = RUSH_REPEAT
+		var info := make_hit(t.rush_damage, "Physical", "Melee", e, DamageInfo.Kind.HEAVY)
+		info.knockback = t.rush_force
 		info.knockback_dir = (e.global_position - global_position).normalized()
 		info.knockdown = true
 		info.no_launch = true
 		Combat.deal(e, info)
-		if _rush_time >= t.mount_throw_after:
-			e.throw(info.knockback_dir * t.mount_throw_speed + Vector3.UP * t.mount_throw_lift, self)
+		if _rush_time >= t.rush_throw_after:
+			e.throw(info.knockback_dir * t.rush_throw_speed + Vector3.UP * t.rush_throw_lift, self)
 var _jump_charging := false
 var _jump_hold := 0.0
 var _jump_power := 1.0
@@ -1254,9 +1189,6 @@ func take_hit(info: DamageInfo) -> float:
 	var own := is_instance_valid(info.source) and info.source == self
 	if info.kind == DamageInfo.Kind.ENEMY or (info.kind == DamageInfo.Kind.STATUS and not own):
 		amount *= GameData.tuning.enemy_damage_scale
-	if mount != null and mount.riding and mount.max_hp > 0.0:
-		Combat.shake(GameData.tuning.shake_player_hit * 0.5)
-		return mount.absorb(amount)  # the mount takes the hit
 	if health.fraction() >= LOW_HEALTH:
 		_low_health_fired = false  # healed back up: the low-health gift can fire again
 	var dealt := health.take(amount)
@@ -1276,8 +1208,6 @@ func take_hit(info: DamageInfo) -> float:
 
 
 func _on_died() -> void:
-	if mount != null and mount.riding:
-		mount.dismount()
 	_set_state(State.DEAD)
 	if visual != null:
 		visual.play("Death_A")
@@ -1412,7 +1342,7 @@ func _update_animation() -> void:
 	# The body split (combat feel plan, 2026-11-18): moving during any move, the legs keep walking.
 	var flat_speed := Vector2(velocity.x, velocity.z).length()
 	var acting := state in [State.LIGHT, State.HEAVY, State.CAST, State.PARRY, State.GRAB] 		or (state == State.CHAIN and chain.mode not in [Chain.Mode.PULL, Chain.Mode.KICK])
-	if acting and flat_speed > 0.6 and is_on_floor() and not (mount != null and mount.riding):
+	if acting and flat_speed > 0.6 and is_on_floor():
 		visual.set_split(_legs_clip(flat_speed))
 	else:
 		visual.set_split("")
@@ -1437,9 +1367,7 @@ func _update_animation() -> void:
 					visual.play("Melee_2H_Attack_Spinning")
 		State.FREE:
 			var speed := Vector2(velocity.x, velocity.z).length()
-			visual.flapping = not is_on_floor() and not (mount != null and mount.riding)  # winged races beat their wings
-			if mount != null and mount.riding:
-				return  # the mount poses the rider
+			visual.flapping = not is_on_floor()  # winged races beat their wings
 			if _jump_charging and is_on_floor():
 				visual.play("Crouching")
 			elif is_crouching:

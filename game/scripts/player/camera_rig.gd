@@ -83,8 +83,7 @@ func _process(delta: float) -> void:
 	_view_pitch = lerpf(_view_pitch, pitch, k)
 	rotation = Vector3(_view_pitch, _view_yaw, 0.0)
 	var aim: bool = target != null and is_instance_valid(target) and target.get("aiming") == true
-	var spy: bool = target != null and is_instance_valid(target) and target.get("spying") == true
-	camera.fov = lerpf(camera.fov, t.spyglass_fov if spy else (t.aim_fov if aim else 70.0), clampf(8.0 * delta, 0.0, 1.0))  # aiming zooms in a little
+	camera.fov = lerpf(camera.fov, t.aim_fov if aim else 70.0, clampf(8.0 * delta, 0.0, 1.0))  # aiming zooms in a little
 	_trauma = maxf(0.0, _trauma - t.shake_decay * delta)
 	var s := _trauma * _trauma * t.shake_max_offset
 	camera.h_offset = randf_range(-s, s)

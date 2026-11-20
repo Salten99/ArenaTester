@@ -52,7 +52,6 @@ var _current := ""
 var _skeleton: Skeleton3D
 var _quad := {}  ## leg name -> [upper bone, lower bone, upper rest, lower rest]
 var _gait_phase := 0.0
-var _seat := -1.0  ## saddle height while riding (set_seat), or -1
 ## Large weapons are held in both hands (user, 2026-10-29): the left hand is pulled
 ## onto the handle (TwoBoneIK3D on the left arm, after every animation), at the
 ## point of the handle nearest the left shoulder. File name -> how far the handle
@@ -840,12 +839,6 @@ func scale_of_rig() -> float:
 	return model.scale.x if model != null else 1.0
 
 
-## While riding: keep the posed hips on a saddle `height` meters up (-1 = off).
-func set_seat(height: float) -> void:
-	_seat = height
-	if height < 0.0:
-		position.y = 0.0
-
 
 # ---------------------------------------------------------------- wings
 
@@ -966,10 +959,6 @@ func _process(delta: float) -> void:
 		if w.basis.determinant() != 0.0:  # a model shrunk to nothing can't be inverted
 			var shoulder := _skeleton.global_transform * _skeleton.get_bone_global_pose(_skeleton.find_bone("upperarm.l")).origin
 			_left_grip.position = Vector3(0.0, clampf((w.affine_inverse() * shoulder).y, _handle.x, _handle.y), 0.0)
-	if _seat >= 0.0 and _skeleton != null and _skeleton.find_bone("hips") >= 0 and global_transform.basis.determinant() != 0.0:
-		var rel := global_transform.affine_inverse() * _skeleton.global_transform
-		var hips := (rel * _skeleton.get_bone_global_pose(_skeleton.find_bone("hips")).origin).y
-		position.y = _seat - hips + 0.06
 	if _quad.is_empty():
 		return
 	var kind := ""

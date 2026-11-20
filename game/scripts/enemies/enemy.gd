@@ -36,7 +36,7 @@ var fly_height := 12.0
 var peaceful := false
 ## x its health on top of everything else (a fight with your allies: WaveDirector.health_mult).
 var health_mult := 1.0
-## Thrown by a galloping mount (throw()): flying, limp if it can ragdoll, until it gets up.
+## Thrown hard (throw(): a hurl, a bull rush): flying, limp if it can ragdoll, until it gets up.
 var thrown := false
 var _throw_vel := Vector3.ZERO
 var _throw_time := 0.0
@@ -469,7 +469,7 @@ func _think(delta: float) -> void:
 	_check_stuck(before, Vector3(desired.x, 0.0, desired.z), delta)
 
 
-## Thrown back hard (a galloping mount): people go limp and fly, animals fly whole.
+## Thrown back hard (a hurl, a bull rush): people go limp and fly, animals fly whole.
 ## Hitting a tree, house or rock hurts (_impact); alive, it gets back up after.
 ## Your heavy or magic hit sends this enemy flying. Bosses and champions stand their ground.
 ## A killing blow that knocks back launches the body this much harder (user, 2026-11-19: "launched").

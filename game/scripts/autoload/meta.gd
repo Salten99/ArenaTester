@@ -41,7 +41,7 @@ func unlock(kind: String, id: String) -> bool:
 	return true
 
 
-## A creature goes in the bestiary (seen, killed or looked at through the spyglass). Saved at once.
+## A creature goes in the bestiary (seen or killed). Saved at once.
 func discover(unit_id: String) -> void:
 	if unit_id == "" or GameData.row("barbarians_beasts", unit_id).is_empty() or ("creature:" + unit_id) in data.codex:
 		return

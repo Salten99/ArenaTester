@@ -21,7 +21,7 @@ How the game code is organized. The first part is for you (the developer); the r
 endless_arena.tscn (main scene): EndlessArena extends Arena
    Arena._prepare_run: Run.start_new(race, god, seed, weapon)  (god and weapon from the arena menu, Flow)
    Arena._build_level: gladiator_arena.tscn (lighting, sky), the arena_ground shader, magic motes, 8 throwables
-   Player (movement, WeaponMoveset, AbilityRunner, Grabber, Chain, GodlyGiftManager, Mount)
+   Player (movement, WeaponMoveset, AbilityRunner, Grabber, Chain, GodlyGiftManager)
    WaveDirector (EndlessArena.wave_units: ON_FIELD at a time, the rest as reserve)
    Enemies + CrowdDirector, Combat.deal(), Hud, ArenaMenu (loadout, Esc), ArenaHazard (spikes, fire pits)
 main.tscn: a plain Arena, the practice waves from tuning with godly gifts and level-ups (the tests use it)
@@ -42,7 +42,7 @@ ArenaGame/
       autoload/           global services (see below), DataCheck (data cross-check)
       arena/              Arena, EndlessArena, WaveDirector, ArenaHazard, ArenaPickup, DebugTools
       combat/             damage, health, statuses, godly gifts, movesets, projectiles, Breakable, Throwable, ElementFx, Vfx, UltimateFx
-      player/             Player, input, camera, AbilityRunner, Grabber, Chain, Mount, RaceActive
+      player/             Player, input, camera, AbilityRunner, Grabber, Chain, RaceActive
       enemies/            Enemy AI, CrowdDirector
       progression/        LevelSystem
       run/                RunState (who you are this fight), SaveSystem (the profile only)
@@ -133,10 +133,6 @@ Triggers: the sheet's `trigger_event` plus `on_element_hit` (code-only, used by 
 - **Shots:** `Enemy` shooters (attack range > 5 m) lock `_aim_at` `ranged_aim_lock` seconds before firing, then `_shoot` fires a `Projectile` (`hostile` = hits you and the "allies" group). Magic-role shots get `homing` + `pull_deg`; your own shots never home: they go where the crosshair is, arrows aimed high enough to drop onto it (`Player.aim_direction`), with the camera over your right shoulder (`aim_shoulder_offset`) and a gold reticle for bows and spell weapons.
 - **Stuck:** `Enemy._check_stuck` side-steps (`_detour`) when a unit barely moves while trying to. The Movement leap follows `Player.floor_below`.
 - **Ragdolls:** `CharacterModel.ragdoll(push)` adds a `PhysicalBoneSimulator3D` with capsule `PhysicalBone3D`s (`RAGDOLL_BONES`, layer 6, world mask) and starts it; `MAX_RAGDOLLS` at once; `sink_ragdoll()` drops it through the ground before removal. The skeleton only takes the bodies' pose while drawing, so tests check the bodies.
-
-## Mounts
-
-`Mount` (`scripts/player/mount.gd`, a child of the Player): the race's Mounts row, `ride()` / `dismount()` / `toggle()` (X), `speed()` (sheet x `mount_speed_scale`), `absorb()` (hits land on its hp; at 0 you're thrown, `THROWN_COOLDOWN`) and `_trample()` while sprinting; at a full gallop (`mount_throw_after`) it also calls `Enemy.throw()`. The model is a `BeastModel` from `ModelRegistry.for_mount`; the rider is raised to the `saddle` height.
 
 ## Testing
 

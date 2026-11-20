@@ -19,10 +19,6 @@ var idle_text := "Practice"
 var _reticle: Control
 var _charge: ColorRect
 var _charge_fill: ColorRect
-var _spy_ring: Control
-var _spy_label: Label
-var _spy_look := 0.0
-var spied: Node3D  ## the creature in the middle of the spyglass, or null
 ## A boss's health along the top while it fights near you (user, 2026-11-05).
 var _boss_box: VBoxContainer
 var _boss_name: Label
@@ -50,8 +46,8 @@ var _waiting_choices: Array = []  ## [[kind, title, ids, texts]] offered while a
 
 const HELP := """WASD move  ·  Shift sprint  ·  Space jump  ·  Mouse side button slide  ·  Ctrl dodge
 LMB light combo  ·  RMB heavy slam
-Q special  ·  E movement  ·  R ultimate  ·  V race skill  ·  G throwing knife  ·  C or wheel: sidearm  ·  Z spyglass  ·  T first person
-P god mode  ·  X ride your mount  ·  1/2/3 pick a godly gift  ·  Esc menu
+Q special  ·  E movement  ·  R ultimate  ·  V race skill  ·  G throwing knife  ·  C or wheel: sidearm  ·  T first person
+P god mode  ·  1/2/3 pick a godly gift  ·  Esc menu
 
 Debug:  F1 this help  ·  F2 spawn 10 skeletons  ·  F3 spawn a cyclops  ·  F4 random godly gift
 F5 combo kit (Fire and Lightning godly gifts and their duo godly gift)
@@ -164,7 +160,6 @@ func _ready() -> void:
 	_boss_box.visible = false
 
 	_build_choice(root)
-	_build_spyglass(root)
 
 
 ## The boss fighting near you: a champion, mini boss, giant or boss that's after you or yours.
@@ -197,7 +192,6 @@ func _process(delta: float) -> void:
 		_boss_name.text = GameData.text(boss.unit, "display_name", boss.unit_id)
 		_boss_bar.max_value = boss.health.max_hp
 		_boss_bar.value = boss.health.hp
-	_update_spyglass(delta)
 	_reticle.visible = player.aiming
 	_dot.visible = player.aiming
 	var charge: float = player.charge_shown()
@@ -209,7 +203,7 @@ func _process(delta: float) -> void:
 	_hp_bar.max_value = player.health.max_hp
 	_hp_bar.value = player.health.hp
 	if Run.active:
-		_level_label.text = "Level %d   ·   %d / %d XP%s" % [Run.state.level, Run.state.xp, LevelSystem.xp_to_next(Run.state.level), _mount_text()]
+		_level_label.text = "Level %d   ·   %d / %d XP" % [Run.state.level, Run.state.xp, LevelSystem.xp_to_next(Run.state.level)]
 	_hp_label.text = "%s of %s   %d / %d" % [GameData.text(GameData.race(player.race_id), "display_name"),
 		GameData.text(GameData.god(player.god_id), "display_name"), ceili(player.health.hp), ceili(player.health.max_hp)]
 	_stamina_bar.max_value = player.max_stamina
@@ -241,92 +235,6 @@ func _process(delta: float) -> void:
 	_stats.text = "%d FPS\nattackers %d / %d\nseed %d%s" % [Engine.get_frames_per_second(),
 		director.attackers() if director != null else 0, GameData.tuning.max_attackers, RunRng.seed_value,
 		"\nGOD MODE" if player.god_mode else ""]
-
-
-## "[X] War Ram 120/150", or how long until it can be called again.
-func _mount_text() -> String:
-	var m: Mount = player.mount
-	if m == null or not m.has_mount():
-		return ""
-	var name := GameData.text(m.data, "display_name")
-	if m.cooldown > 0.0:
-		return "\n[X] %s recovering: %ds" % [name, ceili(m.cooldown)]
-	if m.max_hp <= 0.0:
-		return "\n[X] %s" % name
-	return "\n[X] %s %d / %d" % [name, ceili(m.hp), ceili(m.max_hp)]
-
-
-## The spyglass (user, 2026-11-06): a dark ring around a narrow view; whatever is in the middle
-## is named, with what it is, how it feels about you and its health, and goes in the bestiary.
-class SpyRing extends Control:
-	func _draw() -> void:
-		var r := size.y * 0.44
-		var w := size.length()
-		draw_arc(size * 0.5, r + w * 0.5, 0.0, TAU, 72, Color(0, 0, 0, 0.92), w)
-		draw_arc(size * 0.5, r, 0.0, TAU, 72, Color(0.55, 0.42, 0.2), 5.0)
-
-
-func _build_spyglass(root: Control) -> void:
-	_spy_ring = SpyRing.new()
-	_spy_ring.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_spy_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_spy_ring.visible = false
-	root.add_child(_spy_ring)
-	_spy_ring.resized.connect(_spy_ring.queue_redraw)
-	_spy_label = _label(root, "", 20)
-	_spy_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_place(_spy_label, Vector2(0.5, 0.78), Rect2(-360, 0, 720, 90))
-	_spy_label.visible = false
-
-
-func _update_spyglass(delta: float) -> void:
-	if _spy_ring == null:
-		return
-	_spy_ring.visible = player.spying
-	_spy_label.visible = player.spying
-	if not player.spying:
-		spied = null
-		return
-	_spy_look -= delta
-	if _spy_look <= 0.0:
-		_spy_look = 0.1
-		spied = spy_target()
-		if spied != null:
-			Meta.discover(str(spied.get("unit_id")))
-	_spy_label.text = describe(spied) if spied != null and is_instance_valid(spied) else "Look at a creature to identify it"
-
-
-## The creature nearest the middle of the view, within the spyglass's range.
-func spy_target() -> Node3D:
-	var cam := get_viewport().get_camera_3d()
-	if cam == null:
-		return null
-	var from := cam.global_position
-	var look := -cam.global_basis.z
-	var best: Node3D = null
-	var best_angle := deg_to_rad(maxf(GameData.tuning.spyglass_fov * 0.12, 0.6))
-	for group in ["enemies", "villagers", "allies"]:
-		for e in get_tree().get_nodes_in_group(group):
-			if not e is Enemy or e.is_dead():
-				continue
-			var to: Vector3 = e.global_position + Vector3.UP * e.aim_height() - from
-			if to.length() > GameData.tuning.spyglass_range:
-				continue
-			var a := look.angle_to(to)
-			if a < best_angle:
-				best_angle = a
-				best = e
-	return best
-
-
-static func describe(e: Node3D) -> String:
-	var u: Dictionary = e.get("unit")
-	var mood: String = {Enemy.Team.HOSTILE: "Hostile", Enemy.Team.FRIENDLY: "Friendly", Enemy.Team.NEUTRAL: "Passive"}.get(e.get("team"), "")
-	var hp: HealthComponent = e.get("health")
-	return "%s%s   ·   %s %s   ·   %s\n%d / %d health   ·   hits for %d   ·   %d m away" % [
-		"Giant " if e.get("giant") else "", GameData.text(u, "display_name", str(e.get("unit_id"))), GameData.text(u, "faction", GameData.text(u, "race_id").capitalize()),
-		GameData.text(u, "role"), mood, ceili(hp.hp) if hp else 0, ceili(hp.max_hp) if hp else 0, int(GameData.num(u, "damage")),
-		int(e.global_position.distance_to(e.get_viewport().get_camera_3d().global_position)) if e.get_viewport().get_camera_3d() else 0]
 
 
 var _screen_flash: ColorRect

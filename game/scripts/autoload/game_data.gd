@@ -10,7 +10,7 @@ const ID_KEYS := {
 	"races": "race_id", "gods": "god_id", "weapons": "weapon_id", "god_abilities": "ability_id", "godly_gifts": "godly_gift_id",
 	"duo_godly_gifts": "duo_id", "status_effects": "status_id", "level_up_options": "upgrade_id",
 	"tribe_members": "member_id", "army_units": "unit_id", "champions": "champion_id",
-	"mounts": "mount_id", "barbarians_beasts": "unit_id",
+	"barbarians_beasts": "unit_id",
 }
 
 var tables := {}  # table name -> Array[Dictionary]

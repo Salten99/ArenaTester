@@ -3,7 +3,7 @@ extends Node3D
 ## A wooden prop (barrel, crate, hay, cart, market stand) that breaks when hit (user,
 ## 2026-11-08): it's swapped for its chunks (models/gen/world/<name>_broken.glb, made by
 ## tools/blender/make_props.py), which fly off from the hit, lie a while, then shrink away.
-## Hits come from your swings, abilities and a charging mount (smash_near).
+## Hits come from your swings, abilities and blasts (smash_near).
 ## Buildings break too (user, 2026-11-09): a small one comes down whole after a few blows; a
 ## big one (wider than BIG) only loses the chunk you hit. Either way it's cut up the first
 ## time it's hit into pieces of about CHUNK, each with its own box, so the hole is real.

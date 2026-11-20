@@ -54,7 +54,7 @@ func _ready() -> void:
 		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_mount", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_main_weapon_and_sidearm", "test_spyglass_bestiary_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throwing_knife", "test_myths", "test_pin_to_wall", "test_aiming", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_mount_stats", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_main_weapon_and_sidearm", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throwing_knife", "test_myths", "test_pin_to_wall", "test_aiming", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -913,7 +913,7 @@ func test_own_effects() -> void:
 	ElementFx._own = {}
 
 
-func test_spyglass_bestiary_wings() -> void:
+func test_bestiary_and_wings() -> void:
 	Meta.persist = false
 	var p: Player = _arena.player
 	p.god_mode = true
@@ -951,21 +951,6 @@ func test_spyglass_bestiary_wings() -> void:
 		swung = swung or (p.state == Player.State.LIGHT and not p.using_sidearm)
 	check(swung, "a click swings the main weapon")
 	await _frames(60)
-	# The spyglass: a narrow view, and what's in the middle is named and goes in the bestiary.
-	input.hold({"spyglass_held": true}, 40)
-	await _frames(30)
-	var cam := get_viewport().get_camera_3d()
-	var wolf: Enemy = _arena.waves.spawn("beast_dire_wolf", cam.global_position - cam.global_basis.z * 80.0)
-	wolf.global_position = cam.global_position - cam.global_basis.z * 80.0 - Vector3.UP * wolf.aim_height()
-	await _frames(1)
-	check(p.spying and cam.fov < 30.0, "the spyglass narrows the view (%.0f degrees)" % cam.fov)
-	var seen: Node3D = _arena.hud.spy_target()
-	check(seen == wolf and Hud.describe(wolf).contains(GameData.text(wolf.unit, "display_name")), "it names the creature in the middle, 80 m away (%s)" % (Hud.describe(seen) if seen else "nothing"))
-	Meta.data.codex.erase("creature:beast_dire_wolf")
-	Meta.data.codex.erase("creature:giant_beast_dire_wolf")
-	await _frames(8)
-	check(Bestiary.is_discovered("beast_dire_wolf"), "and puts it in the bestiary")
-	wolf.queue_free()
 	var book := Bestiary.open(_arena)
 	await _frames(2)
 	check(book._title.text.contains("discovered") and book._info.text != "", "the bestiary lists what you've found")
@@ -1289,25 +1274,6 @@ func test_launches_and_ragdolls() -> void:
 	check(Combat.effects_root.find_children("*", "CPUParticles3D", true, false).any(func(e): return e.amount == t.blood_slam_drops), "being slammed draws much more")
 	bleeder.queue_free()
 	await _frames(1)
-	# A dying mount: you fly limp with the camera on you, and it falls limp too.
-	var s := _scripted()
-	p.setup("human", "forge_god")
-	p.god_mode = false
-	s.press("mount")
-	await _frames(3)
-	check(p.mount.riding, "riding the horse")
-	var horse: BeastModel = p.mount.beast
-	p.velocity = Vector3(0, 0, -10)
-	p.mount.absorb(99999.0)
-	check(p.visual.is_ragdoll() and not p.mount.riding, "thrown off")
-	check(is_instance_valid(horse) and horse.is_ragdoll() and horse.get_parent() == p.get_parent(), "the dying mount goes limp and stays behind in the world")
-	var ragdoll_hips: PhysicsBody3D = p.visual.ragdoll_hips()
-	await _frames(20)
-	check(ragdoll_hips != null and p.camera_focus().distance_to(ragdoll_hips.global_position - Vector3.UP * 0.9) < 0.01 and p.camera_focus().distance_to(p.global_position) > 0.3,
-		"the camera follows your flying body (%.1f m from where you were)" % p.camera_focus().distance_to(p.global_position))
-	p.god_mode = true
-	await _frames(int((Player.THROWN_TIME + 0.2) * 60))
-	check(not p.visual.is_ragdoll(), "and you get back up")
 	p.setup("dwarf", "forge_god")
 
 
@@ -1506,17 +1472,6 @@ func test_top_review_fixes() -> void:
 			break
 	var flat := Vector2(wolf.global_position.x - pinned_at.x, wolf.global_position.z - pinned_at.z).length()
 	check(not wolf.thrown and flat < 2.0 and pinned_at.distance_to(launched_at) > 3.0, "a pinned animal gets up at the wall (%.1f m off)" % flat)
-	# You fly off a dying mount even when there are already plenty of limp bodies.
-	var cap_was: int = CharacterModel.ragdolls
-	CharacterModel.ragdolls = CharacterModel.MAX_RAGDOLLS
-	p.throw_off(Vector3(0, 4, 3))
-	check(p._thrown_left > 0.0 and p.visual.is_ragdoll(), "the ragdoll cap doesn't stop you being thrown")
-	CharacterModel.ragdolls = cap_was
-	for i in 400:
-		get_tree().paused = false
-		await _frames(1)
-		if p._thrown_left <= 0.0:
-			break
 
 
 func test_pin_to_wall() -> void:
@@ -1684,14 +1639,11 @@ func test_end_of_run_exit() -> void:
 	check(FileAccess.get_file_as_string("res://scripts/arena/arena.gd").contains("if not Run.active or Run.state.pending_level_ups"), "no level-up opens after the run is over")
 
 
-func test_mount_stats() -> void:
+func test_bull_rush() -> void:
 	var p: Player = _arena.player
-	p.setup("angel", "forge_god")
-	check(is_equal_approx(p.mount.jump_speed(), GameData.num(GameData.row("mounts", "pegasus"), "jump_mps")) and p.mount.double_jump(), "each mount has its own jump from the sheet; the pegasus jumps twice")
 	p.setup("minotaur", "forge_god")
-	check(not p.mount.double_jump() and is_equal_approx(p.mount.attack_force(), GameData.num(p.mount.data, "attack_force")), "the minotaur's mount hits as hard as its sheet says")
 	await _until_on_floor()
-	# A minotaur sprinting flat out on foot tramples like a mount.
+	# A minotaur sprinting flat out tramples what's in front.
 	p.god_mode = false
 	p.flying = false
 	var foe: Enemy = _cluster(1, 1.5)[0]
@@ -1704,7 +1656,7 @@ func test_mount_stats() -> void:
 	p._bull_rush(0.016)
 	check(foe.health.hp < hp and not foe.thrown, "a minotaur at a sprint tramples, without throwing at first")
 	p._rushed.clear()
-	p._rush_time = GameData.tuning.mount_throw_after
+	p._rush_time = GameData.tuning.rush_throw_after
 	p.velocity = p.facing * GameData.tuning.sprint_speed
 	p._bull_rush(0.016)
 	check(foe.thrown, "and after 2 s at full speed throws them")
@@ -1930,122 +1882,6 @@ func test_checklist_viewer() -> void:
 			v.show_model(found[0])
 			check((v._picture.texture != null) if ext == "png" else (v._body != null and v._body.model != null), "the asset library opens a .%s (%s)" % [ext, found[0].get_file()])
 	v.free()
-
-
-func test_mount() -> void:
-	var p: Player = _arena.player
-	var t: CombatTuning = GameData.tuning
-	check(p.mount.has_mount() and GameData.text(p.mount.data, "display_name") == "Ram", "the dwarf rides a ram")
-	var s := _scripted()
-	s.press("mount")
-	await _frames(2)
-	check(p.mount.riding and p.mount.beast != null, "X calls the mount and you ride it")
-	# The user's ram (ram.blend -> models/own) on the Quaternius bull's skeleton (--rig), with its clips.
-	var ram := ModelRegistry.for_mount(p.mount.data)
-	check(ram.model == ModelRegistry.OWN + "mount_war_ram.glb" and absf(float(ram.saddle) - 1.57) < 0.05, "the dwarf's ram is the user's model, seated on its back (%s)" % [ram])
-	check(p.mount.beast._clip.has("run") and String(p.mount.beast._clip.get("attack", "")).ends_with("Attack_Headbutt"), "the user's ram is rigged and attacks with the bull's headbutt")
-	var rat := ModelRegistry.for_mount(GameData.where("mounts", "race_id", "ratfolk")[0])
-	var rat_model := BeastModel.new()
-	add_child(rat_model)
-	rat_model.setup_beast(rat.model, 1.0)
-	rat_model.play("Walking_A")
-	check(rat.model == ModelRegistry.OWN + "mount_dire_rat.glb" and rat_model._clip.get("walk") == rat_model._clip.get("run") and rat_model.anim.is_playing(), "the user's rat runs with its own animation (walking too, slower)")
-	rat_model.queue_free()
-	var hyena := ModelRegistry.for_mount(GameData.where("mounts", "race_id", "gnoll")[0])
-	check(hyena.model == ModelRegistry.OWN + "mount_dire_hyena.glb", "the gnolls ride the user's hyena (%s)" % [hyena])
-	var raptor := ModelRegistry.for_mount(GameData.where("mounts", "race_id", "frog")[0])
-	check(raptor.model == ModelRegistry.FREE + "mount_raptor.glb" and absf(float(raptor.saddle) - 1.41) < 0.05, "the frogfolk ride a raptor (user, 2026-10-31) (%s)" % [raptor])
-	var bird := ModelRegistry.for_mount(GameData.where("mounts", "race_id", "bird")[0])
-	var bird_model := BeastModel.new()
-	add_child(bird_model)
-	bird_model.setup_beast(bird.model, 1.0)
-	check(bird.model == ModelRegistry.FREE + "mount_terror_bird.glb" and float(bird.saddle) > 1.0 and bird_model._clip.has("run") and bird_model._clip.has("attack"), "the Birdmen's bird is on the raptor's skeleton, with its clips (%s)" % [bird])
-	bird_model.queue_free()
-	check(ModelRegistry.weapon_model("warhammer").begins_with(ModelRegistry.OWN) and ModelRegistry.weapon_model("greatsword").begins_with(ModelRegistry.OWN), "the user's warhammer and sword are the Warhammer and Greatsword")
-	# Large weapons in both hands (user, 2026-10-29): the left hand on the handle, two-handed animations.
-	var two := CharacterModel.new()
-	add_child(two)
-	two.setup(ModelRegistry.for_race("dwarf"), ModelRegistry.weapon_model("warhammer"))
-	two.play("Running_A")
-	var one := CharacterModel.new()
-	add_child(one)
-	one.setup(ModelRegistry.for_race("dwarf"), ModelRegistry.own("weapon_mace.glb"))
-	check(two._left_ik != null and two.anim.current_animation == "Running_HoldingRifle" and two.current() == "Running_A" and one._left_ik == null,
-		"large weapons are held in both hands, the mace in one")
-	two.queue_free()
-	one.queue_free()
-	s.hold({"move": Vector2(0, 1), "sprint": true}, 90)
-	await _frames(90)
-	var speed := Vector2(p.velocity.x, p.velocity.z).length()
-	check(speed > t.sprint_speed, "riding is faster than running (%.1f vs %.1f m/s)" % [speed, t.sprint_speed])
-	var hp := p.health.hp
-	var e: Enemy = _cluster(1, 3.0)[0]
-	Combat.deal(p, DamageInfo.make(30.0, "Physical", DamageInfo.Kind.ENEMY, e))
-	check(is_equal_approx(p.health.hp, hp) and p.mount.hp < p.mount.max_hp, "hits land on the mount, not on you")
-	Combat.deal(p, DamageInfo.make(9999.0, "Physical", DamageInfo.Kind.ENEMY, e))
-	check(not p.mount.riding and p.mount.cooldown > 0.0 and not p.mount.can_ride(), "a beaten mount throws you and needs time to recover")
-	check(p.visual.is_ragdoll(), "thrown off a dying mount: you go limp")
-	await _frames(int(Player.THROWN_TIME * 60) + 10)
-	check(not p.visual.is_ragdoll(), "and get back up")
-	check(is_equal_approx(p.mount.max_hp, GameData.num(p.mount.data, "hp") * t.mount_health_mult), "mounts have half their sheet health")
-	p.mount.cooldown = 0.0
-	p.mount.ride()
-	p.facing = Vector3.FORWARD  # _cluster puts enemies to the north
-	var enemies := _cluster(3, 2.0)
-	p.velocity = p.facing * 30.0
-	# The attack starts before the hit (user, 2026-11-01).
-	p.mount._butt_left = 0.0
-	p.mount._headbutt(12.0)
-	check(p.mount._butt_left > 0.0 and p.mount.beast.anim.current_animation == p.mount.beast._clip.attack, "the mount attacks just before it reaches them")
-	p.mount._trample()
-	check(enemies.any(func(x): return is_instance_valid(x) and x.health.hp < x.health.max_hp), "charging into enemies tramples them")
-	# A full gallop throws them (user, 2026-10-30): limp, flying back; alive, they get up.
-	p.velocity = Vector3.ZERO  # standing while the next one arrives: the mount's own trample can't reach it first
-	var flung: Enemy = _cluster(1, 2.0, "barb_berserker")[0]
-	flung.health.max_hp = 5000.0  # it may land against the arena wall: it has to live to get up
-	flung.health.hp = 5000.0
-	var start := flung.global_position
-	p.velocity = p.facing * p.mount.speed(true)
-	p.mount._trampled.clear()
-	p.mount._gallop_time = 0.5
-	p.mount._trample()
-	check(not flung.thrown, "a gallop just begun tramples but doesn't throw (user, 2026-11-05)")
-	p.mount._trampled.clear()
-	p.mount._gallop_time = GameData.tuning.mount_throw_after + 0.1
-	p.mount._trample()
-	check(flung.thrown and flung.model.is_ragdoll(), "after 2 s at a full gallop: thrown, limp")
-	for i in 480:  # a long throw takes a while to land and get up
-		if i >= 240 and not flung.thrown and not flung.model.is_ragdoll():
-			break
-		await get_tree().physics_frame
-	check(not flung.thrown and not flung.is_dead() and not flung.model.is_ragdoll() and flung.global_position.distance_to(start) > 3.0,
-		"it lands %.0f m back and gets up" % flung.global_position.distance_to(start))
-	var before := flung.health.hp
-	flung.throw(Vector3(0, 2, 15), p)
-	flung._impact(1.0)  # from 15 m/s to 1 in a frame: it hit a tree
-	check(flung.health.hp < before, "hitting something while thrown hurts")
-	await _frames(240)
-	var doomed: Enemy = _cluster(1, 2.0, "barb_raider")[0]
-	doomed.health.hp = 1.0
-	p.velocity = p.facing * p.mount.speed(true)
-	p.mount._trampled.clear()
-	p.mount._gallop_time = GameData.tuning.mount_throw_after + 0.1
-	p.mount._trample()
-	await _frames(10)
-	check(doomed.is_dead(), "a throw that kills: it stays down")
-	if not p.mount.riding:  # the throw tests' enemies may have beaten the (half-health) mount
-		await _frames(int(Player.THROWN_TIME * 60) + 10)
-		p.mount.cooldown = 0.0
-		p.mount.ride()
-	p.mount.hp = p.mount.max_hp
-	s.hold({}, 2)
-	s.press("jump")
-	await _frames(4)
-	check(p.velocity.y > 0.0 or not p.is_on_floor(), "Space makes the mount jump")
-	await _frames(60)
-	s.press("dodge")
-	await _frames(2)
-	check(p.mount.riding and p.state != Player.State.DODGE, "dodging does nothing on a mount: you stay on (user, 2026-11-08)")
 
 
 func test_element_effects() -> void:
