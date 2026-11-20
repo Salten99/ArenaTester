@@ -22,6 +22,12 @@ func idle_anim() -> String:
 	return "Melee_2H_Idle"
 
 
+## The clip that throws it (G; the Human Throwing pack, user 2026-11-20): a short overhand throw
+## for the hammer and the sword, a sideways whip for the khopesh, a javelin throw for the polearm.
+func throw_anim() -> String:
+	return "Human_ThrowWeapon"
+
+
 ## The bone the weapon is held by (CharacterModel.weapon_bone).
 func weapon_bone() -> String:
 	return "handslot.r"
@@ -132,6 +138,9 @@ class Blade extends WeaponMoveset:
 ## Twin blades (user, 2026-11-06: their own class): quick cuts with both blades; the
 ## finisher is a deep double stab; heavy is a spinning flurry all around you.
 class Twin extends WeaponMoveset:
+	func throw_anim() -> String:
+		return "Human_ThrowBoomerang"
+
 	func launch_scale() -> float:
 		return 0.8
 
@@ -158,6 +167,9 @@ class Twin extends WeaponMoveset:
 
 ## Spears, tridents, scythes, naginata: long thrusts; the finisher sweeps; heavy is a full circle.
 class Polearm extends WeaponMoveset:
+	func throw_anim() -> String:
+		return "Human_ThrowSpear"
+
 	func launch_scale() -> float:
 		return 1.1
 

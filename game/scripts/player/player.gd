@@ -179,9 +179,10 @@ func equip(id: String) -> void:
 		visual.set_offhand((shield if shield != "" else ModelRegistry.own(SHIELD)) if parries() else "")
 
 
-## The model in your hand: the weapon's, or none for bare fists.
+## The model in your hand: the same one that lay on the ground (not your race's version of it,
+## user 2026-11-20), or none for bare fists.
 func _hand_model() -> String:
-	return "" if weapon_id == GameData.FISTS else ModelRegistry.weapon_model(weapon_id, race_id)
+	return "" if weapon_id == GameData.FISTS else ModelRegistry.weapon_model(weapon_id)
 
 
 func weapon() -> Dictionary:
@@ -515,6 +516,9 @@ func aims_with_body() -> bool:
 func _update_throw(delta: float, intent: PlayerIntent) -> void:
 	if intent.throw and state == State.FREE and weapon_id != GameData.FISTS:
 		throw_charge = 0.0
+		if visual != null:  # draws back on the weapon's throw clip and waits there until you let go
+			var wind := GameData.tuning.weapon_throw_charge_time
+			visual.play_strike(_throw_clip(), wind, wind + CAST_CLIP, true)
 	if throw_charge < 0.0:
 		return
 	if state != State.FREE or weapon_id == GameData.FISTS:
@@ -555,14 +559,22 @@ func throw_weapon(aim_yaw: float) -> Projectile:
 	p.on_land = func(at: Vector3) -> void: WeaponPickup.make(thrown, root, at)
 	p._mesh.queue_free()  # the weapon itself flies, not a bolt
 	p._mesh = null
-	var spin := WeaponPickup.add_model(p, weapon_id, race_id)
+	var spin := WeaponPickup.add_model(p, weapon_id)
 	if spin != null and GameData.text(_weapon, "weapon_class") != "Polearm":  # a spear flies point first; the rest turn end over end
 		spin.create_tween().set_loops().tween_property(spin, "rotation:x", -TAU, 0.3).from(0.0)
-	equip(GameData.FISTS)
-	_cast_clip = "Throw"
+	_cast_clip = _throw_clip()
 	_cast_slow = 1.0
+	if visual != null:
+		visual.release_strike()
+	equip(GameData.FISTS)
 	_set_state(State.CAST)
 	return p
+
+
+## The weapon in hand's throw clip (WeaponMoveset.throw_anim), or the shared Throw if the rig lacks it.
+func _throw_clip() -> String:
+	var clip := moveset.throw_anim()
+	return clip if visual != null and visual.anim != null and visual.anim.has_animation(clip) else "Throw"
 
 
 ## Where the camera looks.
@@ -1284,7 +1296,7 @@ func _update_animation() -> void:
 		trail.tint(element())
 	# The body split (combat feel plan, 2026-11-18): moving during any move, the legs keep walking.
 	var flat_speed := Vector2(velocity.x, velocity.z).length()
-	var acting := state in [State.LIGHT, State.HEAVY, State.CAST, State.PARRY, State.GRAB] 		or (state == State.CHAIN and chain.mode not in [Chain.Mode.PULL, Chain.Mode.KICK])
+	var acting := throw_charge >= 0.0 or state in [State.LIGHT, State.HEAVY, State.CAST, State.PARRY, State.GRAB] 		or (state == State.CHAIN and chain.mode not in [Chain.Mode.PULL, Chain.Mode.KICK])
 	if acting and flat_speed > 0.6 and is_on_floor():
 		visual.set_split(_legs_clip(flat_speed))
 	else:
@@ -1311,7 +1323,9 @@ func _update_animation() -> void:
 		State.FREE:
 			var speed := Vector2(velocity.x, velocity.z).length()
 			visual.flapping = not is_on_floor()  # winged races beat their wings
-			if _jump_charging and is_on_floor():
+			if throw_charge >= 0.0:
+				pass  # drawn back on the throw clip (_update_throw)
+			elif _jump_charging and is_on_floor():
 				visual.play("Crouching")
 			elif is_crouching:
 				visual.play("Sneaking" if Vector2(velocity.x, velocity.z).length() > 0.3 else "Crouching")

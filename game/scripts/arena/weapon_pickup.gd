@@ -25,8 +25,8 @@ static func make(id: String, parent: Node, pos: Vector3) -> WeaponPickup:
 
 ## Puts weapon `id`'s model under `parent` (in the tree), LENGTH long, its point (the model's long
 ## axis) facing -Z; returns the pivot it hangs on, or null when there's no model.
-static func add_model(parent: Node3D, id: String, race_id := "") -> Node3D:
-	var path := ModelRegistry.weapon_model(id, race_id)
+static func add_model(parent: Node3D, id: String) -> Node3D:
+	var path := ModelRegistry.weapon_model(id)
 	if path == "" or not ResourceLoader.exists(path):
 		return null
 	var pivot := Node3D.new()

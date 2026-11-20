@@ -123,7 +123,8 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 	if intent.heavy:
 		_throw = 0.0
 		if player.visual != null:
-			player.visual.play_strike("Throw", THROW_WINDUP, THROW_WINDUP + 0.4)
+			var ball := held is Throwable and player.visual.anim.has_animation("Human_ThrowBall")  # items go overhand
+			player.visual.play_strike("Human_ThrowBall" if ball else "Throw", THROW_WINDUP, THROW_WINDUP + 0.4)
 		return true
 	if not intent.light_held:
 		drop()

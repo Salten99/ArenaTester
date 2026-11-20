@@ -16,6 +16,14 @@ const UAL_MAP := {
 	"upperleg.l": "thigh_l", "lowerleg.l": "calf_l", "foot.l": "foot_l", "toes.l": "ball_l",
 	"upperleg.r": "thigh_r", "lowerleg.r": "calf_r", "foot.r": "foot_r", "toes.r": "ball_r",
 }
+## Rig_Medium bone -> the Human animation packs' bone (asset_library/human-*, FBX; the throws).
+const HUMAN_MAP := {
+	"hips": "B-hips", "spine": "B-spine", "chest": "B-chest", "head": "B-head",
+	"upperarm.l": "B-upperArm.L", "lowerarm.l": "B-forearm.L", "wrist.l": "B-hand.L",
+	"upperarm.r": "B-upperArm.R", "lowerarm.r": "B-forearm.R", "wrist.r": "B-hand.R",
+	"upperleg.l": "B-thigh.L", "lowerleg.l": "B-shin.L", "foot.l": "B-foot.L", "toes.l": "B-toe.L",
+	"upperleg.r": "B-thigh.R", "lowerleg.r": "B-shin.R", "foot.r": "B-foot.R", "toes.r": "B-toe.R",
+}
 const FPS := 30.0
 
 
@@ -77,12 +85,15 @@ static func local_pose(sk: Skeleton3D) -> Dictionary:
 
 
 ## Every clip of `src_player` (on skeleton `src`) baked onto `tgt` as a new library.
-## `src_ref_clip`/`tgt_ref_clip` pose both rigs in a T-pose; `track_prefix` is the target
+## `src_ref_clip`/`tgt_ref_clip` pose both rigs in a T-pose (an empty `src_ref_clip`: the source rests in one); `track_prefix` is the target
 ## tracks' node path ("Rig_Medium/Skeleton3D"); clip names get `name_prefix`.
 static func bake_all(src_player: AnimationPlayer, src: Skeleton3D, src_ref_clip: String,
 		tgt_player: AnimationPlayer, tgt: Skeleton3D, tgt_ref_clip: String,
 		track_prefix: String, name_prefix: String, map := UAL_MAP) -> AnimationLibrary:
-	_seek(src_player, src_ref_clip, 0.0)
+	if src_ref_clip == "":
+		src.reset_bone_poses()
+	else:
+		_seek(src_player, src_ref_clip, 0.0)
 	var src_ref := world_pose(src)
 	_seek(tgt_player, tgt_ref_clip, 0.0)
 	var tgt_ref := world_pose(tgt)
@@ -135,13 +146,14 @@ static func _drop_still(a: Animation) -> void:
 				a.track_remove_key(t, kk)
 
 
-## A .glb from asset_library/ (outside the project, so not imported) as a scene. null if missing.
+## A .glb or .fbx from asset_library/ (outside the project, so not imported) as a scene. null if missing.
 static func load_library_glb(rel: String) -> Node:
 	var path := ProjectSettings.globalize_path("res://").path_join("../asset_library").path_join(rel).simplify_path()
 	if not FileAccess.file_exists(path):
 		return null
-	var doc := GLTFDocument.new()
-	var state := GLTFState.new()
+	var fbx := rel.get_extension().to_lower() == "fbx"
+	var doc: GLTFDocument = FBXDocument.new() if fbx else GLTFDocument.new()
+	var state: GLTFState = FBXState.new() if fbx else GLTFState.new()
 	if doc.append_from_file(path, state) != OK:
 		return null
 	return doc.generate_scene(state)

@@ -513,7 +513,8 @@ const STRIKES := {"Melee_1H_Attack_Chop": 0.58, "Melee_1H_Attack_Jump_Chop": 0.7
 	"Melee_1H_Attack_Slice_Horizontal": 0.27, "Melee_1H_Attack_Stab": 0.38, "Melee_2H_Attack_Chop": 0.72,
 	"Melee_2H_Attack_Slice": 0.38, "Melee_2H_Attack_Spin": 1.17, "Melee_2H_Attack_Spinning": 0.27, "Melee_2H_Attack_Stab": 0.38,
 	"Melee_Dualwield_Attack_Chop": 0.55, "Melee_Dualwield_Attack_Slice": 0.58, "Melee_Dualwield_Attack_Stab": 0.38,
-	"Melee_Unarmed_Attack_Kick": 0.30, "Melee_Unarmed_Attack_Punch_A": 0.43, "Throw": 0.62}
+	"Melee_Unarmed_Attack_Kick": 0.30, "Melee_Unarmed_Attack_Punch_A": 0.43, "Throw": 0.62,
+	"Human_ThrowBall": 0.75, "Human_ThrowWeapon": 0.65, "Human_ThrowSpear": 1.12, "Human_ThrowBoomerang": 0.85}
 ## A held blow waits this far (s of the clip) before its strike frame, then takes STRIKE_SNAP s to land it.
 const STRIKE_LEAD := 0.06
 const STRIKE_SNAP := 0.033
@@ -999,6 +1000,10 @@ func _find_quad_legs() -> void:
 				_skeleton.get_bone_rest(lo).basis.get_rotation_quaternion()]
 
 
+## The Human Throwing pack's clips on Rig_Medium (tests/retarget_human.gd), named Human_*.
+const HUMAN_CLIPS := "res://models/human/throws_rig_medium.res"
+
+
 ## Every Rig_Medium animation merged into one library, refitted to `skeleton`'s
 ## proportions: position keys keep their motion relative to the bone's rest
 ## position, scaled by how much taller the hips sit than in the animation files.
@@ -1027,6 +1032,12 @@ static func _library_for(skeleton: Skeleton3D) -> AnimationLibrary:
 					_refit(clip, skeleton)
 					lib.add_animation(a, clip)
 		scene.free()
+	if ResourceLoader.exists(HUMAN_CLIPS):  # the throws, converted to this rig (tests/retarget_human.gd)
+		var human: AnimationLibrary = load(HUMAN_CLIPS)
+		for a in human.get_animation_list():
+			var clip: Animation = human.get_animation(a).duplicate(true)
+			_refit(clip, skeleton)
+			lib.add_animation(a, clip)
 	_libraries[key] = lib
 	return lib
 

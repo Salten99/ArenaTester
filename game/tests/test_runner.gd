@@ -1513,6 +1513,7 @@ func test_fists_pickups_and_throws() -> void:
 	s.hold({"throw_held": true, "aim_yaw": 0.0}, ceili(t.weapon_throw_charge_time * 60.0) + 5)
 	await _frames(10)
 	check(p.aiming and p.throw_charge > 0.0 and p.charge_shown() > 0.0, "holding G winds up the throw, the crosshair out and the charge bar filling")
+	check(p.visual._strike.get("clip") == "Human_ThrowWeapon", "the hammer winds up on the overhand weapon throw (%s)" % p.visual._strike.get("clip"))
 	var shots: Array = []
 	var count := func(n: Node) -> void:
 		if n is Projectile:
@@ -1521,6 +1522,18 @@ func test_fists_pickups_and_throws() -> void:
 	await _frames(ceili(t.weapon_throw_charge_time * 60.0) + 2)
 	get_tree().node_added.disconnect(count)
 	check(shots.size() == 1 and p.weapon_id == GameData.FISTS and not p.aiming, "letting go throws it: your hands are empty")
+	check(p._cast_clip == "Human_ThrowWeapon" and not p.visual.strike_held(), "and the throw clip lets go")
+	# Each weapon its own throw (user, 2026-11-20), converted from the Human Throwing pack.
+	var throws := {"Heavy": "Human_ThrowWeapon", "Blade": "Human_ThrowWeapon", "Twin": "Human_ThrowBoomerang", "Polearm": "Human_ThrowSpear"}
+	check(throws.keys().all(func(c): return WeaponMoveset.for_class(c).throw_anim() == throws[c] and p.visual.anim.has_animation(throws[c]) and CharacterModel.STRIKES.has(throws[c])),
+		"hammer and sword throw overhand, the khopesh whips, the polearm goes like a javelin, each on its release frame")
+	check(p.visual.anim.has_animation("Human_ThrowBall") and CharacterModel.STRIKES.has("Human_ThrowBall"), "arena items are thrown like a ball")
+	# The weapon in your hand is the one that lay on the ground, whatever your race carries.
+	var race := p.race_id
+	p.race_id = "dwarf"
+	check(GameData.pickup_weapons().all(func(w): p.weapon_id = w; return p._hand_model() == ModelRegistry.weapon_model(w)), "you hold the very weapon you picked up")
+	p.race_id = race
+	p.weapon_id = GameData.FISTS
 	check(shots.size() == 1 and is_equal_approx(Vector2(shots[0].x, shots[0].z).length(), t.weapon_throw_speed_max), "wound up all the way, it flies at full force")
 	var landed := false
 	for i in 120:
