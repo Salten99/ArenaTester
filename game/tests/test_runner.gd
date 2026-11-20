@@ -477,6 +477,8 @@ func test_fire_ultimate() -> void:
 	check(flying.size() == 5, "all five snake through the air (%d)" % flying.size())
 	check(dragons.all(func(d): return d.pieces.size() == t.ult_dragon_segments), "each with a long body behind its head")
 	check(dragons.all(func(d): return (d.p3 as Vector3).is_equal_approx(spot)), "all headed for the one spot")
+	var pushes: Array = range(20).map(func(_n): return p.abilities._wander(t.ult_dragon_wander))
+	check(pushes.all(func(v): return absf(v.x) <= t.ult_dragon_wander and v.y >= -t.ult_dragon_wander * 0.4) and pushes[0] != pushes[1], "each dragon's way there is random, within ult_dragon_wander")
 	await _frames(int(t.ult_dragon_time * 0.6 * hz) + 4)
 	check(enemies.all(func(e): return e.health.hp < e.health.max_hp), "it dives into the aimed spot, hitting everything there")
 	var fires := get_tree().get_nodes_in_group("hazards").filter(func(h): return Vector2(h.global_position.x - spot.x, h.global_position.z - spot.z).length() < 1.0)

@@ -219,9 +219,12 @@ extends Resource
 @export_range(0.2, 3.0, 0.05) var ult_arc_circle_size := 0.7
 @export_range(0.0, 0.5, 0.01) var ult_arc_gap := 0.08
 @export_range(0.1, 3.0, 0.05) var ult_dragon_delay := 0.6
-@export_range(0.3, 4.0, 0.05) var ult_dragon_time := 0.9  # 1.2 until 2026-11-20 (user: 33% faster)
+@export_range(0.3, 4.0, 0.05) var ult_dragon_time := 1.35  # 0.9 until 2026-11-20 (user: 33% slower)
 @export_range(6, 80) var ult_dragon_segments := 30
 @export_range(0.2, 3.0, 0.05) var ult_dragon_size := 0.9
+@export_range(0.5, 3.0, 0.05) var ult_dragon_head_scale := 1.25  ## the head, this much bigger than the body
+## Each dragon's path is pushed up to this far (m) a random way every cast; they still land on the spot.
+@export_range(0.0, 10.0, 0.25) var ult_dragon_wander := 4.0
 @export_range(0.0, 8.0, 0.1) var ult_dragon_wave := 2.5
 @export_range(0.0, 6.0, 0.25) var ult_dragon_coils := 2.0
 ## Where the dragon lands the ground burns this long (s), over this much of the ultimate's radius,

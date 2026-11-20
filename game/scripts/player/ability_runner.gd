@@ -171,18 +171,25 @@ func _fire_ultimate(a: Dictionary, player: Node, spot: Vector3, radius: float) -
 		get_tree().create_timer(t.ult_arc_gap * absf(i - 2), false).timeout.connect(  # from the middle outward
 			func(): UltimateFx.circle("Fire", at, ahead, t.ult_arc_circle_size * (1.3 if i == 2 else 1.0), lasts))
 		# A dragon out of each circle (user, 2026-11-20): they fan out, then all dive into the one spot.
-		# The middle one deals the blast; the others land with it.
+		# The middle one deals the blast; the others land with it. Each takes its own random way there
+		# (user, 2026-11-20): only the two middle points of its curve move, so the start and end stay.
+		var w := t.ult_dragon_wander
 		var d := FireDragon.new()
 		d.p0 = at
-		d.p1 = at + ahead * flat.length() * 0.2 + Vector3.UP * 5.0 + out * 4.0
-		d.p2 = spot + Vector3.UP * 9.0 - ahead * 2.0 + out * 3.0
+		d.p1 = at + ahead * flat.length() * 0.2 + Vector3.UP * 5.0 + out * 4.0 + _wander(w)
+		d.p2 = spot + Vector3.UP * 9.0 - ahead * 2.0 + out * 3.0 + _wander(w)
 		d.p3 = spot
-		d.side = right
-		d.phase = i * 0.7
+		d.side = right if randf() < 0.5 else -right  # weaves left first or right first
+		d.phase = randf() * TAU
 		d.time = -t.ult_dragon_delay  # all together, so they land as one
 		d.landed.connect(_dragon_lands.bind(a, player, spot, radius, i == 2))
 		root.add_child(d)
 	Combat.shake(t.shake_light)
+
+
+## A random push up to `w` m, less downward so the path stays in the air.
+func _wander(w: float) -> Vector3:
+	return Vector3(randf_range(-w, w), randf_range(-w * 0.4, w), randf_range(-w, w))
 
 
 ## While the Fire ultimate holds you up: the Player hangs at hover_y.

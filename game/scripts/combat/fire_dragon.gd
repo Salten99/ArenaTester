@@ -30,7 +30,7 @@ func _ready() -> void:
 		for mesh in piece.get_children():  # the models were exported off center: keep their size, drop the offset
 			if mesh is Node3D:
 				(mesh as Node3D).position = Vector3.ZERO
-		piece.scale = Vector3.ONE * t.ult_dragon_size * lerpf(1.0, 0.25, k)
+		piece.scale = Vector3.ONE * t.ult_dragon_size * lerpf(1.0, 0.25, k) * (t.ult_dragon_head_scale if i == 0 else 1.0)
 		piece.visible = false  # shown once it's out of the circle
 		if i % 3 == 0:  # flames streaming off the head and every third piece
 			var flames := ElementFx.trail("Fire")
