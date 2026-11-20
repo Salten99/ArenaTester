@@ -229,7 +229,7 @@ extends Resource
 @export_range(0.0, 6.0, 0.25) var ult_dragon_coils := 2.0
 @export_range(0.0, 2.0, 0.05) var ult_dragon_wave_up := 0.6  ## its up-and-down weave, this much of the side-to-side (0.3 until 2026-11-20)
 ## How much slower it goes through bends than down straights (0 = the same speed everywhere).
-@export_range(0.0, 10.0, 0.25) var ult_dragon_bend_slow := 3.0
+@export_range(0.0, 30.0, 0.5) var ult_dragon_bend_slow := 12.0  # 3 until 2026-11-20 (user: more drastic)
 ## Where the dragon lands the ground burns this long (s), over this much of the ultimate's radius,
 ## setting alight whoever is in it and dealing this much of the ultimate's damage a second.
 @export_range(0.0, 15.0, 0.5) var ult_fire_ground_time := 4.0
