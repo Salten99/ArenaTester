@@ -287,6 +287,8 @@ extends Resource
 @export_range(1.0, 30.0, 0.5) var cage_time := 5.0
 @export_range(2, 10) var cage_pillars := 3  # 5 until 2026-11-20 (user)
 @export_range(0.5, 30.0, 0.5) var cage_place_time := 3.0
+## Each click throws: the throw's release this many s in.
+@export_range(0.05, 1.0, 0.05) var cage_throw_windup := 0.1
 @export_range(2.0, 80.0, 0.5) var cage_bolt_speed := 28.0
 @export_range(1.0, 1.5, 0.01) var cage_speedup := 1.0
 @export_range(1, 60) var cage_max_bolts := 24

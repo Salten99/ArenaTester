@@ -1108,10 +1108,17 @@ func _show_aim_ring(slot: String, point: Vector3) -> void:
 func _update_pillar_aim(intent: PlayerIntent) -> void:
 	var point := aim_target(intent.aim_point, "Ultimate")
 	_show_aim_ring("Ultimate", point)
-	if intent.light and not abilities.spells.place_pillar(point):
+	if not intent.light:
+		return
+	var to := point - global_position
+	var yaw := atan2(-to.x, -to.z) if Vector2(to.x, to.z).length() > 0.5 else intent.aim_yaw
+	if not abilities.spells.place_pillar(point):
 		_stop_aiming()
-		var to := point - global_position
-		_cast("Ultimate", atan2(-to.x, -to.z) if Vector2(to.x, to.z).length() > 0.5 else intent.aim_yaw, point)
+		_cast("Ultimate", yaw, point)
+	# You throw each bolt down where you clicked (user, 2026-11-20).
+	_face_yaw(yaw)
+	var t: CombatTuning = GameData.tuning
+	cast_again("Throw", t.cage_throw_windup, t.cage_throw_windup + 0.3)
 
 
 func _stop_aiming() -> void:

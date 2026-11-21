@@ -714,8 +714,10 @@ func test_spells() -> void:
 	keys.hold({"light": true, "light_held": true, "aim_point": places[1]}, 1)
 	keys.hold({"aim_point": places[1]}, 30)
 	await _frames(14)
-	check(p.abilities.spells.placing() and p.abilities.spells.pillars_placed() == 2 and p.state == Player.State.FREE and p.abilities.ready_in("Ultimate") == 0.0,
+	check(p.abilities.spells.placing() and p.abilities.spells.pillars_placed() == 2 and p.abilities.ready_in("Ultimate") == 0.0,
 		"press R once, then each click places a pillar where you aim, not an attack (%d)" % p.abilities.spells.pillars_placed())
+	check(p.state == Player.State.CAST and p._cast_clip == "Throw" and p.facing.dot((places[1] - p.global_position) * Vector3(1, 0, 1)) > 0.0,
+		"each click throws the bolt, turned toward it")
 	check(p._aim_ring != null, "a ring shows where the next goes")
 	await _frames(20)
 	check(p.global_position.y > y0 + 1.0, "you fly up while you place them")
