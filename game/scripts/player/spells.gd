@@ -783,8 +783,9 @@ func _crush(a: Dictionary, player: Node, dir: Vector3, spot: Vector3) -> void:
 	if not _own(a):
 		var ram_scene := load(RAM) as PackedScene
 		for s in [-1.0, 1.0]:
-			var at: Vector3 = spot + right * s * half
-			UltimateFx.circle("Stone", at + Vector3.UP * t.ram_size, -right * s, t.ram_size * 1.1, t.pillar_delay + t.pillar_time + 0.3)
+			# each rises a body length from the spot and rears up right there, no charge (user 2026-11-20)
+			var at: Vector3 = spot + right * s * 1.97 * t.ram_size
+			UltimateFx.circle("Stone", at + Vector3.UP * t.ram_size, -right * s, t.ram_size * 1.1, t.pillar_delay + t.ram_rear_time)
 			var ram := _stone_ram(ram_scene, at, -right * s)
 			if ram == null:
 				continue
@@ -795,23 +796,22 @@ func _crush(a: Dictionary, player: Node, dir: Vector3, spot: Vector3) -> void:
 			tw.tween_property(ram, "scale", size, t.pillar_delay * 0.5).set_delay(t.pillar_delay * 0.5)
 			var face := ram.basis.orthonormalized()
 			var k := t.ram_size
-			# slow start, fast finish; stops a body length short, then rears up on its hind hooves
-			var rear_at: Vector3 = spot + right * s * 1.97 * k
-			tw.tween_property(ram, "global_position", rear_at, t.pillar_time).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
-			tw.parallel().tween_method(_shed.bind(ram), 0, int(t.pillar_time * 20.0), t.pillar_time)
-			var hoof: Vector3 = rear_at + face * RAM_HOOF * k
+			# rears up on its hind hooves, front legs curling up, shedding stone bits
+			var hoof: Vector3 = at + face * RAM_HOOF * k
+			tw.tween_callback(_curl_front_legs.bind(ram))
 			tw.tween_method(func(d: float): _lean(ram, face, k, d, hoof), 0.0, RAM_REAR_DEG, t.ram_rear_time * 0.45).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-			tw.tween_interval(t.ram_rear_time * 0.55)
+			tw.parallel().tween_method(_shed.bind(ram), 0, int(t.ram_rear_time * 9.0), t.ram_rear_time * 0.45)
+			tw.tween_method(_shed.bind(ram), 0, int(t.ram_rear_time * 11.0), t.ram_rear_time * 0.55)
 			# then drops forward into the clash: horns locked, the front 15 degrees up, hind hooves on the
-			# ground (measured in Blender: in that pose the horns reach 1.26 m ahead of the model's middle)
+			# ground (measured in Blender: with the head twisted the horns reach 1.18 m ahead of its middle)
 			tw.tween_callback(_head_down.bind(ram))
-			var hoof_meet: Vector3 = spot + right * s * 1.26 * k + (face * Basis(Vector3.RIGHT, deg_to_rad(-15.0))) * RAM_HOOF * k
+			var hoof_meet: Vector3 = spot + right * s * 1.18 * k + (face * Basis(Vector3.RIGHT, deg_to_rad(-15.0))) * RAM_HOOF * k
 			hoof_meet.y = spot.y
 			tw.tween_method(func(f: float): _lean(ram, face, k, lerpf(RAM_REAR_DEG, 15.0, f), hoof.lerp(hoof_meet, f)), 0.0, 1.0, t.ram_lunge_time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 			tw.tween_interval(0.35)
 			tw.tween_property(ram, "scale", size * 0.3, 0.3)
 			tw.tween_callback(ram.queue_free)
-	_later(t.pillar_delay + t.pillar_time + t.ram_rear_time + t.ram_lunge_time, _slam.bind(a, player, spot, right, half))
+	_later(t.pillar_delay + t.ram_rear_time + t.ram_lunge_time, _slam.bind(a, player, spot, right, half))
 
 
 ## Your war ram model, all stone, standing at `at` and facing `facing`.
@@ -829,7 +829,7 @@ func _stone_ram(scene: PackedScene, at: Vector3, facing: Vector3) -> Node3D:
 	return ram
 
 
-## Stone bits shaken off a charging ram (called 20 times a second; `_tick` is the count).
+## Stone bits shaken off a rearing ram (called 20 times a second; `_tick` is the count).
 func _shed(_tick: int, ram: Node3D) -> void:
 	var k := ram.scale.x
 	for i in GameData.tuning.ram_shed_chunks:
@@ -861,6 +861,26 @@ func _head_down(ram: Node3D) -> void:
 				skel.set_bone_pose_rotation(bone, butt.rotation_track_interpolate(i, 6.0 / 24.0))
 			elif butt.track_get_type(i) == Animation.TYPE_POSITION_3D:
 				skel.set_bone_pose_position(bone, butt.position_track_interpolate(i, 6.0 / 24.0))
+		# twisted a little to its own left, so the two rams' horns cross (user 2026-11-20)
+		_turn_bone(skel, "Head", Vector3.UP, 20.0)
+		_turn_bone(skel, "Head", Vector3.BACK, -20.0)
+
+
+## Front legs curled up under the chest, like a real ram rearing (tried out in Blender).
+func _curl_front_legs(ram: Node3D) -> void:
+	for skel: Skeleton3D in ram.find_children("*", "Skeleton3D", true, false):
+		for side in ["L", "R"]:
+			_turn_bone(skel, "FrontUpperLeg." + side, Vector3.RIGHT, -60.0)
+			_turn_bone(skel, "FrontLowerLeg." + side, Vector3.RIGHT, 110.0)
+
+
+## Turns `bone_name` `deg` about the model's own `axis`, round the bone's joint.
+func _turn_bone(skel: Skeleton3D, bone_name: String, axis: Vector3, deg: float) -> void:
+	var b := skel.find_bone(bone_name)
+	if b < 0:
+		return
+	var g := skel.get_bone_global_pose(b)
+	skel.set_bone_global_pose(b, Transform3D(Basis(axis, deg_to_rad(deg)) * g.basis, g.origin))
 
 
 ## Tips the ram `deg` nose-up about its hind hooves, which stand at `hoof`. `face`: its unscaled facing.

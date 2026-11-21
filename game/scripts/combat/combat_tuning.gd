@@ -336,13 +336,12 @@ extends Resource
 @export_enum("Random", "Fist", "Hammer", "Tree", "Dolphin") var slab_shape := "Random"
 ## Stone Slab: how fast it throws you up when you cast it under yourself (m/s; 16 is about 8 m high).
 @export_range(0.0, 40.0, 0.5) var slab_player_launch := 16.0
-## Crushing Pillars: how far apart the two circles open (m), the wait before the rams charge (s),
-## and how long they take to meet (s). (user 2026-11-20: rams; slow start, fast finish.)
+## Crushing Pillars: how wide the clash knocks enemies out (m across; half of it each side of the spot),
+## and how long the rams take to rise out of their circles (s). (user 2026-11-20: rams, no charge.)
 @export_range(4.0, 30.0, 0.5) var pillar_gap := 16.0
 @export_range(0.0, 2.0, 0.05) var pillar_delay := 0.5
-@export_range(0.05, 2.0, 0.05) var pillar_time := 0.9
 ## Crushing Pillars: how big the two stone rams are (1 = the war ram mount's own size), and the stone
-## bits each sheds 20 times a second while charging.
+## bits each sheds 20 times a second while rearing.
 @export_range(0.5, 4.0, 0.1) var ram_size := 2.6
 @export_range(0, 10) var ram_shed_chunks := 2
 ## Crushing Pillars: how long the rams stand reared up on their hind legs before they lunge (s), and
