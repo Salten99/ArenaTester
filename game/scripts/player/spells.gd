@@ -15,7 +15,7 @@ extends Node
 ## The numbers are in combat_tuning.tres, group Spells.
 
 const RAM := "res://models/own/mount_war_ram.glb"  # the Crush rams
-const RAM_HOOF := Vector3(0.0, -0.04, -0.62)  # its hind hooves in the leap pose (measured in Blender)
+const RAM_HOOF := Vector3(0.0, 0.0, -0.55)  # its hind hooves standing still (measured in Blender)
 const RAM_REAR_DEG := 55.0  # how far it rears up (the user's photo, 2026-11-20)
 static var STONE_SKIN := _stone_skin()  # solid and two-sided like the model's own material, so no see-through holes
 
@@ -741,24 +741,23 @@ func _crush(a: Dictionary, player: Node, dir: Vector3, spot: Vector3) -> void:
 				continue
 			var size := Vector3.ONE * t.ram_size
 			ram.scale = size * 0.05  # still inside the circle
+			_still_pose(ram)
 			var tw := ram.create_tween()
 			tw.tween_property(ram, "scale", size, t.pillar_delay * 0.5).set_delay(t.pillar_delay * 0.5)
-			tw.tween_callback(_play.bind(ram, "Gallop"))
 			var face := ram.basis.orthonormalized()
 			var k := t.ram_size
 			# slow start, fast finish; stops a body length short, then rears up on its hind hooves
 			var rear_at: Vector3 = spot + right * s * 1.97 * k
 			tw.tween_property(ram, "global_position", rear_at, t.pillar_time).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
 			tw.parallel().tween_method(_shed.bind(ram), 0, int(t.pillar_time * 20.0), t.pillar_time)
-			tw.tween_callback(_leap_pose.bind(ram))
 			var hoof: Vector3 = rear_at + face * RAM_HOOF * k
-			tw.tween_method(func(d: float): _lean(ram, face, k, d, hoof), 0.0, RAM_REAR_DEG, t.ram_rear_time * 0.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-			tw.tween_interval(t.ram_rear_time * 0.7)
-			# then drops forward into the clash: horns locked, the front 15 degrees up (measured in
-			# Blender: in that pose the horns reach 0.97 m ahead of the model's middle)
+			tw.tween_method(func(d: float): _lean(ram, face, k, d, hoof), 0.0, RAM_REAR_DEG, t.ram_rear_time * 0.45).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			tw.tween_interval(t.ram_rear_time * 0.55)
+			# then drops forward into the clash: horns locked, the front 15 degrees up, hind hooves on the
+			# ground (measured in Blender: in that pose the horns reach 1.26 m ahead of the model's middle)
 			tw.tween_callback(_head_down.bind(ram))
-			var meet: Vector3 = spot + right * s * 0.97 * k + Vector3.UP * 0.3 * k
-			var hoof_meet: Vector3 = meet + (face * Basis(Vector3.RIGHT, deg_to_rad(-15.0))) * RAM_HOOF * k
+			var hoof_meet: Vector3 = spot + right * s * 1.26 * k + (face * Basis(Vector3.RIGHT, deg_to_rad(-15.0))) * RAM_HOOF * k
+			hoof_meet.y = spot.y
 			tw.tween_method(func(f: float): _lean(ram, face, k, lerpf(RAM_REAR_DEG, 15.0, f), hoof.lerp(hoof_meet, f)), 0.0, 1.0, t.ram_lunge_time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 			tw.tween_interval(0.35)
 			tw.tween_property(ram, "scale", size * 0.3, 0.3)
@@ -781,12 +780,6 @@ func _stone_ram(scene: PackedScene, at: Vector3, facing: Vector3) -> Node3D:
 	return ram
 
 
-func _play(ram: Node3D, anim: String) -> void:
-	for p in ram.find_children("*", "AnimationPlayer", true, false):
-		if (p as AnimationPlayer).has_animation(anim):
-			(p as AnimationPlayer).play(anim)
-
-
 ## Stone bits shaken off a charging ram (called 20 times a second; `_tick` is the count).
 func _shed(_tick: int, ram: Node3D) -> void:
 	var k := ram.scale.x
@@ -794,13 +787,12 @@ func _shed(_tick: int, ram: Node3D) -> void:
 		Vfx.chunk(ram.global_position + Vector3.UP * k + UltimateFx._in_disc(k * 0.8), Vector3(randf_range(-2, 2), randf_range(1, 4), randf_range(-2, 2)), UltimateFx.STONE, 0.12 * k)
 
 
-## The rams' leap legs (the user's photos, 2026-11-20): Gallop_Jump held at frame 10, front legs tucked.
-## Frames are Blender's, 24 a second.
-func _leap_pose(ram: Node3D) -> void:
+## The rams' legs never move (user 2026-11-20): Idle held at its first frame. Frames are Blender's, 24 a second.
+func _still_pose(ram: Node3D) -> void:
 	for p: AnimationPlayer in ram.find_children("*", "AnimationPlayer", true, false):
-		if p.has_animation("Gallop_Jump"):
-			p.play("Gallop_Jump")
-			p.seek(10.0 / 24.0, true)
+		if p.has_animation("Idle"):
+			p.play("Idle")
+			p.seek(0.0, true)
 			p.active = false  # holds it; the head and neck are set by hand in _head_down
 
 

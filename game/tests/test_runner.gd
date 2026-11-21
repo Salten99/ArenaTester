@@ -481,6 +481,10 @@ func test_fire_ultimate() -> void:
 		"the middle one dives into the aimed spot, the others scatter round it")
 	var pushes: Array = range(20).map(func(_n): return p.abilities._wander(t.ult_dragon_wander))
 	check(pushes.all(func(v): return absf(v.x) <= t.ult_dragon_wander and v.y >= -t.ult_dragon_wander * 0.4) and pushes[0] != pushes[1], "each dragon's way there is random, within ult_dragon_wander")
+	var ways: Array = range(200).map(func(_n): return p.abilities._any_way(-1.0))
+	check(ways.all(func(v): return is_equal_approx(v.length(), 1.0)) and ways.any(func(v): return v.y < -0.5) and ways.any(func(v): return v.x < -0.5) and ways.any(func(v): return v.z > 0.5),
+		"a dragon can leave its circle any way at all, not just up")
+	check(dragons.all(func(d): return d.p1.y >= spot.y + t.ult_dragon_floor - 0.01 and d.p2.y >= spot.y + t.ult_dragon_floor - 0.01), "and its path stays off the ground")
 	check(dragons.all(func(d): return d.duration <= t.ult_lift_time + t.ult_dragon_time + 0.3) and dragons.any(func(d): return not is_equal_approx(d.duration, t.ult_dragon_time)),
 		"they land at different times, all before the spell ends")
 	var paces: Array = range(11).map(func(j): return dragons[0].u_for(j / 10.0))
@@ -741,10 +745,10 @@ func test_spells() -> void:
 	check(crushed.health.hp < crushed.health.max_hp and away.health.hp == away.health.max_hp, "the pillars crush what's between them")
 	var ram: Node3D = get_tree().get_nodes_in_group("stone_ram")[0]
 	var anims := ram.find_children("*", "AnimationPlayer", true, false)[0] as AnimationPlayer
-	check(is_equal_approx(anims.get_animation("Gallop_Jump").length, 35.0 / 24.0), "the ram's animations run 24 frames a second, as the clash pose expects")
+	check(is_equal_approx(anims.get_animation("Attack_Headbutt").length, 24.0 / 24.0), "the ram's animations run 24 frames a second, as the clash pose expects")
 	var skel := ram.find_children("*", "Skeleton3D", true, false)[0] as Skeleton3D
 	var head := skel.find_bone("Head")
-	check(head >= 0 and not anims.active and ram.basis.z.normalized().y > 0.2, "the rams end mid-leap, front up, the player stopped (%.2f)" % ram.basis.z.normalized().y)
+	check(head >= 0 and not anims.active and ram.basis.z.normalized().y > 0.2, "the rams end front up, legs still, the player stopped (%.2f)" % ram.basis.z.normalized().y)
 	await _frames(int(0.8 * hz))
 	check(get_tree().get_nodes_in_group("stone_ram").is_empty(), "then they shrink away like the pillars did")
 	_free_all([crushed, away])
