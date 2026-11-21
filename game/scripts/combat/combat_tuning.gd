@@ -279,6 +279,12 @@ extends Resource
 @export_range(2.0, 80.0, 0.5) var kaminari_speed := 28.0
 @export_range(2.0, 60.0, 0.5) var kaminari_jump_range := 15.0
 @export_range(1.0, 15.0, 0.5) var kaminari_out_m := 4.0
+## You hover this high (m) while it lasts (user, 2026-11-20). While you aim, a small bolt strikes
+## out of its tip about every this many s, at the nearest enemy this close (m), for this much of its damage.
+@export_range(0.0, 30.0, 0.5) var kaminari_lift_height := 10.0
+@export_range(0.05, 2.0, 0.05) var kaminari_spark_every := 0.2
+@export_range(1.0, 40.0, 0.5) var kaminari_spark_range := 15.0
+@export_range(0.0, 1.0, 0.05) var kaminari_spark_damage := 0.15
 ## It stays in your hand this long after you let go (s), while the throw lands; the bolt is this long and wide (m), a new
 ## picture of it every this many s.
 @export_range(0.0, 2.0, 0.05) var kaminari_hold_time := 0.1

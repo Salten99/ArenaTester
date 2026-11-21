@@ -312,7 +312,8 @@ func _spear(a: Dictionary, player: Node, spot: Vector3) -> void:
 	var s := {"a": a, "player": player, "at": hand, "goal": spot, "target": null, "last": null,
 		"held": t.kaminari_hold_time, "left": t.kaminari_time, "fwd": (spot - hand).normalized(), "node": null,
 		"pieces": [] as Array[Node3D], "bolt": null, "frame": 0.0, "fi": 0,
-		"spin": randf() * TAU, "rate": 0.0, "turn": t.kaminari_coil_turn, "wobble": randf() * TAU, "change": 0.0}
+		"spin": randf() * TAU, "rate": 0.0, "turn": t.kaminari_coil_turn, "wobble": randf() * TAU, "change": 0.0,
+		"lift": (player.global_position as Vector3).y + t.kaminari_lift_height, "spark": 0.0}
 	_new_coil(s)
 	s.rate = s.rate_goal
 	s.turn = s.turn_goal
@@ -354,6 +355,25 @@ func _right_hand(player: Node) -> Vector3:
 	return v.bone_position("handslot.r", near) if v != null and v.has_method("bone_position") else near
 
 
+## While you aim, a small bolt strikes out of the bolt's tip (user, 2026-11-20): at the nearest
+## enemy within kaminari_spark_range, for kaminari_spark_damage of the spell's damage, else into the air.
+func _spark(s: Dictionary) -> void:
+	var t: CombatTuning = GameData.tuning
+	var tip: Vector3 = (s.at as Vector3) + (s.fwd as Vector3) * t.kaminari_bolt_length * 0.5
+	var near := Combat.nearest_enemies(tip, t.kaminari_spark_range, 1)
+	var to := tip + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)).normalized() * 3.0
+	if not near.is_empty():
+		var e: Node3D = near[0]
+		to = e.global_position + Vector3.UP
+		var player: Node = s.player
+		var info: DamageInfo = player.make_hit(GameData.num(s.a, "base_damage") * t.kaminari_spark_damage, "Lightning", "Magic", e, DamageInfo.Kind.ABILITY)
+		info.no_launch = true
+		info.knockback = 0.0
+		Combat.deal(e, info)
+	if not _own(s.a) and not ElementFx.bolt_arc(tip, to):
+		ElementFx.beam("Lightning", tip, to)
+
+
 ## While you aim Kaminari the bolt is already in your hand, pointing at the crosshair (user,
 ## 2026-11-20); the throw takes it, and it's gone if you stop aiming without throwing.
 func hold_bolt(a: Dictionary, player: Node) -> void:
@@ -367,9 +387,17 @@ func _update_spear(s: Dictionary, delta: float) -> void:
 	var t: CombatTuning = GameData.tuning
 	var waiting: bool = s.get("waiting", false)
 	var done: bool = not _alive(s.player) or s.get("done", false) or (waiting and not s.player.aiming_a_shot())
+	if not done:  # you hover kaminari_lift_height up while it lasts (user, 2026-11-20)
+		var r := _runner()
+		r.hover_y = s.lift
+		r._hover_left = maxf(r._hover_left, 0.15)
 	if waiting and not done:
 		var aim: Vector3 = s.player.aim_point()
 		s.goal = aim if aim != Vector3.INF else _right_hand(s.player) + s.player.facing * 10.0
+		s.spark -= delta
+		if s.spark <= 0.0:
+			s.spark = t.kaminari_spark_every * randf_range(0.6, 1.4)
+			_spark(s)
 	if s.held <= 0.0:
 		s.left -= delta
 	if s.left <= 0.0 and not done:  # time's up, unless one enemy is left: then it's struck until it's dead

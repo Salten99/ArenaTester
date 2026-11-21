@@ -662,6 +662,7 @@ func test_spells() -> void:
 	# enemy for kaminari_time; with one enemy left it strikes in and out of it until it's dead.
 	var spot: Vector3 = p.global_position + Vector3(0, 0, -12)
 	var struck := [_dummy(Vector3(0, 0, -12)), _dummy(Vector3(4, 0, -14))]
+	var ground_y: float = p.global_position.y
 	# While you aim it, the bolt is already in your hand; stop aiming without throwing and it's gone.
 	p.abilities.spells.hold_bolt(p.abilities.defs.Ultimate, p)
 	var held: Dictionary = p.abilities.spells._spears[0]
@@ -683,9 +684,16 @@ func test_spells() -> void:
 	var last_hp: float = struck[1].health.hp
 	await _frames(int(t.kaminari_time * hz) + 10)
 	check(p.abilities.spells.caging() and struck[1].health.hp < last_hp, "with one enemy left it keeps striking in and out past its time")
+	check(p.global_position.y > ground_y + t.kaminari_lift_height - 1.0, "you hover %.0f m up while it lasts (%.1f)" % [t.kaminari_lift_height, p.global_position.y - ground_y])
 	struck[1].queue_free()  # dead
 	await _frames(3)
 	check(not p.abilities.spells.caging(), "and stops once that one's gone")
+	var near_one := _dummy(Vector3(0, 0, -5))
+	p.abilities.spells.hold_bolt(p.abilities.defs.Ultimate, p)
+	p.abilities.spells._spark(p.abilities.spells._spears[0])
+	check(near_one.health.hp < near_one.health.max_hp, "aiming, small bolts strike out of its tip and hurt")
+	_free_all([near_one])
+	await _frames(int(2.0 * hz))  # back down before the next spell
 
 	# Stone Slab: launches what's in front.
 	p.abilities.load_for("animal_god")
