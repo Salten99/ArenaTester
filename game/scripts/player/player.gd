@@ -1019,6 +1019,7 @@ func _start_dodge(dir: Vector3) -> void:
 	_reset_visual()
 	statuses.consume("void")  # dodging shakes off one Void stack
 	godly_gifts.trigger("on_dodge", {"position": global_position})
+	Enemy.dash_slow_until = Engine.get_physics_frames() + roundi(GameData.tuning.dash_enemy_slow_time * Engine.physics_ticks_per_second)
 
 
 ## The Guardian's signature move (DECISIONS 2026-11-16): the dodge key raises the shield

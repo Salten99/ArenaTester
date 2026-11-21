@@ -216,14 +216,17 @@ func test_godly_gift_offer_and_duo() -> void:
 
 func test_dodge_iframes() -> void:
 	var p: Player = _arena.player
+	var e: Enemy = _cluster(1, 8.0)[0]
 	var s := _scripted()
 	s.press("dodge")
 	await _frames(2)
 	check(p.state == Player.State.DODGE, "dodge started")
+	check(e._dash_slowed, "your dash slows the enemies")
 	var hit := DamageInfo.make(50.0, "Physical", DamageInfo.Kind.ENEMY, null)
 	check(p.take_hit(hit) == 0.0, "no damage during i-frames")
 	await _frames(30)
 	check(p.state == Player.State.FREE, "dodge ended")
+	check(not e._dash_slowed, "a third of a second later they run at full speed again")
 
 
 func test_guardian_parry() -> void:

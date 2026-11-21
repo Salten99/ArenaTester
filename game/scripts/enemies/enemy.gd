@@ -224,7 +224,19 @@ var _skipped := 0.0
 var in_crowd := false
 
 
+## Your dash slows every enemy (dash_enemy_slow_time/scale): until this physics frame they run slow.
+static var dash_slow_until := 0
+var _dash_slowed := false
+
+
 func _physics_process(delta: float) -> void:
+	var slowed := Engine.get_physics_frames() < dash_slow_until and state != State.FROZEN and state != State.DEAD
+	if slowed != _dash_slowed:
+		_dash_slowed = slowed
+		if model != null and (slowed or (state != State.FROZEN and state != State.DEAD)):
+			model.set_speed(GameData.tuning.dash_enemy_slow_scale if slowed else 1.0)
+	if slowed:
+		delta *= GameData.tuning.dash_enemy_slow_scale
 	if model != null:
 		model.in_crowd = in_crowd
 	if crowd_stride > 1 and not thrown and state != State.DEAD and not _pinning and held_by == null and is_instance_valid(player) \
