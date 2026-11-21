@@ -205,7 +205,6 @@ func _offer_next() -> void:
 func _on_killed(target: Node, info: DamageInfo) -> void:
 	if not Run.active or not target is Enemy:
 		return
-	Meta.discover(str(target.get("unit_id")))
 	give_xp(GameData.num(target.get("unit") if target.get("unit") != null else {}, "xp_reward", 2.0))
 
 

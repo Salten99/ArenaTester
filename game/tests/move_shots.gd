@@ -15,7 +15,6 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--out="):
 			_out = a.get_slice("=", 1)
-	Meta.persist = false
 	Playtest.persist = false
 	get_window().size = Vector2i(CELL * 3, CELL * 3)
 	await get_tree().process_frame

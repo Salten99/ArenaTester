@@ -43,9 +43,7 @@ class ScriptedInput:
 
 
 func _ready() -> void:
-	Meta.persist = false
 	Playtest.persist = false
-	SaveSystem.PROFILE_PATH = "user://test_profile.json"
 	await get_tree().process_frame
 	var tests := [
 		"test_data_loads", "test_data_is_consistent", "test_rng_is_deterministic", "test_damage_pipeline",
@@ -54,7 +52,7 @@ func _ready() -> void:
 		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_spells", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_practice_picks", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_bestiary_saved", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head", "test_pixelfx_effects", "test_hit_reactions", "test_aim_every_spell", "test_lance_flight_and_shoulder_camera", "test_walls_and_ledges", "test_audit_fixes_3",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_practice_picks", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head", "test_pixelfx_effects", "test_hit_reactions", "test_aim_every_spell", "test_lance_flight_and_shoulder_camera", "test_walls_and_ledges", "test_audit_fixes_3",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_spells runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -1307,16 +1305,11 @@ func test_pixelfx_effects() -> void:
 	check(ghosts.call() == 0, "and they fade away")
 
 
-func test_bestiary_and_wings() -> void:
-	Meta.persist = false
+func test_wings() -> void:
 	var p: Player = _arena.player
 	p.god_mode = true
 	p.setup("dwarf", "forge_god", "warhammer")
 	var input := _scripted()
-	var book := Bestiary.open(_arena)
-	await _frames(2)
-	check(book._title.text.contains("discovered") and book._info.text != "", "the bestiary lists what you've found")
-	book._close()
 	# Birds beat their wings with the little demon's wing beat.
 	var eagle: Enemy = _arena.waves.spawn("animal_eagle", p.global_position + Vector3(0, 6, -8))
 	await _frames(2)
@@ -3412,29 +3405,6 @@ func test_tutorial() -> void:
 	p.equip("warhammer")
 	await _frames(2)
 	check(a.step == a.steps.size(), "taking up, throwing and taking back a weapon finish the tutorial")
-
-
-func test_bestiary_saved() -> void:
-	Meta.persist = true
-	Meta.data = {"codex": []}
-	Meta.discover(WaveDirector.BASIC_UNIT)
-	Meta.persist = false
-	Meta.data = {}
-	Meta.load_profile()
-	check(("creature:" + WaveDirector.BASIC_UNIT) in Meta.data.codex, "a discovered creature is still in the bestiary after a reload")
-	for id in EndlessArena.HITS_TO_KILL:
-		Meta.discover(id)
-		check(Bestiary.is_discovered(id) and Bestiary.creatures().any(func(r): return r.unit_id == id), "%s, met in the waves, is in the bestiary" % id)
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(SaveSystem.PROFILE_PATH))
-	# An unreadable profile is kept aside, never written over.
-	var f := FileAccess.open(SaveSystem.PROFILE_PATH, FileAccess.WRITE)
-	f.store_string("{oops")
-	f.close()
-	var aside := SaveSystem.PROFILE_PATH.get_basename() + ".broken.json"
-	Meta.load_profile()
-	check(FileAccess.file_exists(aside) and FileAccess.get_file_as_string(aside) == "{oops" and Meta.data.codex.is_empty(),
-		"a broken profile is kept as profile.broken.json and the game starts with an empty bestiary")
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(aside))
 
 
 func test_hitstop_in_slow_motion() -> void:
