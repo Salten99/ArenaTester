@@ -164,8 +164,9 @@ func _fire_ultimate(a: Dictionary, player: Node, spot: Vector3, radius: float) -
 	var root: Node = Vfx._root()
 	if root == null:  # no effects layer: the dive still has to land
 		root = self
-	for i in 5:  # 20..160 degrees round, like a rainbow over you
-		var ang := deg_to_rad(lerpf(20.0, 160.0, i / 4.0))
+	var offs: Array[float] = [t.ult_arc_outer_angle, t.ult_arc_inner_angle, 0.0, -t.ult_arc_inner_angle, -t.ult_arc_outer_angle]
+	for i in 5:  # round from straight up, like a rainbow over you
+		var ang := deg_to_rad(90.0 - offs[i])
 		var out := right * cos(ang) + Vector3.UP * sin(ang)  # from the arc's center out to this circle
 		var at := top + (out - Vector3.UP) * t.ult_arc_radius
 		get_tree().create_timer(t.ult_arc_gap * absf(i - 2), false).timeout.connect(  # from the middle outward

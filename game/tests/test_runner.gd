@@ -462,11 +462,11 @@ func test_fire_ultimate() -> void:
 	await _frames(int(t.ult_arc_gap * 2.0 * hz) + 4)
 	var over := get_tree().get_nodes_in_group("magic_circle").filter(func(c):
 		var to: Vector3 = c.global_position - lifted
-		return to.y > 1.0 and to.length() < 7.0)
-	check(over.size() == 5, "five magic circles open in an arc over your head (%d)" % over.size())
+		return to.y > -0.5 and to.length() < 7.0)  # the outer two sit out beside you (user, 2026-11-20)
+	check(over.size() == 5, "five magic circles open in an arc round your head (%d)" % over.size())
 	var heights: Array = over.map(func(c): return c.global_position.y - lifted.y)
 	heights.sort()
-	check(heights[4] > 3.0 and heights[0] < heights[4] - 1.0, "arching up over it, the middle one highest")
+	check(heights.size() == 5 and heights[4] > 3.0 and heights[0] < heights[4] - 1.0, "arching up over it, the middle one highest")
 	check(enemies.all(func(e): return e.health.hp == e.health.max_hp), "nothing is hit yet")
 	await _frames(int(t.ult_lift_time * hz) + 2)
 	check(p.global_position.y > lifted.y - 0.5 and p.abilities.levitating(), "you rise %.0f m off the ground (%.1f)" % [t.ult_lift_height, p.global_position.y - spot.y])

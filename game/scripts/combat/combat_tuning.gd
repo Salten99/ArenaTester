@@ -218,6 +218,10 @@ extends Resource
 @export_range(0.5, 6.0, 0.1) var ult_arc_radius := 2.2
 @export_range(0.2, 3.0, 0.05) var ult_arc_circle_size := 0.7
 @export_range(0.0, 0.5, 0.01) var ult_arc_gap := 0.08
+## How far round from straight up (degrees) the two circles beside the middle one sit, and the two
+## outer ones (user, 2026-11-20: wider; 35 and 70 before).
+@export_range(0.0, 90.0, 1.0) var ult_arc_inner_angle := 45.0
+@export_range(0.0, 120.0, 1.0) var ult_arc_outer_angle := 90.0
 @export_range(0.1, 3.0, 0.05) var ult_dragon_delay := 0.6
 @export_range(0.3, 4.0, 0.05) var ult_dragon_time := 1.35  # 0.9 until 2026-11-20 (user: 33% slower)
 @export_range(6, 80) var ult_dragon_segments := 30
