@@ -721,6 +721,10 @@ func test_spells() -> void:
 	p.abilities.cast("Movement", p, Vector3.FORWARD)
 	await _frames(int(t.spell_release_delay * hz) + 6)
 	check(slabbed.health.hp < slabbed.health.max_hp and safe.health.hp == safe.health.max_hp, "Stone Slab erupts in front of you")
+	for kind in p.abilities.spells.SLAB_SHAPES:
+		var shape: Node3D = p.abilities.spells._slab_shape(kind)
+		check(not shape.find_children("*", "MeshInstance3D", true, false).is_empty(), "Stone Slab can come up as a stone %s" % kind.to_lower())
+		shape.free()
 	_free_all([slabbed, safe])
 	p.abilities.remaining["Movement"] = 0.0
 	var hp_before: float = p.health.hp

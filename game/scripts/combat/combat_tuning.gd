@@ -326,8 +326,10 @@ extends Resource
 @export_range(0.5, 10.0, 0.25) var ice_snake_freeze := 3.0
 @export_range(6, 80) var ice_snake_segments := 28
 @export_range(0.2, 4.0, 0.05) var ice_snake_size := 1.5
-## Stone Slab: how long the pillar stands before it bursts into dust (s).
+## Stone Slab: how long the shape stands before it bursts into dust (s).
 @export_range(0.1, 5.0, 0.1) var slab_stay := 1.0
+## Stone Slab: what comes up out of the ground; Random picks one each cast.
+@export_enum("Random", "Fist", "Hammer", "Tree", "Dolphin") var slab_shape := "Random"
 ## Stone Slab: how fast it throws you up when you cast it under yourself (m/s; 16 is about 8 m high).
 @export_range(0.0, 40.0, 0.5) var slab_player_launch := 16.0
 ## Crushing Pillars: how far apart the two circles open (m), the wait before the rams charge (s),

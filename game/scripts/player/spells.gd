@@ -8,7 +8,7 @@ extends Node
 ##   Spear   a lightning bolt thrown from your hand, a dragon coiled round it, jumping enemy to enemy (Kaminari)
 ##   Slide   slide range_m on a trail of ice that slows (Ice Slide)
 ##   Snake   a giant ice snake you ride; it freezes what it touches, shatters what it kills (Ice Snake)
-##   Slab    a square stone pillar shoots up where aimed, launches what's on it (you too, unhurt), then bursts into dust (Stone Slab)
+##   Slab    a stone fist, hammer, tree or dolphin shoots up where aimed, launches what's on it (you too, unhurt), then bursts into dust (Stone Slab)
 ##   Crush   two stone rams charge and headbutt on the aimed spot (Crushing Pillars)
 ##   Magma   reach into the ground, pull out a magma ball and hurl it at the aimed spot (Magma Ball)
 ## The looks are built in code; your models/own/fx/<ability_id>.tscn plays instead once you make it.
@@ -689,6 +689,52 @@ func _end_snake() -> void:
 
 # ---------------------------------------------------------------- Slab: Stone Slab
 
+const SLAB_SHAPES := ["Fist", "Hammer", "Tree", "Dolphin"]
+const SLAB_HEIGHT := 4.0  # about how tall each shape stands (m)
+
+
+## The slab's shape (user, 2026-11-20), all stone, standing on its own ground point, its front (+Z)
+## your way: a fist punching up, your war hammer head up, an oak, or a dolphin leaping nose first.
+func _slab_shape(kind: String) -> Node3D:
+	var slab := Node3D.new()
+	var model: Node3D
+	match kind:
+		"Hammer":  # 1.14 m long, the handle's end 0.44 m below its middle
+			model = (load("res://models/own/weapon_warhammer.glb") as PackedScene).instantiate()
+			model.scale = Vector3.ONE * 3.5
+			model.position.y = 0.44 * 3.5
+		"Tree":  # 4.8 m tall, roots 0.26 m below its middle
+			model = (load("res://models/gen/world/Tree_Oak_A.glb") as PackedScene).instantiate()
+			model.scale = Vector3.ONE * 0.85
+			model.position.y = 0.26 * 0.85
+		"Dolphin":  # 2.9 m nose (+Z) to tail: turned nose up, the tail on the ground
+			model = (load("res://models/gen/animal_dolphin.glb") as PackedScene).instantiate()
+			model.scale = Vector3.ONE * 1.4
+			model.rotation.x = deg_to_rad(-90.0)
+			model.position.y = 1.45 * 1.4
+		_:  # Fist: no model of one, so blocks: forearm, fist, curled fingers in front, knuckles on top, thumb
+			model = Node3D.new()
+			for part in [[Vector3(1.0, 2.2, 1.0), Vector3(0, 1.1, 0)], [Vector3(1.5, 1.3, 1.2), Vector3(0, 2.85, -0.1)],
+					[Vector3(1.0, 0.35, 0.35), Vector3(0.2, 2.35, 0.75)]]:
+				_block(model, part[0], part[1])
+			for x in [-0.54, -0.18, 0.18, 0.54]:
+				_block(model, Vector3(0.34, 0.9, 0.4), Vector3(x, 2.8, 0.55))
+				_block(model, Vector3(0.34, 0.25, 0.5), Vector3(x, 3.55, 0.15))
+	slab.add_child(model)
+	for m in slab.find_children("*", "MeshInstance3D", true, false):
+		(m as MeshInstance3D).material_override = STONE_SKIN
+	return slab
+
+
+func _block(parent: Node3D, size: Vector3, at: Vector3) -> void:
+	var box := BoxMesh.new()
+	box.size = size
+	var m := MeshInstance3D.new()
+	m.mesh = box
+	m.position = at
+	parent.add_child(m)
+
+
 func _slab(a: Dictionary, player: Node, dir: Vector3, at: Vector3) -> void:
 	if not _alive(player):
 		return
@@ -698,15 +744,18 @@ func _slab(a: Dictionary, player: Node, dir: Vector3, at: Vector3) -> void:
 	var half_w := GameData.num(a, "radius_m", 1.5)
 	var mid: Vector3 = at if at != Vector3.INF else feet + dir * (length * 0.5 + 0.5)
 	if not _own(a):
-		var box := BoxMesh.new()
-		box.size = Vector3(half_w * 2.0, 3.0, half_w * 2.0)  # a square pillar
-		var slab := Vfx._spawn(box, UltimateFx.STONE, mid - Vector3.UP * 1.5)
-		if slab != null:
-			slab.basis = Basis.looking_at(dir, Vector3.UP)
+		var root := Vfx._root()
+		if root != null:
+			var kind: String = t.slab_shape if t.slab_shape != "Random" else SLAB_SHAPES.pick_random()
+			var slab := _slab_shape(kind)
+			root.add_child(slab)
+			slab.global_position = mid - Vector3.UP * SLAB_HEIGHT
+			slab.basis = Basis.looking_at(dir, Vector3.UP, true)
 			var tw := slab.create_tween()
-			tw.tween_property(slab, "global_position", mid + Vector3.UP * 1.5, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			tw.tween_property(slab, "global_position", mid, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			tw.tween_interval(t.slab_stay)
 			tw.tween_callback(func() -> void:
+				slab.global_position += Vector3.UP * SLAB_HEIGHT * 0.5  # the rubble comes off its middle
 				_crumble(slab)
 				ElementFx.area("Stone", slab.global_position, half_w * 1.5)
 				slab.queue_free())
