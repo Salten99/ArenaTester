@@ -54,7 +54,7 @@ func _ready() -> void:
 		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_spells", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_practice_picks", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_bestiary_saved", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head", "test_pixelfx_effects", "test_hit_reactions", "test_aim_every_spell", "test_lance_flight_and_shoulder_camera",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_practice_picks", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_bestiary_saved", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head", "test_pixelfx_effects", "test_hit_reactions", "test_aim_every_spell", "test_lance_flight_and_shoulder_camera", "test_walls_and_ledges",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_spells runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -826,6 +826,7 @@ func test_spells() -> void:
 	check(get_tree().get_nodes_in_group("magic_circle").filter(func(c): return c.global_position.distance_to(spot) < 2.0 * t.ram_size + 3.0).size() >= 2, "Crushing Pillars opens two circles at the aimed spot")
 	check(crushed.health.hp == crushed.health.max_hp, "and nothing is crushed before the pillars meet")
 	check(get_tree().get_nodes_in_group("stone_ram").size() == 2, "two stone rams come out of the circles")
+	await _until_on_floor()  # lighter gravity (2026-11-20): the throw can hang longer than 2.5 s
 	check((get_tree().get_nodes_in_group("stone_ram")[0].find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).material_override.cull_mode == BaseMaterial3D.CULL_DISABLED, "stone on both sides, so no holes")
 	var ram_start: Vector3 = get_tree().get_nodes_in_group("stone_ram")[0].global_position
 	await _frames(int((t.pillar_delay + t.ram_rear_time * 0.6) * hz))
@@ -2656,7 +2657,7 @@ func test_chain_grab() -> void:
 	hopper.health.hp = 10000.0
 	await hook.call(hopper)
 	s.hold({"light_held": true, "jump": true, "jump_held": true}, 1)
-	s.hold({"light_held": true}, 90)
+	s.hold({"light_held": true}, 150)  # 90 until 2026-11-20: with 25% less gravity a jump hangs ~1.5 s
 	await _frames(15)
 	check(p.state == Player.State.CHAIN and not p.is_on_floor(), "you can jump with a minion on the chain")
 	await _until_on_floor()
@@ -3534,3 +3535,68 @@ func test_lance_flight_and_shoulder_camera() -> void:
 	var off_center := (pivot - rig.camera.global_position).cross(look).length()  # how far you are from the middle of its view
 	check(to_cam.dot(right) > 1.0 and off_center < 0.3, "the camera stands off your right side (%.1f m), you in the middle of the screen (%.2f m off)" % [to_cam.dot(right), off_center])
 
+
+
+func test_walls_and_ledges() -> void:
+	# User, 2026-11-20: 33% faster, 25% less gravity, and walls to run, jump off, climb and chain up.
+	var p: Player = _arena.player
+	var t: CombatTuning = GameData.tuning
+	check(is_equal_approx(t.move_speed, 4.85) and is_equal_approx(t.sprint_speed, 14.65) and is_equal_approx(t.gravity, 11.25),
+		"33%% faster (walk %.2f, sprint %.2f), 25%% less gravity (%.2f)" % [t.move_speed, t.sprint_speed, t.gravity])
+	await _until_on_floor()
+	var s := _scripted()
+	var start := p.global_position
+	var fwd: Vector3 = Vector3.FORWARD  # aim_yaw 0: forward is -z
+	var right := Vector3.RIGHT
+	# Climb: push into a mossy wall and you go up it and over onto the top.
+	var cliff := ArenaCourse.block(_arena, start + fwd * 4.0 + Vector3.UP * 2.0, Vector3(4.0, 4.0, 6.0), 0.0, true)
+	var climbed := false
+	for i in 240:
+		s.hold({"move": Vector2(0.0, 1.0)}, 1)
+		await _frames(1)
+		climbed = climbed or p.climbing
+		if climbed and p.is_on_floor() and p.global_position.y > start.y + 3.9:
+			break  # on top: stop before walking off the back
+	check(climbed and p.global_position.y > start.y + 3.9 and p.is_on_floor(), "you climb a mossy wall and stand on top (%.1f m up)" % (p.global_position.y - start.y))
+	cliff.queue_free()
+	p.global_position = start
+	p.velocity = Vector3.ZERO
+	await _frames(2)
+	await _until_on_floor()
+	# Wall run: sprint, jump, and drift into a long stone wall on your left.
+	var wall := ArenaCourse.block(_arena, start + right * -1.2 + fwd * 14.0 + Vector3.UP * 3.0, Vector3(0.6, 6.0, 30.0), 0.0)
+	s.hold({"move": Vector2(0.0, 1.0), "sprint": true}, 20)
+	s.hold({"move": Vector2(0.0, 1.0), "sprint": true, "jump": true}, 1)
+	await _frames(21)
+	var ran := 0
+	var top_speed := 0.0
+	for i in 50:
+		s.hold({"move": Vector2(-0.5, 1.0), "sprint": true}, 1)
+		await _frames(1)
+		if p.wall_running:
+			ran += 1
+			top_speed = maxf(top_speed, _horizontal_speed())
+	check(ran > 10 and top_speed >= t.wall_run_speed * 0.9, "you run along the wall (%d frames, %.1f m/s)" % [ran, top_speed])
+	# Wall jump: off it, up and away.
+	s.hold({"move": Vector2(-0.5, 1.0), "sprint": true, "jump": true}, 1)
+	await _frames(1)
+	check(p.velocity.y > t.wall_jump_up - 1.0 and p.velocity.x > 2.0, "a jump off the wall goes up and away (up %.1f, out %.1f)" % [p.velocity.y, p.velocity.x])
+	wall.queue_free()
+	p.global_position = start
+	p.velocity = Vector3.ZERO
+	await _frames(2)
+	await _until_on_floor()
+	# Sling: hold grab aiming at the ring on a tall wall's lip; the chain hauls you up onto the top.
+	var tower := ArenaCourse.block(_arena, start + fwd * 12.0 + Vector3.UP * 4.0, Vector3(4.0, 8.0, 4.0), 0.0)
+	var ring := LedgeAnchor.make(_arena, start + fwd * 9.9 + Vector3.UP * 7.7, 0.0)
+	var grab_frames := ceili(t.grab_hold_time * 60.0) + 2
+	s.hold({"light": true, "light_held": true, "crosshair": ring.global_position}, 1)
+	s.hold({"light_held": true, "crosshair": ring.global_position}, grab_frames + 20)
+	var slung := false
+	for i in grab_frames + 120:
+		await _frames(1)
+		slung = slung or (p.state == Player.State.CHAIN and p.chain.mode == Chain.Mode.SLING)
+	check(slung and p.global_position.y > start.y + 7.9 and p.global_position.z < start.z - 10.0, "the chain slings you up onto the tower (%.1f m up, %.1f m in)" % [p.global_position.y - start.y, start.z - p.global_position.z])
+	tower.queue_free()
+	ring.queue_free()
+	p.input_source = null

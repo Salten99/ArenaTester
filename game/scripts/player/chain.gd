@@ -15,7 +15,8 @@ extends RefCounted
 ## What you pull in knocks enemies in its path aside (chain_plow_knockback).
 ## On a Large unit or boss the chain holds fast; right click (or the wheel) pulls you to it for a drop kick (a heavy):
 ## it's launched only if the kick kills it, else it slides back on its feet (chain_kick_push).
-enum Mode { OFF, FLYING, HOOKED, REEL, SLAM, SWING, PULL, KICK, YANK, DRAG, ANCHOR }
+## On a gold ring on a tall wall's lip (a LedgeAnchor, user 2026-11-20) it slings you up and over onto the top.
+enum Mode { OFF, FLYING, HOOKED, REEL, SLAM, SWING, PULL, KICK, YANK, DRAG, ANCHOR, SLING }
 const YANK_TIME := 0.22  ## s for a yanked minion to fly into your blow
 const WALL_SLAM_DAMAGE := 1.4  ## swinging it into a wall: x a heavy hit
 
@@ -73,6 +74,9 @@ func find_target(intent: PlayerIntent) -> Node3D:
 		for w in player.get_tree().get_nodes_in_group("chain_weapons"):
 			if (w as Node3D).global_position.distance_to(player.global_position) <= t.chain_range:
 				pool.append(w)
+	for a in player.get_tree().get_nodes_in_group("ledge_anchors"):  # and the rings on tall walls, farther off
+		if (a as Node3D).global_position.distance_to(player.global_position) <= t.sling_range:
+			pool.append(a)
 	for e in pool:
 		if not is_instance_valid(e) or e.is_dead() or (e is Enemy and e.held_by != null):
 			continue
@@ -80,9 +84,9 @@ func find_target(intent: PlayerIntent) -> Node3D:
 		var feet: Vector3 = e.global_position
 		var near := Geometry3D.get_closest_point_to_segment(eye + aim * eye.distance_to(feet), feet, feet + Vector3.UP * e.aim_height() * 2.0)
 		var to: Vector3 = near - eye
-		if to.length() > t.chain_range + 1.0:
+		if to.length() > (t.sling_range if e is LedgeAnchor else t.chain_range) + 1.0:
 			continue
-		var width: float = 0.4 * e.size_scale if e is Enemy else 0.3
+		var width: float = 0.4 * e.size_scale if e is Enemy else (0.8 if e is LedgeAnchor else 0.3)
 		var angle := maxf(0.0, aim.angle_to(to) - atan2(width, maxf(to.length(), 0.5)))
 		if angle <= best_angle:
 			best_angle = angle
@@ -122,6 +126,12 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 					Vfx.sparks(_target_point(), hand() - _target_point(), 6)
 					target.queue_free()
 					return _end()
+				if target is LedgeAnchor:  # a ring on a wall: up you go
+					mode = Mode.SLING
+					_time = 0.0
+					player.collision_mask = 0b001  # past anyone in the way
+					Vfx.sparks(_target_point(), hand() - _target_point(), 6)
+					return true
 				if pulls_you(target):
 					mode = Mode.ANCHOR  # it holds on a big one until you pull yourself in
 				else:
@@ -264,6 +274,11 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 		Mode.KICK:
 			if _time >= 0.35:
 				return _end()
+		Mode.SLING:
+			var land: Vector3 = (target as LedgeAnchor).landing()
+			if player.global_position.distance_to(land) < 0.8 or _time > 2.0:
+				player.velocity = (land - player.global_position).normalized() * 3.0  # a soft drop onto the top
+				return _end()
 	_update_line(delta)
 	return true
 
@@ -297,6 +312,11 @@ func pull_velocity() -> Vector3:
 
 ## Where a hooked minion is now (Enemy._follow_hand), or INF when it isn't on the chain.
 func point_for(e: Node3D) -> Vector3:
+	if mode == Mode.SLING and is_instance_valid(target):
+		# Up to just over the lip first (sliding up the wall face if you're against it), then in onto the top.
+		var lip: Vector3 = target.global_position + Vector3.UP * 1.0
+		var goal: Vector3 = lip if player.global_position.y < lip.y - 0.3 else (target as LedgeAnchor).landing()
+		return (goal - player.global_position).normalized() * GameData.tuning.sling_speed
 	return _hold_at if e == target and mode in [Mode.HOOKED, Mode.REEL, Mode.SLAM, Mode.SWING, Mode.YANK] else Vector3.INF
 
 
@@ -444,7 +464,7 @@ func _end() -> bool:
 
 
 func _stop() -> void:
-	if mode == Mode.PULL:
+	if mode in [Mode.PULL, Mode.SLING]:
 		player.collision_mask = 0b101  # solid to enemies again
 	mode = Mode.OFF
 	_kick_started = false

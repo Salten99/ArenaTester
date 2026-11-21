@@ -113,6 +113,12 @@ func _start_fight() -> void:
 	get_tree().create_timer(WAVE_GAP, false).timeout.connect(_continue_waves)
 
 
+## The gladiator arena, plus walls and heights to run, climb and chain up (ArenaCourse).
+func _build_level() -> void:
+	super()
+	ArenaCourse.build(self)
+
+
 func _build_hazards() -> void:
 	for h in HAZARDS:
 		var a := deg_to_rad(h[1])

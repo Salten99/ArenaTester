@@ -76,6 +76,14 @@ var is_crouching := false
 var _slide_timer := 0.0
 var _slide_dir := Vector3.ZERO
 var _wall_jump_timer := 0.0
+## Walls (user, 2026-11-20): running along one, or climbing a rough (mossy) one.
+var wall_running := false
+var climbing := false
+var _wall_run_left := 0.0  ## s of wall run left until you touch the ground again
+var _wall_normal := Vector3.ZERO  ## the wall last touched, facing out, flat
+var _wall_climbable := false
+var _wall_grace := 0.0  ## s since touching it still counts: a jump just after leaving a wall still works
+const WALL_GRACE := 0.15
 
 const LOW_HEALTH := 0.3
 ## The Guardian's shield (tools/blender/make_shield.py; your own models/own/gear_shield.glb wins).
@@ -391,10 +399,11 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 			ElementFx.play_own("landing", global_position)
 		_fall_speed = 0.0
 	_wall_jump_timer = maxf(_wall_jump_timer - delta, 0.0)
+	_touch_wall(delta)
 	var speed_mult := stats.mult("move_speed_pct") * (1.0 - statuses.slow_fraction())
 	var h := Vector2(velocity.x, velocity.z)
 
-	if state == State.CHAIN and chain.mode == Chain.Mode.PULL:  # the chain hauls you to a big one
+	if state == State.CHAIN and chain.mode in [Chain.Mode.PULL, Chain.Mode.SLING]:  # the chain hauls you to a big one, or up a wall
 		velocity = chain.pull_velocity()
 		_finish_move(delta)
 		return
@@ -412,8 +421,12 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 	if sprinting and move_dir.length() > 0.1:
 		spend_stamina(t.sprint_stamina * delta)
 	var skip_update := false
+	var jumped := false
+	if on_floor:
+		_wall_run_left = t.wall_run_time
 
 	if nimble and _jump_now(intent, delta, on_floor):
+		jumped = true
 		# Ground jump, with a small speed boost if it cancels a slide.
 		if is_sliding:
 			var boosted := minf(h.length() + t.slide_jump_speed_gain, t.max_speed)
@@ -427,21 +440,28 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 			velocity.y *= t.glide_jump_mult
 		is_sliding = false
 		is_crouching = false
-	elif nimble and intent.jump and not on_floor and is_on_wall() and _wall_jump_timer <= 0.0:
-		# Wall jump: launch at 45 degrees off the wall, keeping speed along it.
-		var normal := get_wall_normal()
+	elif nimble and intent.jump and not on_floor and _wall_grace > 0.0 and _wall_jump_timer <= 0.0:
+		# Wall jump (user, 2026-11-20): up and out off the wall, keeping speed along it, and the wall run back.
 		var horizontal := Vector3(velocity.x, 0.0, velocity.z)
-		var along := horizontal - normal * horizontal.dot(normal)
-		var launch := minf(t.jump_velocity_base + horizontal.length() * t.jump_speed_scale, t.jump_velocity_max)
-		var component := launch / sqrt(2.0)
-		velocity.y = component
-		var out := along + normal * component
+		var along := horizontal - _wall_normal * horizontal.dot(_wall_normal)
+		velocity.y = t.wall_jump_up
+		var out := along + _wall_normal * t.wall_jump_push
 		velocity.x = out.x
 		velocity.z = out.z
 		_wall_jump_timer = t.wall_jump_cooldown
+		_wall_grace = 0.0
+		_wall_run_left = t.wall_run_time
+		wall_running = false
+		climbing = false
 		is_sliding = false
 		is_crouching = false
 		skip_update = true
+		jumped = true
+
+	if _wall_move(delta, intent, move_dir, nimble and not jumped, on_floor, speed_mult):
+		return
+	if _wall_jump_timer > 0.0 and not on_floor:
+		skip_update = true  # just off a wall: its push carries you a moment before you steer again
 
 	if nimble and intent.slide and on_floor and not is_sliding and not is_crouching:
 		if move_dir.length() > 0.0:
@@ -500,6 +520,60 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 	if abilities.beaming():  # the Fire Lance's beam turns with your aim while the legs keep walking
 		facing = _turn_toward(Vector3(-sin(intent.aim_yaw), 0.0, -cos(intent.aim_yaw)), 12.0 * delta)
 	_finish_move(delta)
+
+
+## Remembers the wall (world, not an enemy) the last move touched, for WALL_GRACE s.
+func _touch_wall(delta: float) -> void:
+	_wall_grace = maxf(_wall_grace - delta, 0.0)
+	for i in get_slide_collision_count():
+		var c := get_slide_collision(i)
+		var n := c.get_normal()
+		var body := c.get_collider() as CollisionObject3D
+		if absf(n.y) < 0.3 and body != null and body.collision_layer & 0b001:
+			_wall_normal = Vector3(n.x, 0.0, n.z).normalized()
+			_wall_climbable = body.is_in_group("climbable")
+			_wall_grace = WALL_GRACE
+			return
+
+
+## Climbing and wall running (user, 2026-11-20). Push into a rough wall and you climb it, popping
+## up over the top; in the air, move along any wall fast enough and you run on it a while.
+## True when it moved you this frame.
+func _wall_move(delta: float, intent: PlayerIntent, move_dir: Vector3, can: bool, on_floor: bool, speed_mult: float) -> bool:
+	var t: CombatTuning = GameData.tuning
+	var was_climbing := climbing
+	var was_running := wall_running
+	climbing = false
+	wall_running = false
+	var touching := can and _wall_grace > 0.0 and move_dir.length() > 0.1
+	var into := move_dir.normalized().dot(-_wall_normal) if touching else 0.0
+	var flat := Vector3(velocity.x, 0.0, velocity.z)
+	var along := flat - _wall_normal * flat.dot(_wall_normal)
+	if touching and _wall_climbable and into > 0.5:
+		climbing = true
+		velocity = -_wall_normal * 1.5 + Vector3.UP * t.climb_speed * speed_mult  # pressed to it, going up
+		facing = _turn_toward(-_wall_normal, 14.0 * delta)
+	elif touching and not on_floor and into > -0.3 and _wall_run_left > 0.0 and (was_running or along.length() >= t.wall_run_min_speed):
+		wall_running = true
+		_wall_run_left -= delta
+		if not was_running:
+			velocity.y = t.wall_run_lift  # level out: a jump's rise doesn't carry you up over the wall
+		else:
+			velocity.y += t.gravity * (1.0 - t.wall_run_gravity) * delta  # most of this frame's fall taken back
+		var run := along.normalized() if along.length() > 0.1 else move_dir.normalized()
+		var speed := maxf(along.length(), t.wall_run_speed * speed_mult)
+		velocity.x = run.x * speed - _wall_normal.x * 1.5
+		velocity.z = run.z * speed - _wall_normal.z * 1.5
+		facing = _turn_toward(run, 14.0 * delta)
+	elif was_climbing and not on_floor and not intent.jump:
+		velocity.y = maxf(velocity.y, t.climb_top_pop)  # over the top
+		return false
+	else:
+		return false
+	is_sliding = false
+	is_crouching = false
+	_finish_move(delta)
+	return true
 
 
 func _first_person() -> bool:
@@ -1375,7 +1449,7 @@ func _update_animation() -> void:
 		trail.tint(element())
 	# The body split (combat feel plan, 2026-11-18): moving during any move, the legs keep walking.
 	var flat_speed := Vector2(velocity.x, velocity.z).length()
-	var acting := throw_charge >= 0.0 or state in [State.LIGHT, State.HEAVY, State.CAST, State.PARRY, State.GRAB] 		or (state == State.CHAIN and chain.mode not in [Chain.Mode.PULL, Chain.Mode.KICK])
+	var acting := throw_charge >= 0.0 or state in [State.LIGHT, State.HEAVY, State.CAST, State.PARRY, State.GRAB] 		or (state == State.CHAIN and chain.mode not in [Chain.Mode.PULL, Chain.Mode.KICK, Chain.Mode.SLING])
 	if acting and flat_speed > 0.6 and is_on_floor():
 		visual.set_split(_legs_clip(flat_speed))
 	else:
@@ -1397,6 +1471,8 @@ func _update_animation() -> void:
 				Chain.Mode.PULL:
 					if not chain.kicking():
 						visual.play("Jump_Idle")
+				Chain.Mode.SLING:
+					visual.play("Jump_Idle")
 				Chain.Mode.SWING:
 					visual.play("Melee_2H_Attack_Spinning")
 		State.FREE:
@@ -1410,6 +1486,8 @@ func _update_animation() -> void:
 				visual.play("Sneaking" if Vector2(velocity.x, velocity.z).length() > 0.3 else "Crouching")
 			elif is_sliding:
 				visual.play("Dodge_Forward", 0.6)
+			elif wall_running:
+				visual.play("Running_B")
 			elif not is_on_floor():
 				visual.play("Jump_Idle")
 			elif speed > GameData.tuning.move_speed * 1.6:

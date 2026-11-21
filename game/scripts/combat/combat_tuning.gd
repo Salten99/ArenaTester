@@ -44,13 +44,14 @@ extends Resource
 @export_range(0.0, 20.0, 0.5) var charge_throw_up := 7.0
 
 @export_group("Player movement")
-## Walking speed, m/s (sam-movement SPEED 5.0, lowered 45% on 2026-10-22; 33% faster on 2026-11-20).
-@export_range(1.0, 15.0, 0.05) var move_speed := 3.65
-## Speed while holding Sprint (sam-movement 15, lowered 45%; 33% faster on 2026-11-20).
-@export_range(1.0, 40.0, 0.05) var sprint_speed := 11.0
-## Hard ceiling on horizontal speed, whatever the source.
-@export_range(1.0, 60.0, 0.5) var max_speed := 30.0
-@export_range(1.0, 40.0, 0.5) var gravity := 15.0
+## Walking speed, m/s (sam-movement SPEED 5.0, lowered 45% on 2026-10-22; 33% faster on 2026-11-20, and 33% again later that day).
+@export_range(1.0, 15.0, 0.05) var move_speed := 4.85
+## Speed while holding Sprint (sam-movement 15, lowered 45%; 33% faster on 2026-11-20, and 33% again: was 11).
+@export_range(1.0, 40.0, 0.05) var sprint_speed := 14.65
+## Hard ceiling on horizontal speed, whatever the source (40, was 30: +33% with the rest, 2026-11-20).
+@export_range(1.0, 60.0, 0.5) var max_speed := 40.0
+## Your fall, m/s per second (11.25, was 15: 25% less so jumps hang and go higher, user 2026-11-20).
+@export_range(1.0, 40.0, 0.25) var gravity := 11.25
 ## Angels and bird people (Player.GLIDERS): how much harder they jump, and their fastest fall (m/s).
 @export_range(1.0, 4.0, 0.05) var glide_jump_mult := 1.8
 @export_range(0.5, 15.0, 0.25) var glide_fall_speed := 3.0
@@ -63,9 +64,9 @@ extends Resource
 ## A standing jump lands at about jump_velocity_base, so the default skips those.
 @export_range(1.0, 40.0, 0.5) var landing_fx_speed := 10.0
 ## Speed added on top of current speed when a slide starts.
-@export_range(0.0, 20.0, 0.1) var slide_speed_gain := 2.5
+@export_range(0.0, 20.0, 0.1) var slide_speed_gain := 3.3  # 2.5 until 2026-11-20 (+33%)
 ## Extra speed when jumping out of a slide.
-@export_range(0.0, 20.0, 0.1) var slide_jump_speed_gain := 1.5
+@export_range(0.0, 20.0, 0.1) var slide_jump_speed_gain := 2.0  # 1.5 until 2026-11-20 (+33%)
 @export_range(0.05, 5.0, 0.05) var slide_duration := 0.6
 ## Slide length when sliding out of a sprint.
 @export_range(0.05, 5.0, 0.05) var slide_duration_sprint := 1.5
@@ -76,13 +77,33 @@ extends Resource
 ## How fast you stop when no movement key is held on the ground.
 @export_range(0.0, 80.0, 0.5) var ground_friction := 32.0
 @export_range(0.0, 2.0, 0.05) var wall_jump_cooldown := 0.3
+## Walls (user, 2026-11-20). A wall jump throws you up this fast (m/s) and out from the wall this fast,
+## keeping your speed along it: jump between two walls to go up them.
+@export_range(0.0, 30.0, 0.5) var wall_jump_up := 10.0
+@export_range(0.0, 30.0, 0.5) var wall_jump_push := 7.0
+## Wall run: in the air, moving along a wall at least wall_run_min_speed (m/s), you run on it at
+## wall_run_speed or faster for up to wall_run_time (s), going up at wall_run_lift (m/s) as it starts,
+## falling at only wall_run_gravity of your gravity. Touching the ground (or a wall jump) gives it back.
+@export_range(0.0, 20.0, 0.5) var wall_run_min_speed := 5.0
+@export_range(1.0, 40.0, 0.5) var wall_run_speed := 14.0
+@export_range(0.1, 5.0, 0.05) var wall_run_time := 1.2
+@export_range(0.0, 15.0, 0.5) var wall_run_lift := 3.0
+@export_range(0.0, 1.0, 0.05) var wall_run_gravity := 0.2
+## Climbing a rough wall (the mossy ones): push into it and you go up at climb_speed (m/s); at the top
+## you pop up at climb_top_pop (m/s) and over onto it.
+@export_range(0.5, 15.0, 0.25) var climb_speed := 5.0
+@export_range(0.0, 15.0, 0.5) var climb_top_pop := 3.0
+## Chain sling: hold grab aiming at a gold ring on a tall wall's lip within sling_range (m) and the
+## chain hauls you up at sling_speed (m/s) and over onto the top.
+@export_range(5.0, 60.0, 0.5) var sling_range := 30.0
+@export_range(5.0, 60.0, 0.5) var sling_speed := 24.0
 ## Walking speed while crouched (hold Slide while standing still, then move), m/s.
-@export_range(0.5, 6.0, 0.1) var crouch_speed := 2.2
+@export_range(0.5, 6.0, 0.1) var crouch_speed := 2.9  # 2.2 until 2026-11-20 (+33%)
 ## Camera drop while sliding or crouching, in meters.
 @export_range(-2.0, 0.0, 0.05) var slide_camera_offset := -0.6
 ## Movement speed while doing a light attack or casting (fraction of walk speed).
 @export_range(0.0, 1.0, 0.05) var attack_move_factor := 0.3
-@export_range(1.0, 40.0, 0.5) var dodge_speed := 16.0
+@export_range(1.0, 40.0, 0.5) var dodge_speed := 21.5  # 16 until 2026-11-20 (+33%)
 @export_range(0.05, 1.0, 0.01) var dodge_duration := 0.22
 ## Invulnerable for this long at the start of a dodge.
 @export_range(0.0, 1.0, 0.01) var dodge_iframes := 0.2
