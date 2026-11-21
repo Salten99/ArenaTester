@@ -53,7 +53,11 @@ func load_all() -> void:
 		if not file.ends_with(".json"):
 			continue
 		var table := file.get_basename()
-		var parsed = JSON.parse_string(FileAccess.get_file_as_string(DATA_DIR + file))
+		var json := JSON.new()
+		if json.parse(FileAccess.get_file_as_string(DATA_DIR + file)) != OK:  # a hand-edit typo: say where
+			push_error("GameData: %s line %d: %s" % [file, json.get_error_line(), json.get_error_message()])
+			continue
+		var parsed = json.data
 		if table == "lists":
 			lists = parsed if parsed is Dictionary else {}
 			continue

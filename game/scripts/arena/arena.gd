@@ -124,6 +124,8 @@ func _build_level() -> void:
 ## each kind in turn on a ring, and after each wave more to make up for thrown ones that were lost.
 func scatter_weapons() -> void:
 	var kinds := GameData.pickup_weapons()
+	if kinds.is_empty():
+		return  # weapons.json lost its rows (GameData printed why): fists only
 	var lying := get_tree().get_nodes_in_group("weapon_pickups").filter(func(w): return not w.is_queued_for_deletion()).size()
 	for i in maxi(0, GameData.tuning.weapon_pickups - lying):
 		spawn_weapon(kinds[(lying + i) % kinds.size()])
@@ -206,7 +208,6 @@ func _on_killed(target: Node, info: DamageInfo) -> void:
 		return
 	if info != null and info.source is Enemy and (info.source as Enemy).team == Enemy.Team.HOSTILE:
 		return  # one wild side killing another: not your XP
-	Run.note("kills")
 	Meta.discover(str(target.get("unit_id")))
 	give_xp(GameData.num(target.get("unit") if target.get("unit") != null else {}, "xp_reward", 2.0))
 

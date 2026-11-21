@@ -1660,6 +1660,11 @@ func test_fists_pickups_and_throws() -> void:
 	for w in lying:
 		w.queue_free()
 	await _frames(1)
+	var sheet: Array = GameData.tables.weapons
+	GameData.tables.weapons = sheet.filter(func(r): return r.weapon_id == GameData.FISTS)  # weapons.json broken by a typo
+	_arena.scatter_weapons()
+	GameData.tables.weapons = sheet
+	check(get_tree().get_nodes_in_group("weapon_pickups").is_empty(), "with no weapons on the sheet, none are laid out (and nothing breaks)")
 	_arena.scatter_weapons()
 	check(get_tree().get_nodes_in_group("weapon_pickups").size() == t.weapon_pickups, "and more are laid out to make up the count")
 	for w in get_tree().get_nodes_in_group("weapon_pickups"):
