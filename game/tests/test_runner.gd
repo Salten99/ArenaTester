@@ -245,6 +245,14 @@ func test_minotaur_charge_throws_you() -> void:
 	check(p.velocity.y > 0.0, "a minotaur's charge throws you up")
 	await _frames(20)
 	check(p.global_position.x - start.x > 2.0, "and well along the way it ran")
+	check(p._thrown and p.global_position.y - start.y > 1.5, "high into the air, falling")
+	if p.visual != null:
+		check(p.visual._current == "Death_A", "the fall plays while you're in the air")
+	await _frames(150)
+	check(not p._thrown, "you land")
+	p.global_position = start
+	p.velocity = Vector3.ZERO
+	p.facing = Vector3.FORWARD
 	check(absf(p.global_position.z - start.z) < 0.5, "not off to the side")
 
 

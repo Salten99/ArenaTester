@@ -71,6 +71,9 @@ var moveset: WeaponMoveset = WeaponMoveset.new()
 var _weapon_hits := 0
 var _low_health_fired := false
 var _knock := Vector3.ZERO
+var _thrown := false  ## a minotaur threw you: you fall until you land
+var _thrown_time := 0.0
+var _getup := 0.0  ## seconds left getting back up after the throw
 var is_sliding := false
 var is_crouching := false
 var _slide_timer := 0.0
@@ -213,6 +216,13 @@ func _physics_process(delta: float) -> void:
 	var intent: PlayerIntent = input_source.read() if input_source != null else PlayerIntent.new()
 	aiming = aims_with_body()
 	_state_time += delta
+	if _thrown:
+		_thrown_time += delta
+		if is_on_floor() and _thrown_time > 0.1:
+			_thrown = false
+			_getup = t.charge_getup_time
+	else:
+		_getup -= delta
 	_combo_timer -= delta
 	if Combat.now_msec() - _stamina_used_msec > t.stamina_regen_delay * 1000.0:
 		stamina = minf(max_stamina, stamina + t.stamina_regen * stats.mult("stamina_regen_pct") * delta)
@@ -1302,7 +1312,11 @@ func take_hit(info: DamageInfo) -> float:
 		_last_hurt_msec = Combat.now_msec()
 		_knock = info.knockback_dir * info.knockback * 0.5
 		if info.knockdown:  # only a minotaur's charge knocks you down: it throws you the way it ran
-			_knock = Vector3(info.knockback_dir.x, 0.0, info.knockback_dir.z).normalized() * GameData.tuning.charge_throw_speed
+			var away := Vector3(info.knockback_dir.x, 0.0, info.knockback_dir.z).normalized()
+			_knock = away * GameData.tuning.charge_throw_speed
+			facing = -away  # facing the minotaur, so the fall goes backward along the throw
+			_thrown = true
+			_thrown_time = 0.0
 			velocity.y = GameData.tuning.charge_throw_up
 		Combat.shake(GameData.tuning.shake_player_hit)
 		_flash(Color(1, 0.3, 0.3))
@@ -1478,7 +1492,11 @@ func _update_animation() -> void:
 		State.FREE:
 			var speed := Vector2(velocity.x, velocity.z).length()
 			visual.flapping = not is_on_floor()  # winged races beat their wings
-			if throw_charge >= 0.0:
+			if _thrown:
+				visual.play("Death_A")  # the rig has no fall clip: the backward death fall stands in
+			elif _getup > 0.0:
+				visual.play("Spawn_Ground", GameData.tuning.charge_getup_time)  # getting up off the ground
+			elif throw_charge >= 0.0:
 				pass  # drawn back on the throw clip (_update_throw)
 			elif _jump_charging and is_on_floor():
 				visual.play("Crouching")

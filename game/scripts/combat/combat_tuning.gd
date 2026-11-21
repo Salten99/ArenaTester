@@ -41,7 +41,9 @@ extends Resource
 @export_range(1.0, 30.0, 0.5) var knockback_friction := 9.0
 ## A charging minotaur throws you the way it runs: this fast along the ground (m/s) and up into the air (m/s).
 @export_range(0.0, 40.0, 0.5) var charge_throw_speed := 16.0
-@export_range(0.0, 20.0, 0.5) var charge_throw_up := 7.0
+@export_range(0.0, 20.0, 0.5) var charge_throw_up := 10.0
+## After the throw you land and take this long to get back up (s).
+@export_range(0.0, 3.0, 0.05) var charge_getup_time := 0.6
 
 @export_group("Player movement")
 ## Walking speed, m/s (sam-movement SPEED 5.0, lowered 45% on 2026-10-22; 33% faster on 2026-11-20, and 33% again later that day).
