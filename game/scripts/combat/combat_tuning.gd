@@ -300,17 +300,26 @@ extends Resource
 ## Ice Slide: how long the slide takes (s) and how long its ice trail stays (s).
 @export_range(0.1, 2.0, 0.05) var slide_time := 0.4
 @export_range(0.5, 10.0, 0.5) var ice_trail_time := 3.0
-## Deep Freeze: from the cast until everything locks in ice (s), and how long it stays frozen
-## before shattering (s).
-@export_range(0.0, 2.0, 0.05) var deep_freeze_delay := 0.4
-@export_range(0.5, 10.0, 0.25) var deep_freeze_time := 3.0
+## Ice Snake (the Ice ultimate): how long you ride it (s), how fast it goes (m/s), how fast it turns
+## your way, how high you sit (m), how near its body freezes (m) and for how long (s), how many
+## pieces long it is and how big.
+@export_range(1.0, 15.0, 0.5) var ice_snake_time := 5.0
+@export_range(2.0, 40.0, 0.5) var ice_snake_speed := 13.0
+@export_range(0.5, 20.0, 0.5) var ice_snake_turn := 4.0
+@export_range(0.0, 6.0, 0.1) var ice_snake_height := 1.8
+@export_range(0.2, 5.0, 0.1) var ice_snake_reach := 1.6
+@export_range(0.5, 10.0, 0.25) var ice_snake_freeze := 3.0
+@export_range(6, 80) var ice_snake_segments := 28
+@export_range(0.2, 4.0, 0.05) var ice_snake_size := 1.5
 ## Stone Slab: how long the pillar stands before it bursts into dust (s).
 @export_range(0.1, 5.0, 0.1) var slab_stay := 1.0
-## Crushing Pillars: how far apart the two circles open (m), the wait before the pillars move (s),
-## and how long they take to meet (s). (user 2026-11-20: faster.)
+## Crushing Pillars: how far apart the two circles open (m), the wait before the rams charge (s),
+## and how long they take to meet (s). (user 2026-11-20: faster; rams, not pillars.)
 @export_range(4.0, 30.0, 0.5) var pillar_gap := 10.0
 @export_range(0.0, 2.0, 0.05) var pillar_delay := 0.25
 @export_range(0.05, 2.0, 0.05) var pillar_time := 0.2
+## Crushing Pillars: how big the two stone rams are (1 = the war ram mount's own size).
+@export_range(0.5, 4.0, 0.1) var ram_size := 1.6
 
 @export_group("Enemies")
 ## How many enemies may be winding up or striking at once (attack tokens).

@@ -11,7 +11,7 @@ extends Node
 ##   shape Cone               -> the Fire Lance: lunge forward (lance_lunge_m), then a beam
 ##                               range_m long, radius_m wide each side, following your aim a moment
 ##   shape Beam               -> the Lightning beam: the same lunge and beam, lightning_beam_time long
-##   shape Rings, Strike, Fan, Cage, Slide, Freeze, Slab, Crush, Magma -> the arena's spells (spells.gd)
+##   shape Rings, Strike, Fan, Cage, Slide, Snake, Slab, Crush, Magma -> the arena's spells (spells.gd)
 ## Abilities count as Magic damage.
 
 signal cooldowns_changed
@@ -74,7 +74,7 @@ func ultimate_radius() -> float:
 ## goes off around you.
 func aim_reach(slot: String) -> float:
 	var a: Dictionary = defs.get(slot, {})
-	if GameData.text(a, "shape") in ["Rings", "Freeze"]:
+	if GameData.text(a, "shape") in ["Rings", "Snake"]:
 		return 0.0
 	return aim_range() if slot == "Ultimate" else GameData.num(a, "range_m")
 

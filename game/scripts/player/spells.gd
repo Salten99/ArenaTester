@@ -7,14 +7,17 @@ extends Node
 ##   Fan     hits_or_projectiles bolts fan across fan_arc_deg in front, range_m long (Bolt Fan)
 ##   Spear   a lightning bolt thrown from your hand, a dragon coiled round it, jumping enemy to enemy (Kaminari)
 ##   Slide   slide range_m on a trail of ice that slows (Ice Slide)
-##   Freeze  everything within radius_m locks in ice, then shatters (Deep Freeze)
+##   Snake   a giant ice snake you ride; it freezes what it touches, shatters what it kills (Ice Snake)
 ##   Slab    a square stone pillar shoots up ahead, launches what's on it, then bursts into dust (Stone Slab)
-##   Crush   two stone pillars slam together on the aimed spot (Crushing Pillars)
+##   Crush   two stone rams charge and headbutt on the aimed spot (Crushing Pillars)
 ##   Magma   reach into the ground, pull out a magma ball and hurl it at the aimed spot (Magma Ball)
 ## The looks are built in code; your models/own/fx/<ability_id>.tscn plays instead once you make it.
 ## The numbers are in combat_tuning.tres, group Spells.
 
+const RAM := "res://models/own/mount_war_ram.glb"  # the Crush rams
+
 var _spears := []  # Kaminari spears while they fly
+var _snake := {}  # the Ice Snake while you ride it
 
 
 func _runner() -> AbilityRunner:
@@ -41,8 +44,8 @@ func cast(a: Dictionary, player: Node, dir: Vector3, at: Vector3) -> bool:
 			_slide(a, player, dir, at)
 		"Magma":
 			_magma(a, player, at if at != Vector3.INF else player.global_position + dir * GameData.num(a, "range_m", 15.0))
-		"Freeze":
-			_freeze(a, player)
+		"Snake":
+			_snake_ride(a, player)
 		"Slab":
 			_later(t.spell_release_delay, _slab.bind(a, player, dir))
 		"Crush":
@@ -483,6 +486,8 @@ func _physics_process(delta: float) -> void:
 		_update_spear(s, delta)
 	for m: Dictionary in _magma_balls.duplicate():
 		_update_magma(m, delta)
+	if not _snake.is_empty():
+		_update_snake(delta)
 
 
 func caging() -> bool:
@@ -524,52 +529,103 @@ func _ice_patch(a: Dictionary, player: Node, p: Vector3) -> void:
 		ElementFx.hit("Ice", p + Vector3.UP * 0.3, 0.5)  # frost mist puffing behind
 
 
-# ---------------------------------------------------------------- Freeze: Deep Freeze
+# ---------------------------------------------------------------- Snake: Ice Snake
 
-func _freeze(a: Dictionary, player: Node) -> void:
+## A giant ice snake rises out of the ground under you (user, 2026-11-20). You ride it for
+## ice_snake_time s; it never stops, you steer it as you walk (Player._move). Its body freezes what it
+## touches; what that touch kills shatters.
+func _snake_ride(a: Dictionary, player: Node) -> void:
 	var t: CombatTuning = GameData.tuning
-	var center: Vector3 = player.global_position
-	var radius := GameData.num(a, "radius_m", 8.0)
-	if not _own(a):  # a frost circle spreads from your feet
-		UltimateFx.circle("Ice", center + Vector3.UP * 0.06, Vector3.UP, radius, t.deep_freeze_delay + t.deep_freeze_time)
-		Vfx.ring(center, radius, ElementFx.color("Ice"), t.deep_freeze_delay)
-	_later(t.deep_freeze_delay, _lock.bind(a, player, center, radius))
+	var feet: Vector3 = player.global_position
+	var gap := t.ice_snake_size * 0.6  # meters between pieces
+	var trail: Array[Vector3] = []
+	for i in t.ice_snake_segments:  # standing straight down into the ground: it pours up out of it
+		trail.append(feet - Vector3.UP * gap * (t.ice_snake_segments - i))
+	_snake = {"a": a, "player": player, "left": t.ice_snake_time, "ground": feet.y, "trail": trail,
+		"gap": gap, "touched": {}, "node": null, "pieces": [] as Array[Node3D]}
+	_runner().invulnerable = true
+	var root := Vfx._root()
+	if not _own(a) and root != null:
+		var node := Node3D.new()
+		root.add_child(node)
+		_snake.node = node
+		_snake.pieces = FireDragon.build(node, t.ice_snake_segments, t.ice_snake_size, "Ice", 3, ElementFx.color("Ice").lightened(0.3))
+		UltimateFx._cracks(feet, Vector3.UP, 3.0)
+		ElementFx.area("Ice", feet, 3.0)
+	Combat.shake(t.shake_heavy)
 
 
-## Everything inside locks in ice at once; it shatters deep_freeze_time later.
-func _lock(a: Dictionary, player: Node, center: Vector3, radius: float) -> void:
-	if not _alive(player):
+func riding() -> bool:
+	return not _snake.is_empty()
+
+
+## The height the rider sits at.
+func ride_y() -> float:
+	return _snake.ground + GameData.tuning.ice_snake_height
+
+
+func _update_snake(delta: float) -> void:
+	var t: CombatTuning = GameData.tuning
+	var player: Node = _snake.player
+	_snake.left -= delta
+	if _snake.left <= 0.0 or not _alive(player):
+		_end_snake()
 		return
-	var t: CombatTuning = GameData.tuning
-	var own := _own(a)
-	var locked := []
-	for e in Combat.enemies_in_radius(center, radius):
-		e.freeze(t.deep_freeze_time)
-		var block: MeshInstance3D = null
-		if not own:
-			var box := BoxMesh.new()
-			var h: float = e.aim_height() * 2.2
-			box.size = Vector3(h * 0.6, h, h * 0.6)
-			block = Vfx._spawn(box, Color(ElementFx.color("Ice"), 0.45), e.global_position + Vector3.UP * h * 0.5)
-		locked.append([e, block])
-	if not own:
-		Vfx.burst(center, radius, Color(1, 1, 1, 0.6), 0.15)  # the white flash
-	Combat.shake(t.shake_heavy)
-	_later(t.deep_freeze_time, _shatter.bind(a, player, center, locked))
+	var head: Vector3 = player.global_position + player.facing * _snake.gap - Vector3.UP * t.ice_snake_size * 0.5
+	var trail: Array[Vector3] = _snake.trail
+	if head.distance_to(trail[-1]) >= _snake.gap:
+		trail.append(head)
+		if trail.size() > t.ice_snake_segments:
+			trail.pop_front()
+	var pieces: Array[Node3D] = _snake.pieces
+	for i in pieces.size():  # the head where you're going, the body down the way you came
+		var here: Vector3 = head if i == 0 else trail[maxi(trail.size() - i, 0)]
+		var toward: Vector3 = player.facing if i == 0 else (head if i == 1 else trail[mini(trail.size() - i + 1, trail.size() - 1)]) - here
+		pieces[i].visible = here.y > _snake.ground - 0.5
+		pieces[i].global_position = here
+		if toward.length() > 0.001 and absf(toward.normalized().y) < 0.999:
+			pieces[i].look_at(here + toward, Vector3.UP)
+	var touched: Dictionary = _snake.touched
+	for p: Vector3 in trail + [head]:
+		if p.y < _snake.ground - 0.5:
+			continue  # still in the ground
+		for e in Combat.enemies_in_radius(p, t.ice_snake_reach):
+			if not touched.has(e.get_instance_id()):
+				touched[e.get_instance_id()] = true
+				_snake_touch(_snake.a, player, e)
 
 
-func _shatter(a: Dictionary, player: Node, center: Vector3, locked: Array) -> void:
-	var t: CombatTuning = GameData.tuning
-	for pair in locked:
-		var e: Node = pair[0]
-		if is_instance_valid(pair[1]):
-			pair[1].queue_free()
-		if _alive(player) and _alive(e):
-			if not _own(a):
-				ElementFx.hit("Ice", e.global_position + Vector3.UP, 2.0)
-			_runner()._strike(a, player, e, center)
-	Combat.shake(t.shake_heavy)
-	HitStop.trigger(t.hitstop_heavy)
+## The snake's body touches `e`: it's hurt and frozen; if that kills it, it shatters.
+func _snake_touch(a: Dictionary, player: Node, e: Node) -> void:
+	var info: DamageInfo = player.make_hit(GameData.num(a, "base_damage"), "Ice", "Magic", e, DamageInfo.Kind.ABILITY)
+	info.no_launch = true
+	Combat.deal(e, info)
+	if not e.is_dead():
+		e.freeze(GameData.tuning.ice_snake_freeze)
+		return
+	var at: Vector3 = e.global_position + Vector3.UP * e.aim_height()
+	var col := ElementFx.color("Ice")
+	e.visible = false  # nothing left of it but the shards
+	for k in 8:
+		Vfx.chunk(at, Vector3(cos(k * TAU / 8.0), randf_range(0.5, 1.2), sin(k * TAU / 8.0)) * 5.0, col, 0.2)
+	Vfx.burst(at, 1.3, Color(col, 0.85), 0.2)
+	ElementFx.hit("Ice", at, 1.5)
+
+
+## Time's up: the snake bursts into ice under you and you drop.
+func _end_snake() -> void:
+	var player: Node = _snake.player
+	if is_instance_valid(player):
+		player.collision_mask = 0b101  # Player._move let you pass through enemies while riding
+	_runner().invulnerable = false
+	for piece: Node3D in _snake.pieces:
+		if is_instance_valid(piece) and piece.visible:
+			ElementFx.hit("Ice", piece.global_position, 0.8)
+			Vfx.chunk(piece.global_position, Vector3(randf_range(-3, 3), randf_range(2, 5), randf_range(-3, 3)), ElementFx.color("Ice"), 0.25)
+	if is_instance_valid(_snake.node):
+		_snake.node.queue_free()
+	Combat.shake(GameData.tuning.shake_heavy)
+	_snake = {}
 
 
 # ---------------------------------------------------------------- Slab: Stone Slab
@@ -613,36 +669,56 @@ func _crush(a: Dictionary, player: Node, dir: Vector3, spot: Vector3) -> void:
 	var right := dir.cross(Vector3.UP).normalized()
 	var half := t.pillar_gap * 0.5
 	if not _own(a):
+		var ram_scene := load(RAM) as PackedScene
 		for s in [-1.0, 1.0]:
-			var at: Vector3 = spot + right * s * half + Vector3.UP * 1.6
-			UltimateFx.circle("Stone", at, -right * s, 1.7, t.pillar_delay + t.pillar_time + 0.3)
-			var c := CylinderMesh.new()
-			c.top_radius = 1.4
-			c.bottom_radius = 1.4
-			c.height = half
-			c.radial_segments = 10
-			var pillar := Vfx._spawn(c, UltimateFx.STONE, at + right * s * half * 0.5)
-			if pillar == null:
+			var at: Vector3 = spot + right * s * half
+			UltimateFx.circle("Stone", at + Vector3.UP * 1.6, -right * s, 1.7, t.pillar_delay + t.pillar_time + 0.3)
+			var ram := _stone_ram(ram_scene, at, -right * s)
+			if ram == null:
 				continue
-			pillar.basis = Basis(Quaternion(Vector3.UP, right))
-			pillar.scale = Vector3(1, 0.05, 1)  # still inside the circle
-			var tw := pillar.create_tween()
-			tw.tween_property(pillar, "scale", Vector3.ONE, t.pillar_delay * 0.5).set_delay(t.pillar_delay * 0.5)
-			tw.tween_property(pillar, "global_position", spot + right * s * half * 0.5 + Vector3.UP * 1.6, t.pillar_time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-			tw.tween_interval(0.35)
-			tw.tween_callback(_crumble.bind(pillar))
-			tw.tween_property(pillar, "scale", Vector3(0.3, 0.3, 0.3), 0.3)
-			tw.tween_callback(pillar.queue_free)
+			var size := Vector3.ONE * t.ram_size
+			ram.scale = size * 0.05  # still inside the circle
+			var tw := ram.create_tween()
+			tw.tween_property(ram, "scale", size, t.pillar_delay * 0.5).set_delay(t.pillar_delay * 0.5)
+			tw.tween_callback(_play.bind(ram, "Gallop"))
+			# stops nose to nose: the model's nose is 1.27 m ahead of its middle
+			tw.tween_property(ram, "global_position", spot + right * s * 1.27 * t.ram_size, t.pillar_time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			tw.tween_callback(_play.bind(ram, "Attack_Headbutt"))
+			tw.tween_interval(0.6)
+			tw.tween_callback(_crumble.bind(ram))
+			tw.tween_property(ram, "scale", size * 0.3, 0.3)
+			tw.tween_callback(ram.queue_free)
 	_later(t.pillar_delay + t.pillar_time, _slam.bind(a, player, spot, right, half))
 
 
-## A pillar breaks into rubble.
+## Your war ram model, all stone, standing at `at` and facing `facing`.
+func _stone_ram(scene: PackedScene, at: Vector3, facing: Vector3) -> Node3D:
+	var root := Vfx._root()
+	if scene == null or root == null:
+		return null
+	var ram := scene.instantiate() as Node3D
+	for m in ram.find_children("*", "MeshInstance3D", true, false):
+		(m as MeshInstance3D).material_override = Vfx.material(UltimateFx.STONE)
+	ram.add_to_group("stone_ram")
+	root.add_child(ram)
+	ram.global_position = at
+	ram.basis = Basis.looking_at(facing, Vector3.UP, true)
+	return ram
+
+
+func _play(ram: Node3D, anim: String) -> void:
+	for p in ram.find_children("*", "AnimationPlayer", true, false):
+		if (p as AnimationPlayer).has_animation(anim):
+			(p as AnimationPlayer).play(anim)
+
+
+## A stone ram breaks into rubble.
 func _crumble(pillar: Node3D) -> void:
 	for k in 6:
 		Vfx.chunk(pillar.global_position + UltimateFx._in_disc(1.0), Vector3(randf_range(-3, 3), randf_range(2, 6), randf_range(-3, 3)), UltimateFx.STONE, 0.4)
 
 
-## The pillars meet: what's between them takes it all and goes down; the rest at the edges is knocked out.
+## The rams meet: what's between them takes it all and goes down; the rest at the edges is knocked out.
 func _slam(a: Dictionary, player: Node, spot: Vector3, right: Vector3, half: float) -> void:
 	if not _alive(player):
 		return

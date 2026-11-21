@@ -564,9 +564,9 @@ func test_spells() -> void:
 	var t: CombatTuning = GameData.tuning
 	var hz := Engine.physics_ticks_per_second
 	var home: Vector3 = p.global_position
-	var saved := [t.kaminari_time, t.deep_freeze_time]
+	var saved := [t.kaminari_time, t.ice_snake_time]
 	t.kaminari_time = 1.5
-	t.deep_freeze_time = 1.0
+	t.ice_snake_time = 1.0
 
 	# Magma Ball (Fire Q, user 2026-11-20): hold Q to aim, let go: you pull a ball of magma out of the
 	# ground and hurl it at the aimed spot.
@@ -614,14 +614,26 @@ func test_spells() -> void:
 	_free_all([skater])
 	p.global_position = home
 
-	# Deep Freeze: everything round you locks in ice, unhurt, then shatters.
-	var block := _dummy(Vector3(0, 0, 5), false)  # behind you: off the ice trail
-	p.abilities.cast("Ultimate", p, Vector3.FORWARD, p.global_position + Vector3(0, 0, -12))
-	await _frames(int(t.deep_freeze_delay * hz) + 4)
-	check(block.state == Enemy.State.FROZEN and block.health.hp == block.health.max_hp, "Deep Freeze locks enemies round you in ice")
-	await _frames(int(t.deep_freeze_time * hz) + 6)
-	check(block.health.hp < block.health.max_hp, "then they shatter")
-	_free_all([block])
+	# Ice Snake: you ride a giant ice snake; what it touches freezes, what it kills shatters.
+	p.facing = Vector3.RIGHT  # off the Ice Slide's trail
+	var cold := _dummy(Vector3(4, 0, 0), false)
+	var weak := _dummy(Vector3(7, 0, 0.5), false)
+	weak.health.hp = 1.0
+	var lift: float = p.global_position.y
+	p.abilities.cast("Ultimate", p, Vector3.RIGHT)
+	for i in int(0.6 * hz):
+		get_tree().paused = false  # a kill can open a level-up choice
+		await _frames(1)
+	check(p.abilities.spells.riding() and p.is_invulnerable() and p.global_position.y > lift + 1.0, "the Ice Snake lifts you up and carries you")
+	check(p.global_position.x - home.x > 4.0, "it keeps going without input (%.1f m)" % (p.global_position.x - home.x))
+	check(cold.state == Enemy.State.FROZEN and cold.health.hp < cold.health.max_hp, "what it touches is hurt and frozen")
+	check(weak.is_dead() and not weak.visible, "what it kills shatters")
+	for i in int(0.6 * hz):
+		get_tree().paused = false
+		await _frames(1)
+	check(not p.abilities.spells.riding() and not p.is_invulnerable(), "after its time it's gone and you drop")
+	_free_all([cold, weak])
+	p.global_position = home
 
 	# Thunder Crash and Bolt Fan: in front, not behind.
 	p.abilities.load_for("storm_god")
@@ -684,12 +696,13 @@ func test_spells() -> void:
 	await _frames(3)
 	check(get_tree().get_nodes_in_group("magic_circle").filter(func(c): return c.global_position.distance_to(spot) < 7.0).size() >= 2, "Crushing Pillars opens two circles at the aimed spot")
 	check(crushed.health.hp == crushed.health.max_hp, "and nothing is crushed before the pillars meet")
+	check(get_tree().get_nodes_in_group("stone_ram").size() == 2, "two stone rams come out of the circles")
 	await _frames(int((t.pillar_delay + t.pillar_time) * hz) + 6)
 	check(crushed.health.hp < crushed.health.max_hp and away.health.hp == away.health.max_hp, "the pillars crush what's between them")
 	_free_all([crushed, away])
 
 	t.kaminari_time = saved[0]
-	t.deep_freeze_time = saved[1]
+	t.ice_snake_time = saved[1]
 	p.global_position = home
 	p.abilities.defs = kept
 

@@ -525,8 +525,8 @@
   "ability_id": "snow_white_silence",
   "god_id": "snow_god",
   "slot": "Ultimate",
-  "display_name": "Deep Freeze",
-  "description": "Everything within 8 m is locked in ice for 3 s, then shatters for heavy damage.",
+  "display_name": "Ice Snake",
+  "description": "A giant ice snake rises under you; ride it for 5 s. It freezes every enemy it touches and shatters those it kills.",
   "damage_type": "Ice",
   "base_damage": 80,
   "cooldown_s": 65,
@@ -536,7 +536,7 @@
   "status_effect": "ice",
   "status_chance_pct": 100,
   "animation_name": "Ranged_Magic_Summon",
-  "shape": "Freeze",
+  "shape": "Snake",
   "vfx_sfx_notes": null
  },
  {
@@ -796,7 +796,7 @@
   "god_id": "animal_god",
   "slot": "Ultimate",
   "display_name": "Crushing Pillars",
-  "description": "Two magic circles open facing each other at the aimed spot; two huge stone pillars burst out and slam together, crushing everything caught between them.",
+  "description": "Two magic circles open facing each other at the aimed spot; two huge stone rams charge out and headbutt, crushing everything caught between them.",
   "damage_type": "Stone",
   "base_damage": 120,
   "cooldown_s": 70,

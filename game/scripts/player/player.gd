@@ -365,6 +365,14 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 		_finish_move(delta)
 		velocity.y = 0.0  # you drop from rest when it lets go
 		return
+	if abilities.spells.riding():  # the Ice Snake carries you: it never stops, you steer it as you walk
+		if move_dir.length() > 0.1:
+			facing = _turn_toward(move_dir, t.ice_snake_turn * delta)
+		velocity = facing * t.ice_snake_speed
+		velocity.y = clampf((abilities.spells.ride_y() - global_position.y) / 0.15, -20.0, 20.0)
+		collision_mask = 0b001  # over the enemies, not into them
+		_finish_move(delta)
+		return
 	if not on_floor:
 		velocity.y -= t.gravity * delta
 		if race_id in GLIDERS:
