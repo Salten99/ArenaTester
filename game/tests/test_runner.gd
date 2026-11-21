@@ -216,12 +216,16 @@ func test_godly_gift_offer_and_duo() -> void:
 
 func test_dodge_iframes() -> void:
 	var p: Player = _arena.player
-	var e: Enemy = _cluster(1, 8.0)[0]
+	var e: Enemy = _cluster(1, 2.0)[0]
+	var far: Enemy = _cluster(1, 8.0)[0]
+	var shot := Projectile.fire(p.global_position + Vector3(2, 1, 0), Vector3.RIGHT, 10.0, DamageInfo.make(1.0, "Physical", DamageInfo.Kind.ENEMY, null), Color.WHITE)
+	shot.hostile = true
 	var s := _scripted()
 	s.press("dodge")
 	await _frames(2)
 	check(p.state == Player.State.DODGE, "dodge started")
-	check(e._dash_slowed, "your dash slows the enemies")
+	check(e._dash_slowed and not far._dash_slowed, "your dash slows the enemies within dash_slow_radius, not those further off")
+	check(shot.dash_slow_until > Engine.get_physics_frames(), "and enemy shots near you")
 	var hit := DamageInfo.make(50.0, "Physical", DamageInfo.Kind.ENEMY, null)
 	check(p.take_hit(hit) == 0.0, "no damage during i-frames")
 	await _frames(30)

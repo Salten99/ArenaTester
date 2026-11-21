@@ -15,7 +15,10 @@ extends Resource
 @export_range(0.05, 1.0, 0.05) var perfect_dodge_slow_scale := 0.3
 @export_range(0.0, 2.0, 0.05) var finisher_slow_time := 0.25
 @export_range(0.05, 1.0, 0.05) var finisher_slow_scale := 0.25
-## Your dash slows every enemy (user, 2026-11-20): for this long (s) they move and animate at this speed.
+## Your dash slows the enemies and enemy shots near you (user, 2026-11-20): those within dash_slow_radius (m)
+## when it starts move and animate at dash_enemy_slow_scale, shots at dash_projectile_slow_scale, for dash_enemy_slow_time (s).
+@export_range(0.0, 15.0, 0.5) var dash_slow_radius := 3.0
+@export_range(0.05, 1.0, 0.05) var dash_projectile_slow_scale := 0.35
 @export_range(0.0, 2.0, 0.05) var dash_enemy_slow_time := 0.5  # 0.33 until 2026-11-20 (user)
 @export_range(0.05, 1.0, 0.05) var dash_enemy_slow_scale := 0.5  # 0.4 until 2026-11-20 (user)
 

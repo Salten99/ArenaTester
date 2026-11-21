@@ -224,8 +224,8 @@ var _skipped := 0.0
 var in_crowd := false
 
 
-## Your dash slows every enemy (dash_enemy_slow_time/scale): until this physics frame they run slow.
-static var dash_slow_until := 0
+## Your dash slows the enemies near you (Player._slow_near): until this physics frame it runs slow.
+var dash_slow_until := 0
 var _dash_slowed := false
 
 

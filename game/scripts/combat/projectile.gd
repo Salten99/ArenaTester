@@ -31,6 +31,8 @@ var bright := false:
 			_streak()
 ## Arrows and bolts stay stuck where they land, in the ground or in whoever they hit, this long (s).
 const STICK_SECONDS := 4.0
+## Your dash slows enemy shots near you (Player._slow_near): until this physics frame it flies slow.
+var dash_slow_until := 0
 var _hit: Array = []
 var _mesh: MeshInstance3D
 
@@ -40,6 +42,7 @@ static func fire(from: Vector3, direction: Vector3, speed: float, p_template: Da
 	if root == null or not is_instance_valid(root):
 		return null
 	var p := Projectile.new()
+	p.add_to_group("projectiles")
 	p.velocity = direction.normalized() * speed
 	p.template = p_template
 	p.pierce = p_pierce
@@ -60,6 +63,8 @@ static func fire(from: Vector3, direction: Vector3, speed: float, p_template: Da
 
 
 func _physics_process(delta: float) -> void:
+	if Engine.get_physics_frames() < dash_slow_until:
+		delta *= GameData.tuning.dash_projectile_slow_scale
 	lifetime -= delta
 	if pull_deg > 0.0 and is_instance_valid(homing) and not homing.is_dead():
 		var want: Vector3 = (homing.global_position + Vector3.UP - global_position).normalized()

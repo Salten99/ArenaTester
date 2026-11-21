@@ -1019,7 +1019,16 @@ func _start_dodge(dir: Vector3) -> void:
 	_reset_visual()
 	statuses.consume("void")  # dodging shakes off one Void stack
 	godly_gifts.trigger("on_dodge", {"position": global_position})
-	Enemy.dash_slow_until = Engine.get_physics_frames() + roundi(GameData.tuning.dash_enemy_slow_time * Engine.physics_ticks_per_second)
+	_slow_near()
+
+
+## Your dash slows the enemies and enemy shots within dash_slow_radius for dash_enemy_slow_time (user, 2026-11-20).
+func _slow_near() -> void:
+	var t: CombatTuning = GameData.tuning
+	var until := Engine.get_physics_frames() + roundi(t.dash_enemy_slow_time * Engine.physics_ticks_per_second)
+	for n in get_tree().get_nodes_in_group("enemies") + get_tree().get_nodes_in_group("projectiles"):
+		if (n is Enemy or (n is Projectile and n.hostile)) 				and ((n.global_position - global_position) * Vector3(1, 0, 1)).length() <= t.dash_slow_radius:
+			n.dash_slow_until = until
 
 
 ## The Guardian's signature move (DECISIONS 2026-11-16): the dodge key raises the shield
