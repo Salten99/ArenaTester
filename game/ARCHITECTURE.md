@@ -62,7 +62,7 @@ ArenaGame/
 | `Controls` | autoload/controls.gd | Registers input actions and key bindings in code. |
 | `Combat` | autoload/combat.gd | The only place damage is applied: `Combat.deal(target, DamageInfo)`. Statuses, lightning chains, feedback, game clock and the signals godly gifts listen to. |
 | `Meta` | autoload/meta.gd | The profile (`user://profile.json`): unlocked races and gods, the bestiary (codex). |
-| `Run` | autoload/run.gd | The fight's player state: `start_new`, `note` (recap counts), `end`. Holds `Run.state` (a `RunState`: race, starting weapon (fists), god, godly gifts, level). |
+| `Run` | autoload/run.gd | The fight's player state: `start_new`, `end`. Holds `Run.state` (a `RunState`: race, starting weapon (fists), god, godly gifts, level). |
 | `Flow` | autoload/flow.gd | Keeps the god picked in the arena menu across a scene reload; sets the UI theme. |
 | `Playtest` | autoload/playtest.gd | The F11 overlay: session time, deaths, kills, frame time. Deaths go to `user://playtest_log.txt`. Tests set `persist = false`. |
 

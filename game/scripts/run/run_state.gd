@@ -11,4 +11,3 @@ var level := 1
 var xp := 0
 var level_picks: Array = []   ## upgrade ids chosen at level-ups, in order
 var pending_level_ups := 0    ## upgrades earned and not chosen yet
-var stats := {}               ## counts for the recap (Run.note): damage dealt and taken, kills

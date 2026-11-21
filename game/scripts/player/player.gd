@@ -1008,7 +1008,6 @@ func _perfect_dodge() -> void:
 	Vfx.ring(global_position + Vector3.UP * 0.1, 2.2, Color(0.5, 0.85, 1.0), 0.35)
 	_flash(Color(0.55, 0.85, 1.0))
 	stamina = minf(max_stamina, stamina + GameData.tuning.dodge_stamina_cost)  # the dodge was free
-	Run.note("perfect_dodges", 1)
 
 
 ## A grab on a broken enemy (its gold "!"): finished on the spot, whatever its size.
@@ -1026,7 +1025,6 @@ func _finisher(e: Enemy) -> void:
 	screen_flash(Color(1.0, 0.8, 0.3, 0.35))
 	Vfx.ring(e.global_position + Vector3.UP * 0.1, 2.0, Color(1.0, 0.8, 0.25), 0.35)
 	health.heal(health.max_hp * 0.05)  # a little back for every finisher
-	Run.note("finishers", 1)
 
 
 func _start_dodge(dir: Vector3) -> void:
@@ -1079,7 +1077,6 @@ func _parry(attacker: Node) -> void:
 	_set_state(State.FREE)  # attack right away
 	Combat.shake(t.shake_player_hit * 0.5)
 	_flash(Color(1.0, 0.9, 0.5))
-	Run.note("parries", 1)
 
 
 # ---------------------------------------------------------------- aiming spells
@@ -1219,7 +1216,6 @@ func take_hit(info: DamageInfo) -> float:
 		_low_health_fired = false  # healed back up: the low-health gift can fire again
 	var dealt := health.take(amount)
 	if dealt > 0.0:
-		Run.note("damage_taken", dealt)
 		_last_hurt_msec = Combat.now_msec()
 		_knock = info.knockback_dir * info.knockback * 0.5
 		Combat.shake(GameData.tuning.shake_player_hit)
