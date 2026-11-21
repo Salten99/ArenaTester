@@ -468,7 +468,12 @@ func head_popped() -> bool:
 
 ## Where the head is now, or `fallback` if the rig has none.
 func head_position(fallback: Vector3) -> Vector3:
-	var i := _skeleton.find_bone("head") if _skeleton != null else -1
+	return bone_position("head", fallback)
+
+
+## Where bone `bone` is now (handslot.r: the right hand), or `fallback` if the rig has none.
+func bone_position(bone: String, fallback: Vector3) -> Vector3:
+	var i := _skeleton.find_bone(bone) if _skeleton != null else -1
 	return _skeleton.to_global(_skeleton.get_bone_global_pose(i).origin) if i >= 0 else fallback
 
 

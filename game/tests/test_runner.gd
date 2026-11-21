@@ -564,8 +564,8 @@ func test_spells() -> void:
 	var t: CombatTuning = GameData.tuning
 	var hz := Engine.physics_ticks_per_second
 	var home: Vector3 = p.global_position
-	var saved := [t.cage_time, t.deep_freeze_time]
-	t.cage_time = 1.5
+	var saved := [t.kaminari_time, t.deep_freeze_time]
+	t.kaminari_time = 1.5
 	t.deep_freeze_time = 1.0
 
 	# Magma Ball (Fire Q, user 2026-11-20): hold Q to aim, let go: you pull a ball of magma out of the
@@ -646,29 +646,27 @@ func test_spells() -> void:
 	check(not p.abilities.beaming(), "and stops after %.1f s" % t.lightning_beam_time)
 	_free_all(line + off)
 
-	# Kaminari: bolts bounce round the aimed spot until it collapses.
+	# Kaminari (user, 2026-11-20): a thrown lightning spear, a dragon coiled round it, jumps enemy to
+	# enemy for kaminari_time; with one enemy left it strikes in and out of it until it's dead.
 	var spot: Vector3 = p.global_position + Vector3(0, 0, -12)
-	var caged := [_dummy(Vector3(0, 0, -12)), _dummy(Vector3(2, 0, -13))]
-	var y0: float = p.global_position.y
+	var struck := [_dummy(Vector3(0, 0, -12)), _dummy(Vector3(4, 0, -14))]
 	p.abilities.cast("Ultimate", p, Vector3.FORWARD, spot)
 	await _frames(3)
-	check(p.abilities.spells.caging(), "Kaminari stands round the aimed spot")
-	var cage: Dictionary = p.abilities.spells._cages[0]
-	check(caged.all(func(e): return cage.trapped.has(e)) and cage.bolts.size() >= t.cage_pillars, "who's inside is caught, and bolts already bounce off every pillar (%d)" % cage.bolts.size())
-	check(cage.bolts.all(func(b): return b.pieces.size() == t.cage_dragon_segments), "each bolt is a lightning dragon")
-	await _frames(20)
-	var dragon: Array = cage.bolts[0].pieces
-	check(dragon[-1].visible and dragon[0].global_position.distance_to(dragon[-1].global_position) > t.cage_dragon_gap * 2.0, "its body trails behind its head")
-	caged[0].global_position = spot + Vector3(0, 0, -15)  # knocked out of it
-	await _frames(2)
-	check(Vector2(caged[0].global_position.x - spot.x, caged[0].global_position.z - spot.z).length() < 6.0, "a caught one can't leave the circle")
-	await _frames(int(t.ult_lift_time * hz) + 10)
-	check(p.global_position.y > y0 + t.cage_lift_height - 1.0, "you float %.0f m up while it lasts (%.1f)" % [t.cage_lift_height, p.global_position.y - y0])
-	var after_first: float = caged[1].health.hp
-	await _frames(int(t.cage_time * hz) + 6)
-	check(not p.abilities.spells.caging() and _hurt(caged) == 2, "Kaminari strikes what's inside, then collapses (%d of 2)" % _hurt(caged))
-	check(caged[1].health.hp < after_first, "caught ones are struck again and again")
-	_free_all(caged)
+	check(p.abilities.spells.caging(), "Kaminari's bolt is out")
+	var spear: Dictionary = p.abilities.spells._spears[0]
+	check(spear.held > 0.0 and (spear.at as Vector3).distance_to(p.global_position) < 2.5 and spear.bolt != null, "it's in your hand first, your bolt pictures")
+	var dragon: Array = spear.pieces
+	var tip: Vector3 = spear.at + spear.fwd * t.kaminari_bolt_length * 0.5
+	check(dragon.size() == t.kaminari_dragon_segments and dragon[0].global_position.distance_to(tip) < t.kaminari_coil_radius * 1.5, "a lightning dragon coils round it")
+	await _frames(int((t.kaminari_hold_time + 14.0 / t.kaminari_speed) * hz) + 20)
+	check(_hurt(struck) == 2, "it jumps from enemy to enemy (%d of 2)" % _hurt(struck))
+	struck[0].queue_free()  # one left
+	var last_hp: float = struck[1].health.hp
+	await _frames(int(t.kaminari_time * hz) + 10)
+	check(p.abilities.spells.caging() and struck[1].health.hp < last_hp, "with one enemy left it keeps striking in and out past its time")
+	struck[1].queue_free()  # dead
+	await _frames(3)
+	check(not p.abilities.spells.caging(), "and stops once that one's gone")
 
 	# Stone Slab: launches what's in front.
 	p.abilities.load_for("animal_god")
@@ -690,7 +688,7 @@ func test_spells() -> void:
 	check(crushed.health.hp < crushed.health.max_hp and away.health.hp == away.health.max_hp, "the pillars crush what's between them")
 	_free_all([crushed, away])
 
-	t.cage_time = saved[0]
+	t.kaminari_time = saved[0]
 	t.deep_freeze_time = saved[1]
 	p.global_position = home
 	p.abilities.defs = kept

@@ -5,7 +5,7 @@ extends Node
 ##   Rings   rings roll out from you to radius_m; the nearer, the harder (Lava Ripple, Ring of Ice)
 ##   Strike  one big bolt on the spot range_m ahead, throwing what's near (Thunder Crash)
 ##   Fan     hits_or_projectiles bolts fan across fan_arc_deg in front, range_m long (Bolt Fan)
-##   Cage    pillar bolts round the aimed spot and bolts bouncing between them (Kaminari)
+##   Spear   a lightning bolt thrown from your hand, a dragon coiled round it, jumping enemy to enemy (Kaminari)
 ##   Slide   slide range_m on a trail of ice that slows (Ice Slide)
 ##   Freeze  everything within radius_m locks in ice, then shatters (Deep Freeze)
 ##   Slab    a square stone pillar shoots up ahead, launches what's on it, then bursts into dust (Stone Slab)
@@ -14,7 +14,7 @@ extends Node
 ## The looks are built in code; your models/own/fx/<ability_id>.tscn plays instead once you make it.
 ## The numbers are in combat_tuning.tres, group Spells.
 
-var _cages := []  # Kaminari cages while they're on
+var _spears := []  # Kaminari spears while they fly
 
 
 func _runner() -> AbilityRunner:
@@ -35,8 +35,8 @@ func cast(a: Dictionary, player: Node, dir: Vector3, at: Vector3) -> bool:
 			_later(t.spell_release_delay, _strike_down.bind(a, player, spot))
 		"Fan":
 			_later(t.spell_release_delay, _fan.bind(a, player, dir))
-		"Cage":
-			_cage(a, player, at)
+		"Spear":
+			_spear(a, player, at if at != Vector3.INF else player.global_position + dir * GameData.num(a, "range_m", 20.0))
 		"Slide":
 			_slide(a, player, dir, at)
 		"Magma":
@@ -292,194 +292,201 @@ func _fan(a: Dictionary, player: Node, dir: Vector3) -> void:
 	HitStop.trigger(t.hitstop_light)
 
 
-# ---------------------------------------------------------------- Cage: Kaminari
+# ---------------------------------------------------------------- Spear: Kaminari
 
-func _cage(a: Dictionary, player: Node, spot: Vector3) -> void:
+## You hold a lightning bolt in your hand, your bolt pictures flickering kaminari_bolt_length long,
+## and throw it where the crosshair is, a lightning dragon coiling round it every which way (user,
+## 2026-11-20). It jumps from enemy to enemy for kaminari_time; once only one enemy is left alive it
+## strikes in and out of that one until it's dead.
+func _spear(a: Dictionary, player: Node, spot: Vector3) -> void:
 	var t: CombatTuning = GameData.tuning
-	var radius := GameData.num(a, "radius_m", 6.0)
-	var own := _own(a)
-	var pillars := []
-	var glows := []
-	for i in t.cage_pillars:
-		var p := spot + UltimateFx._around(i, t.cage_pillars, radius)
-		pillars.append(p)
-		if not own:
-			var col := CylinderMesh.new()
-			col.top_radius = 0.18
-			col.bottom_radius = 0.18
-			col.height = 14.0
-			col.radial_segments = 6
-			var glow := Vfx._spawn(col, Color(ElementFx.color("Lightning"), 0.75), p + Vector3.UP * 7.0)
-			if glow != null:
-				glows.append(glow)
-			if not ElementFx.bolt_arc(p + Vector3.UP * 18.0, p):
-				ElementFx.beam("Lightning", p + Vector3.UP * 18.0, p)
-	if not own:
-		UltimateFx.circle("Lightning", spot + Vector3.UP * 0.06, Vector3.UP, radius, t.cage_time)
-	# Who stands inside when it's cast is caught (user, 2026-11-20): held in the circle and struck
-	# again and again until it ends.
-	var c := {"a": a, "player": player, "spot": spot, "radius": radius, "pillars": pillars, "glows": glows,
-		"left": t.cage_time, "flicker": 0.0, "bolts": [], "struck": {}, "own": own, "trapped": Combat.enemies_in_radius(spot, radius)}
-	# Your bolt, thrown from your hand to the first pillar, and one already bouncing off every pillar:
-	# it's at full tilt from the start (user, 2026-11-20).
-	var hand: Vector3 = player.global_position + Vector3.UP * 1.3 if _alive(player) else pillars[0]
-	_add_bolt(c, hand, 0, t.cage_bolt_speed)
-	for i in pillars.size() * 2:  # two off every pillar (user, 2026-11-20: twice the bolts)
-		var from: int = i % pillars.size()
-		_add_bolt(c, pillars[from] + Vector3.UP * 1.2, _other_pillar(c, from), t.cage_bolt_speed)
-	_cages.append(c)
-	Combat.shake(t.shake_heavy)
-	if _alive(player):  # you float cage_lift_height up while it lasts
-		var r := _runner()
-		r.hover_y = player.global_position.y + t.cage_lift_height
-		r._hover_left = t.cage_time
-
-
-## A bolt flying from `from` to pillar `to` at `speed`: a lightning dragon (user, 2026-11-20), the
-## Fire ultimate's models recolored, its body following where its head has been.
-func _add_bolt(c: Dictionary, from: Vector3, to: int, speed: float) -> void:
-	var t: CombatTuning = GameData.tuning
-	var orb: Node3D = null
-	var pieces: Array[Node3D] = []
+	var hand := _right_hand(player)
+	var s := {"a": a, "player": player, "at": hand, "goal": spot, "target": null, "last": null,
+		"held": t.kaminari_hold_time, "left": t.kaminari_time, "fwd": (spot - hand).normalized(), "node": null,
+		"pieces": [] as Array[Node3D], "bolt": null, "frame": 0.0, "fi": 0,
+		"spin": randf() * TAU, "rate": 0.0, "turn": t.kaminari_coil_turn, "wobble": randf() * TAU, "change": 0.0}
+	_new_coil(s)
+	s.rate = s.rate_goal
+	s.turn = s.turn_goal
 	var root := Vfx._root()
-	if not c.own and root != null:
-		orb = Node3D.new()
-		root.add_child(orb)
-		pieces = FireDragon.build(orb, t.cage_dragon_segments, t.cage_dragon_size, "Lightning", t.cage_dragon_segments,
-			ElementFx.color("Lightning").lightened(0.4))
-	var trail: Array[Vector3] = [from]
-	c.bolts.append({"from": from, "to": to, "f": 0.0, "speed": speed, "orb": orb, "pieces": pieces, "trail": trail})
+	if not _own(a) and root != null:
+		var node := Node3D.new()
+		root.add_child(node)
+		node.global_position = hand
+		if not ElementFx.bolt_frames().is_empty():
+			var quad := QuadMesh.new()
+			quad.size = Vector2(t.kaminari_bolt_width, t.kaminari_bolt_length)
+			var mat := StandardMaterial3D.new()
+			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+			mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+			mat.albedo_color = Color(0.85, 0.92, 1.0)
+			var bolt := MeshInstance3D.new()
+			bolt.mesh = quad
+			bolt.material_override = mat
+			bolt.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			node.add_child(bolt)
+			s.bolt = bolt
+		var sparks := ElementFx.trail("Lightning")
+		if sparks != null:
+			node.add_child(sparks)
+			sparks.emitting = true
+		s.node = node
+		s.pieces = FireDragon.build(node, t.kaminari_dragon_segments, t.kaminari_dragon_size, "Lightning",
+			t.kaminari_dragon_segments, ElementFx.color("Lightning").lightened(0.4))
+	_spears.append(s)
+	_place_spear(s, 0.0)
 
 
-## Lays bolt `b`'s dragon along where its head (now at `at`) has been, a piece every cage_dragon_gap m;
-## pieces further back than it has flown yet stay hidden.
-func _move_dragon(b: Dictionary, at: Vector3) -> void:
-	var trail: Array[Vector3] = b.trail
-	trail.push_front(at)
-	var gap := GameData.tuning.cage_dragon_gap
-	var j := 0
-	var walked := 0.0  # from the head to trail[j]
-	var ahead := at + (at - trail[mini(1, trail.size() - 1)])  # where the head looks
-	for i: int in b.pieces.size():
-		var piece: Node3D = b.pieces[i]
-		var want := i * gap
-		while j < trail.size() - 1 and walked + trail[j].distance_to(trail[j + 1]) < want:
-			walked += trail[j].distance_to(trail[j + 1])
-			j += 1
-		piece.visible = j < trail.size() - 1 or i == 0
-		if not piece.visible:
-			continue
-		var here := trail[j]
-		if j < trail.size() - 1:
-			here = trail[j].move_toward(trail[j + 1], want - walked)
+## Your right hand, or about where it would be.
+func _right_hand(player: Node) -> Vector3:
+	var near: Vector3 = player.global_position + Vector3.UP * 1.3
+	var v: Variant = player.get("visual")
+	return v.bone_position("handslot.r", near) if v != null and v.has_method("bone_position") else near
+
+
+func _update_spear(s: Dictionary, delta: float) -> void:
+	var t: CombatTuning = GameData.tuning
+	var done: bool = not _alive(s.player) or s.get("done", false)
+	if s.held <= 0.0:
+		s.left -= delta
+	if s.left <= 0.0 and not done:  # time's up, unless one enemy is left: then it's struck until it's dead
+		done = Combat.enemies_in_radius(s.at, 10000.0).size() != 1
+	if done:
+		_spears.erase(s)
+		if is_instance_valid(s.node):
+			s.node.queue_free()
+		return
+	if s.held > 0.0:  # in your hand until the throw
+		s.held -= delta
+		s.at = _right_hand(s.player)
+		var aim: Vector3 = (s.goal as Vector3) - (s.at as Vector3)
+		if aim.length() > 0.01:
+			s.fwd = aim.normalized()
+		if s.held <= 0.0:
+			Combat.shake(t.shake_heavy)
+		_place_spear(s, delta)
+		return
+	var e: Variant = s.target
+	if e != null and (not is_instance_valid(e) or e.is_dead()):  # it died on the way: jump on
+		_arrive(s)
+		return
+	if e != null:
+		s.goal = (e as Node3D).global_position + Vector3.UP
+	var at: Vector3 = s.at
+	var step: Vector3 = (s.goal as Vector3) - at
+	if step.length() > 0.01:
+		s.fwd = step.normalized()
+	s.at = at.move_toward(s.goal, t.kaminari_speed * delta)
+	if (s.at as Vector3).distance_to(s.goal) < 0.05:
+		_arrive(s)
+	_place_spear(s, delta)
+
+
+## The spear reached its goal: it strikes the enemy there and picks where to go next: the nearest
+## other enemy within kaminari_jump_range, else out of the one it struck and back in, else it's done.
+func _arrive(s: Dictionary) -> void:
+	var t: CombatTuning = GameData.tuning
+	var e: Variant = s.target
+	s.target = null
+	var struck := false
+	if e != null and is_instance_valid(e) and not e.is_dead():
+		_runner()._strike(s.a, s.player, e, s.at, true)
+		s.last = e
+		struck = true
+	var last: Variant = s.last if s.last != null and is_instance_valid(s.last) and not s.last.is_dead() else null
+	var next := Combat.nearest_enemies(s.at, t.kaminari_jump_range, 1, [last] if last != null else [])
+	if not next.is_empty():
+		s.target = next[0]
+		if not _own(s.a) and not ElementFx.bolt_arc(s.at, next[0].global_position + Vector3.UP):
+			ElementFx.beam("Lightning", s.at, next[0].global_position + Vector3.UP)
+	elif last != null and struck:  # out the far side
+		var out := Vector3(randf_range(-1, 1), randf_range(0.3, 1.0), randf_range(-1, 1)).normalized()
+		s.goal = (last as Node3D).global_position + Vector3.UP + out * t.kaminari_out_m
+	elif last != null:  # and back in
+		s.target = last
+	else:
+		s.done = true
+
+
+## A new way for the dragon to coil, every kaminari_coil_change s or so: faster or slower, now and
+## then the other way round, tighter or looser (kaminari_coil_vary).
+func _new_coil(s: Dictionary) -> void:
+	var t: CombatTuning = GameData.tuning
+	var v := t.kaminari_coil_vary
+	s.change = t.kaminari_coil_change * randf_range(0.5, 1.5)
+	s.rate_goal = deg_to_rad(t.kaminari_coil_spin) * randf_range(1.0 - v, 1.0 + v) * (-1.0 if randf() < 0.35 else 1.0)
+	s.turn_goal = t.kaminari_coil_turn * randf_range(1.0 - v, 1.0 + v)
+
+
+## The bolt lies along where it flies, its face to the camera, flickering through your bolt pictures;
+## the dragon's pieces coil round it.
+func _place_spear(s: Dictionary, delta: float) -> void:
+	if not is_instance_valid(s.node):
+		return
+	var t: CombatTuning = GameData.tuning
+	var node: Node3D = s.node
+	var at: Vector3 = s.at
+	var fwd: Vector3 = s.fwd
+	node.global_position = at
+	if absf(fwd.y) < 0.999:
+		node.look_at(at + fwd, Vector3.UP)
+	var bolt: MeshInstance3D = s.bolt if is_instance_valid(s.bolt) else null
+	if bolt != null:
+		var cam := node.get_viewport().get_camera_3d()
+		var side := fwd.cross((cam.global_position - at) if cam != null else Vector3.UP).normalized()
+		if side.length() < 0.5:
+			side = fwd.cross(Vector3.RIGHT).normalized()
+		bolt.global_transform = Transform3D(Basis(side, fwd, side.cross(fwd)), at)
+		s.frame -= delta
+		if s.frame <= 0.0:
+			var frames := ElementFx.bolt_frames()
+			s.frame = t.kaminari_bolt_frame
+			s.fi = (int(s.fi) + 1) % frames.size()
+			(bolt.material_override as StandardMaterial3D).albedo_texture = frames[s.fi]
+	s.change -= delta
+	if s.change <= 0.0:
+		_new_coil(s)
+	var k := 1.0 - exp(-4.0 * delta)  # eases into the new way
+	s.rate = lerpf(s.rate, s.rate_goal, k)
+	s.turn = lerpf(s.turn, s.turn_goal, k)
+	s.spin += s.rate * delta
+	s.wobble += delta * 3.0
+	var pieces: Array[Node3D] = s.pieces
+	for i in pieces.size():
+		var here := _coil(s, i)
+		var piece := pieces[i]
+		piece.visible = true
 		piece.global_position = here
-		var look := ahead - here
-		if look.length() > 0.001 and absf(look.normalized().y) < 0.999:
+		var ahead := _coil(s, i - 1)
+		if (ahead - here).length() > 0.001 and absf((ahead - here).normalized().y) < 0.999:
 			piece.look_at(ahead, Vector3.UP)
-		ahead = here
-	trail.resize(mini(trail.size(), j + 2))  # forget what's behind the tail
 
 
-## A pillar other than `i`, picked at random.
-func _other_pillar(c: Dictionary, i: int) -> int:
-	var n: int = c.pillars.size()
-	return (i + randi_range(1, n - 1)) % n
+## Where piece `i` of spear `s`'s dragon coils: from the bolt's tip back, kaminari_dragon_gap further
+## each, about kaminari_coil_radius out from it (breathing in and out), s.turn degrees round from the last.
+func _coil(s: Dictionary, i: float) -> Vector3:
+	var t: CombatTuning = GameData.tuning
+	var fwd: Vector3 = s.fwd
+	var right := fwd.cross(Vector3.UP)
+	right = right.normalized() if right.length() > 0.01 else Vector3.RIGHT
+	var up := right.cross(fwd)
+	var turn: float = s.spin - i * deg_to_rad(s.turn)
+	var r: float = t.kaminari_coil_radius * (1.0 + t.kaminari_coil_vary * 0.4 * sin(s.wobble + i * 0.5))
+	var tip: Vector3 = (s.at as Vector3) + fwd * t.kaminari_bolt_length * 0.5
+	return tip - fwd * (i * t.kaminari_dragon_gap) + (right * cos(turn) + up * sin(turn)) * r
 
 
 func _physics_process(delta: float) -> void:
-	for c: Dictionary in _cages.duplicate():
-		_update_cage(c, delta)
+	for s: Dictionary in _spears.duplicate():
+		_update_spear(s, delta)
 	for m: Dictionary in _magma_balls.duplicate():
 		_update_magma(m, delta)
 
 
-func _update_cage(c: Dictionary, delta: float) -> void:
-	var t: CombatTuning = GameData.tuning
-	var player: Node = c.player
-	c.left -= delta
-	if c.left <= 0.0 or not _alive(player):
-		_end_cage(c)
-		return
-	_hold_trapped(c)
-	c.flicker -= delta
-	if c.flicker <= 0.0 and not c.own:  # the pillars crackle
-		c.flicker = 0.15
-		var p: Vector3 = c.pillars[randi() % c.pillars.size()]
-		ElementFx.bolt_arc(p + Vector3.UP * 14.0, p)
-	for b: Dictionary in c.bolts.duplicate():
-		var target: Vector3 = c.pillars[b.to] + Vector3.UP * 1.2
-		var length := maxf(0.5, (b.from as Vector3).distance_to(target))
-		b.f += b.speed * delta / length
-		var at: Vector3 = (b.from as Vector3).lerp(target, minf(b.f, 1.0))
-		if is_instance_valid(b.orb):
-			_move_dragon(b, at)
-		for e in Combat.enemies_in_radius(at, 1.3):  # what it passes is struck and tossed (the caught ones only shake)
-			if Combat.time - float(c.struck.get(e, -99.0)) >= t.cage_rehit:
-				c.struck[e] = Combat.time
-				if c.trapped.has(e):
-					_shock(c, e)
-				else:
-					_runner()._strike(c.a, player, e, at, true)
-		if b.f >= 1.0:  # it bounces off the pillar, faster, and splits
-			var from: int = b.to
-			b.from = target
-			b.to = _other_pillar(c, from)
-			b.f = 0.0
-			b.speed *= t.cage_speedup
-			if not c.own and not ElementFx.bolt_arc(target, c.pillars[b.to] + Vector3.UP * 1.2):
-				ElementFx.beam("Lightning", target, c.pillars[b.to] + Vector3.UP * 1.2)
-			if c.bolts.size() < t.cage_max_bolts:
-				_add_bolt(c, target, _other_pillar(c, from), b.speed)
-
-
-## The caught ones stay inside, struck every cage_rehit s whether a bolt passes or not, never thrown out.
-func _hold_trapped(c: Dictionary) -> void:
-	var t: CombatTuning = GameData.tuning
-	var spot: Vector3 = c.spot
-	var inside: float = c.radius - 0.8
-	for e in c.trapped.duplicate():
-		if not is_instance_valid(e) or e.is_dead():
-			c.trapped.erase(e)
-			continue
-		var out := _flat(e.global_position - spot)
-		if out.length() > inside:  # pushed back from the edge
-			e.global_position = Vector3(spot.x, e.global_position.y, spot.z) + out.normalized() * inside
-		if Combat.time - float(c.struck.get(e, -99.0)) >= t.cage_rehit:
-			c.struck[e] = Combat.time
-			_shock(c, e)
-			if not c.own:
-				var p: Vector3 = c.pillars[randi() % c.pillars.size()] + Vector3.UP * 1.2
-				if not ElementFx.bolt_arc(p, e.global_position + Vector3.UP):
-					ElementFx.beam("Lightning", p, e.global_position + Vector3.UP)
-
-
-## A caught one is struck where it stands: cage_trap_damage of the spell, no throw.
-func _shock(c: Dictionary, e: Node) -> void:
-	var player: Node = c.player
-	var info: DamageInfo = player.make_hit(GameData.num(c.a, "base_damage") * GameData.tuning.cage_trap_damage, "Lightning", "Magic", e, DamageInfo.Kind.ABILITY)
-	info.no_launch = true
-	info.knockback = 0.0
-	_runner()._add_status(c.a, player, info)
-	Combat.deal(e, info)
-
-
-## The pillars collapse in one big burst.
-func _end_cage(c: Dictionary) -> void:
-	_cages.erase(c)
-	for b: Dictionary in c.bolts:
-		if is_instance_valid(b.orb):
-			b.orb.queue_free()
-	for g in c.glows:
-		if is_instance_valid(g):
-			g.queue_free()
-	if _alive(c.player):
-		ElementFx.quiet = c.own
-		_runner()._blast(c.a, c.player, c.spot, c.radius)
-		ElementFx.quiet = false
-
-
 func caging() -> bool:
-	return not _cages.is_empty()
+	return not _spears.is_empty()
 
 
 # ---------------------------------------------------------------- Slide: Ice Slide

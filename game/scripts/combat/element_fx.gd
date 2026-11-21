@@ -171,9 +171,8 @@ static var _bolts: Array = []
 static var _bolts_from := ""
 
 
-static func bolt_arc(from: Vector3, to: Vector3) -> bool:
-	if quiet:
-		return true
+## Your bolt images (models/own/fx/lightning/lightning bolts/bolt_1..6.png), loaded once; empty without.
+static func bolt_frames() -> Array:
 	if _bolts_from != OWN_FX:
 		_bolts_from = OWN_FX
 		_bolts = []
@@ -181,6 +180,13 @@ static func bolt_arc(from: Vector3, to: Vector3) -> bool:
 			var path := OWN_FX + "lightning/lightning bolts/bolt_%d.png" % i
 			if ResourceLoader.exists(path):
 				_bolts.append(load(path))
+	return _bolts
+
+
+static func bolt_arc(from: Vector3, to: Vector3) -> bool:
+	if quiet:
+		return true
+	bolt_frames()
 	var root := Vfx._root()
 	if _bolts.is_empty() or root == null:
 		return false

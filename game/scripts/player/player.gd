@@ -278,6 +278,10 @@ func _physics_process(delta: float) -> void:
 				continue
 			if _slot_held(intent, slot) and intent.aim_point != Vector3.INF:
 				_aim_slot = slot
+				var def: Dictionary = abilities.defs.get(slot, {})
+				if GameData.text(def, "shape") == "Spear" and visual != null:  # drawn back to throw until you let go (user, 2026-11-20)
+					var wind := GameData.tuning.weapon_throw_charge_time
+					visual.play_strike(GameData.text(def, "animation_name"), wind, wind + CAST_CLIP, true)
 			else:
 				_cast(slot, intent.aim_yaw, intent.aim_point)
 			break
@@ -1093,8 +1097,12 @@ func _update_aim(intent: PlayerIntent) -> void:
 	if is_dead() or state == State.DODGE or abilities.ready_in(slot) > 0.0:
 		_stop_aiming()
 		return
+	# Kaminari is thrown where the crosshair is, no ring on the ground (user, 2026-11-20).
+	var thrown := GameData.text(abilities.defs.get(slot, {}), "shape") == "Spear"
 	var point := aim_target(intent.aim_point, slot)
-	if _aim_ring == null:
+	if thrown:
+		point = intent.crosshair if intent.crosshair != Vector3.INF else global_position + Vector3.UP * 1.3 + facing * abilities.aim_reach(slot)
+	elif _aim_ring == null:
 		_aim_ring = MeshInstance3D.new()
 		var torus := TorusMesh.new()
 		torus.inner_radius = 0.9
@@ -1103,11 +1111,14 @@ func _update_aim(intent: PlayerIntent) -> void:
 		_aim_ring.material_override = Vfx.material(Color(ElementFx.color(GameData.text(abilities.defs.get(slot, {}), "damage_type", "Fire")), 0.8))
 		_aim_ring.top_level = true
 		add_child(_aim_ring)
-	var r := abilities.aim_radius(slot)
-	_aim_ring.global_position = point + Vector3.UP * 0.15
-	_aim_ring.scale = Vector3(r, 1.0, r)
+	if _aim_ring != null:
+		var r := abilities.aim_radius(slot)
+		_aim_ring.global_position = point + Vector3.UP * 0.15
+		_aim_ring.scale = Vector3(r, 1.0, r)
 	if not _slot_held(intent, slot):
 		_stop_aiming()
+		if thrown and visual != null:
+			visual.release_strike()
 		if state == State.FREE:
 			var to := point - global_position
 			_cast(slot, atan2(-to.x, -to.z) if Vector2(to.x, to.z).length() > 0.5 else intent.aim_yaw, point)
@@ -1122,7 +1133,7 @@ func _stop_aiming() -> void:
 
 ## Whether a spell aimed now shoots forward (a beam, a thrown ball, a fan): the crosshair shows.
 func aiming_a_shot() -> bool:
-	return _aim_slot != "" and GameData.text(abilities.defs.get(_aim_slot, {}), "shape") in ["Cone", "Beam", "Magma", "Fan"]
+	return _aim_slot != "" and GameData.text(abilities.defs.get(_aim_slot, {}), "shape") in ["Cone", "Beam", "Magma", "Fan", "Spear"]
 
 
 ## The crosshair shows whenever something is aimed (user, 2026-11-20): your weapon wound up to throw,
