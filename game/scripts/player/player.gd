@@ -278,6 +278,7 @@ func _physics_process(delta: float) -> void:
 				continue
 			if _slot_held(intent, slot) and intent.aim_point != Vector3.INF:
 				_aim_slot = slot
+				_aim_since = Combat.time
 				var def: Dictionary = abilities.defs.get(slot, {})
 				if GameData.text(def, "shape") == "Spear" and visual != null:  # drawn back to throw until you let go (user, 2026-11-20)
 					var wind := GameData.tuning.weapon_throw_charge_time
@@ -1091,6 +1092,7 @@ func _parry(attacker: Node) -> void:
 # ---------------------------------------------------------------- aiming spells
 
 var _aim_slot := ""  ## the spell whose key you hold to aim it ("" = none)
+var _aim_since := 0.0  ## Combat.time when that aim began
 var _aim_ring: MeshInstance3D
 
 
@@ -1125,13 +1127,19 @@ func _update_aim(intent: PlayerIntent) -> void:
 		var r := abilities.aim_radius(slot)
 		_aim_ring.global_position = point + Vector3.UP * 0.15
 		_aim_ring.scale = Vector3(r, 1.0, r)
-	if not _slot_held(intent, slot):
+	# Kaminari throws itself after kaminari_aim_max s (user, 2026-11-20), so its sparks can't go on forever.
+	if not _slot_held(intent, slot) or (thrown and Combat.time - _aim_since >= GameData.tuning.kaminari_aim_max):
 		_stop_aiming()
 		if thrown and visual != null:
 			visual.release_strike()
 		if state == State.FREE:
 			var to := point - global_position
 			_cast(slot, atan2(-to.x, -to.z) if Vector2(to.x, to.z).length() > 0.5 else intent.aim_yaw, point)
+
+
+## Aiming Kaminari: you hold the throw drawn back.
+func _aiming_spear() -> bool:
+	return _aim_slot != "" and GameData.text(abilities.defs.get(_aim_slot, {}), "shape") == "Spear"
 
 
 func _stop_aiming() -> void:
@@ -1403,8 +1411,8 @@ func _update_animation() -> void:
 		State.FREE:
 			var speed := Vector2(velocity.x, velocity.z).length()
 			visual.flapping = not is_on_floor()  # winged races beat their wings
-			if throw_charge >= 0.0:
-				pass  # drawn back on the throw clip (_update_throw)
+			if throw_charge >= 0.0 or _aiming_spear():
+				pass  # drawn back on the throw clip at its highest point (_update_throw, Kaminari's aim)
 			elif _jump_charging and is_on_floor():
 				visual.play("Crouching")
 			elif is_crouching:

@@ -694,6 +694,21 @@ func test_spells() -> void:
 	check(near_one.health.hp < near_one.health.max_hp, "aiming, small bolts strike out of its tip and hurt")
 	_free_all([near_one])
 	await _frames(int(2.0 * hz))  # back down before the next spell
+	# Aiming it (user, 2026-11-20) you hold the throw at its arm's highest point; after kaminari_aim_max
+	# s it throws itself, so its sparks can't go on forever.
+	p.abilities.remaining.erase("Ultimate")
+	p.stamina = 999.0
+	var aim_at: Vector3 = p.global_position + Vector3(0, 1, -10)
+	var keys := _scripted()
+	keys.hold({"ultimate": true, "ultimate_held": true, "aim_point": aim_at}, 1)
+	keys.hold({"ultimate_held": true, "aim_point": aim_at}, int((t.kaminari_aim_max + 1.0) * hz))
+	await _frames(int(0.8 * hz))
+	check(p._aim_slot == "Ultimate" and p.visual.strike_held() and absf(p.visual.anim.current_animation_position - CharacterModel.HOLD_AT.Human_ThrowSpear) < 0.05,
+		"aiming Kaminari you hold the throw at its highest point (%.2f s in)" % p.visual.anim.current_animation_position)
+	await _frames(int((t.kaminari_aim_max - 0.8) * hz) + 10)
+	check(p._aim_slot == "" and p.abilities.spells.caging() and not p.abilities.spells._spears[0].waiting, "after %.1f s of aiming it throws itself, key still held" % t.kaminari_aim_max)
+	p.input_source = null
+	await _frames(int(3.0 * hz))  # it's done and you're back down
 
 	# Stone Slab: launches what's in front.
 	p.abilities.load_for("animal_god")

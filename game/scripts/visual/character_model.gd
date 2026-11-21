@@ -587,6 +587,9 @@ const STRIKES := {"Melee_1H_Attack_Chop": 0.58, "Melee_1H_Attack_Jump_Chop": 0.7
 ## A held blow waits this far (s of the clip) before its strike frame, then takes STRIKE_SNAP s to land it.
 const STRIKE_LEAD := 0.06
 const STRIKE_SNAP := 0.033
+## A held blow waits here instead (s of the clip): Kaminari's spear throw at its arm's highest point,
+## 1.30 m above the hips (user, 2026-11-20; measured by sampling the right hand over the clip).
+const HOLD_AT := {"Human_ThrowSpear": 1.07}
 
 var _strike := {}  ## the blow playing: clip, at (its strike frame), after (speed past it), hold, released
 
@@ -602,14 +605,15 @@ func play_strike(anim_name: String, windup: float, total: float, hold := false) 
 	var length := anim.get_animation(clip).length
 	var at: float = STRIKES[clip]
 	var p := _upper if _split else anim
-	var before := (at - (STRIKE_LEAD if hold else 0.0)) / maxf(windup, 0.01)
+	var hold_at: float = HOLD_AT.get(clip, at - STRIKE_LEAD)
+	var before := (hold_at if hold else at) / maxf(windup, 0.01)
 	p.play(clip, 0.05, before)
 	p.seek(0.0, true)
 	if _split:
 		_current_upper = anim_name
 	else:
 		_current = anim_name
-	_strike = {"clip": clip, "at": at, "after": (length - at) / maxf(total - windup, 0.05), "hold": hold, "released": not hold, "past": false}
+	_strike = {"clip": clip, "at": at, "after": (length - at) / maxf(total - windup, 0.05), "hold": hold, "hold_at": hold_at, "released": not hold, "past": false}
 
 
 ## Lets a held blow land now (it takes STRIKE_SNAP s).
@@ -638,7 +642,7 @@ func _update_strike() -> void:
 		return
 	var at := p.current_animation_position
 	if not _strike.released:
-		if at >= _strike.at - STRIKE_LEAD and p.is_playing():
+		if at >= _strike.hold_at and p.is_playing():
 			p.pause()
 		return
 	if not _strike.past and at >= _strike.at:

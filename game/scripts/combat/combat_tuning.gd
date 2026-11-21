@@ -282,6 +282,8 @@ extends Resource
 ## You hover this high (m) while it lasts (user, 2026-11-20). While you aim, a small bolt strikes
 ## out of its tip about every this many s, at the nearest enemy this close (m), for this much of its damage.
 @export_range(0.0, 30.0, 0.5) var kaminari_lift_height := 10.0
+## Aim it this long at most (s): then it throws itself (user, 2026-11-20).
+@export_range(0.5, 10.0, 0.1) var kaminari_aim_max := 2.5
 @export_range(0.05, 2.0, 0.05) var kaminari_spark_every := 0.2
 @export_range(1.0, 40.0, 0.5) var kaminari_spark_range := 15.0
 @export_range(0.0, 1.0, 0.05) var kaminari_spark_damage := 0.15
