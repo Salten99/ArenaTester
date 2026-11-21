@@ -351,7 +351,7 @@ extends Resource
 @export_range(0, 10) var ram_shed_chunks := 2
 ## Crushing Pillars: how long the rams stand reared up on their hind legs before they lunge (s), and
 ## how long the lunge into the clash takes (s).
-@export_range(0.0, 3.0, 0.05) var ram_rear_time := 1.0
+@export_range(0.0, 3.0, 0.05) var ram_rear_time := 0.5
 @export_range(0.05, 1.0, 0.05) var ram_lunge_time := 0.1
 
 @export_group("Enemies")
