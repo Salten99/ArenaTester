@@ -311,6 +311,7 @@ func _fan(a: Dictionary, player: Node, dir: Vector3) -> void:
 
 const HAWK := "res://models/gen/beast_hawk.glb"
 const HAWK_WINGSPAN := 4.11  ## m across beast_hawk.glb's wings at scale 1
+const CAGE_HOLD := preload("res://scripts/player/cage_hold.gd")
 
 var _placing := {}  ## Kaminari's pillars placed so far, before its bolts start
 
@@ -465,15 +466,20 @@ func _start_cage(a: Dictionary, player: Node, pillars: Array, glows: Array, lift
 	for p: Vector3 in pillars:
 		radius += _flat(p - spot).length() / pillars.size()
 	radius = maxf(radius, 1.5)
+	var hold := CAGE_HOLD.new()
+	add_child(hold)
+	hold.global_position = spot
 	var c := {"a": a, "player": player, "spot": spot, "radius": radius, "pillars": pillars, "glows": glows,
-		"left": t.cage_time, "flicker": 0.0, "bolts": [], "struck": {}, "own": _own(a), "trapped": Combat.enemies_in_radius(spot, radius)}
+		"left": t.cage_time, "flicker": 0.0, "bolts": [], "struck": {}, "own": _own(a), "trapped": [], "hold": hold, "fly": {}}
+	for e in Combat.enemies_in_radius(spot, radius):
+		_catch(c, e)
 	# Your bolt, thrown from your hand to the first pillar, and the rest of the cage_max_bolts
 	# already bouncing off the pillars (user, 2026-11-20: three hawks in all).
 	var hand: Vector3 = player.global_position + Vector3.UP * 1.3 if _alive(player) else pillars[0]
 	_add_bolt(c, hand, 0, t.cage_bolt_speed)
 	for i in t.cage_max_bolts - 1:
 		var from: int = i % pillars.size()
-		_add_bolt(c, pillars[from] + Vector3.UP * 1.2, _other_pillar(c, from), t.cage_bolt_speed)
+		_add_bolt(c, pillars[from] + Vector3.UP * _bolt_height(), _other_pillar(c, from), t.cage_bolt_speed)
 	_cages.append(c)
 	Combat.shake(t.shake_heavy)
 	if _alive(player):  # you stay cage_lift_height up (already up, if you placed them), then fall cage_fall_delay s after the last pillar
@@ -504,7 +510,34 @@ func _add_bolt(c: Dictionary, from: Vector3, to: int, speed: float) -> void:
 		else:
 			hawk.queue_free()
 			hawk = null
-	c.bolts.append({"from": from, "to": to, "f": 0.0, "speed": speed, "hawk": hawk})
+	c.bolts.append({"from": from, "to": to, "h": _bolt_height(), "f": 0.0, "speed": speed, "hawk": hawk})
+
+
+## How high up its next pillar a bolt flies to (user, 2026-11-20: they climb and dive, not only level).
+func _bolt_height() -> float:
+	return randf_range(1.0, GameData.tuning.cage_bolt_top)
+
+
+## Where bolt `b` is headed: its pillar, b.h up.
+func _bolt_target(c: Dictionary, b: Dictionary) -> Vector3:
+	return c.pillars[b.to] + Vector3.UP * float(b.h)
+
+
+## Caught (user, 2026-11-20): it's held in the cage and flung off at cage_fling_speed, bouncing
+## round inside till it ends (_hold_trapped moves it).
+func _catch(c: Dictionary, e: Node) -> void:
+	if not _alive(e) or c.trapped.has(e) or not e.has_method("grab_by") or e.held_by != null:
+		return
+	e.grab_by(c.hold)
+	c.trapped.append(e)
+	c.hold.spots[e] = e.global_position + Vector3.UP * 0.5
+	_fling(c, e)
+
+
+## Sent off in a new direction, always partly upward, at cage_fling_speed.
+func _fling(c: Dictionary, e: Node) -> void:
+	var way := Vector3(randf_range(-1.0, 1.0), randf_range(0.3, 1.0), randf_range(-1.0, 1.0)).normalized()
+	c.fly[e] = way * GameData.tuning.cage_fling_speed
 
 
 ## A pillar other than `i`, picked at random.
@@ -531,61 +564,80 @@ func _update_cage(c: Dictionary, delta: float) -> void:
 	if c.left <= 0.0 or not _alive(player):
 		_end_cage(c)
 		return
-	_hold_trapped(c)
+	_hold_trapped(c, delta)
 	c.flicker -= delta
 	if c.flicker <= 0.0 and not c.own:  # the pillars crackle
 		c.flicker = 0.15
 		var p: Vector3 = c.pillars[randi() % c.pillars.size()]
 		ElementFx.bolt_arc(p + Vector3.UP * 14.0, p)
 	for b: Dictionary in c.bolts.duplicate():
-		var target: Vector3 = c.pillars[b.to] + Vector3.UP * 1.2
+		var target := _bolt_target(c, b)
 		var length := maxf(0.5, (b.from as Vector3).distance_to(target))
 		b.f += b.speed * delta / length
 		var at: Vector3 = (b.from as Vector3).lerp(target, minf(b.f, 1.0))
 		if is_instance_valid(b.hawk):
 			b.hawk.global_position = at
-		for e in Combat.enemies_in_radius(at, 1.3):  # what it passes is struck and tossed (the caught ones only shake)
+		for e in Combat.enemies_in_radius(at, 1.3):  # what it passes is caught and flung (a caught one: flung again)
 			if Combat.time - float(c.struck.get(e, -99.0)) >= t.cage_rehit:
 				c.struck[e] = Combat.time
 				if c.trapped.has(e):
 					_shock(c, e)
+					_fling(c, e)
 				else:
+					_catch(c, e)
 					_runner()._strike(c.a, player, e, at, true)
 		if b.f >= 1.0:  # it bounces off the pillar, faster, and splits
 			var from: int = b.to
 			b.from = target
 			b.to = _other_pillar(c, from)
+			b.h = _bolt_height()
 			b.f = 0.0
 			b.speed *= t.cage_speedup
-			if not c.own and not ElementFx.bolt_arc(target, c.pillars[b.to] + Vector3.UP * 1.2):
-				ElementFx.beam("Lightning", target, c.pillars[b.to] + Vector3.UP * 1.2)
+			if not c.own and not ElementFx.bolt_arc(target, _bolt_target(c, b)):
+				ElementFx.beam("Lightning", target, _bolt_target(c, b))
 			if c.bolts.size() < t.cage_max_bolts:
 				_add_bolt(c, target, _other_pillar(c, from), b.speed)
 		if is_instance_valid(b.hawk):  # faced after the bounce, so it turns at the pillar, not a frame late
-			var way: Vector3 = c.pillars[b.to] + Vector3.UP * 1.2 - b.hawk.global_position
+			var way: Vector3 = _bolt_target(c, b) - b.hawk.global_position
 			if way.length() > 0.01 and absf(way.normalized().y) < 0.99:
 				b.hawk.look_at(b.hawk.global_position + way, Vector3.UP)
 
 
-## The caught ones stay inside, struck every cage_rehit s whether a bolt passes or not, never thrown out.
-func _hold_trapped(c: Dictionary) -> void:
+## The caught ones fly round inside, bouncing off the pillars' bounds, the ground and cage_bolt_top,
+## struck every cage_rehit s whether a bolt passes or not, never thrown out.
+func _hold_trapped(c: Dictionary, delta: float) -> void:
 	var t: CombatTuning = GameData.tuning
 	var spot: Vector3 = c.spot
-	var inside: float = c.radius - 0.8
+	var inside: float = maxf(c.radius - 0.8, 0.5)
+	var spots: Dictionary = c.hold.spots
 	for e in c.trapped.duplicate():
 		if not is_instance_valid(e) or e.is_dead():
 			c.trapped.erase(e)
+			spots.erase(e)
 			continue
-		var out := _flat(e.global_position - spot)
-		if out.length() > inside:  # pushed back from the edge
-			e.global_position = Vector3(spot.x, e.global_position.y, spot.z) + out.normalized() * inside
+		var v: Vector3 = c.fly[e]
+		var p: Vector3 = spots[e] + v * delta
+		var out := _flat(p - spot)
+		if out.length() > inside:  # off the edge: back in, bounced
+			var n := out.normalized()
+			p = Vector3(spot.x, p.y, spot.z) + n * inside
+			if v.dot(n) > 0.0:
+				v -= 2.0 * v.dot(n) * n
+		if p.y < spot.y:
+			p.y = spot.y
+			v.y = absf(v.y)
+		elif p.y > spot.y + t.cage_bolt_top:
+			p.y = spot.y + t.cage_bolt_top
+			v.y = -absf(v.y)
+		spots[e] = p
+		c.fly[e] = v
 		if Combat.time - float(c.struck.get(e, -99.0)) >= t.cage_rehit:
 			c.struck[e] = Combat.time
 			_shock(c, e)
 			if not c.own:
-				var p: Vector3 = c.pillars[randi() % c.pillars.size()] + Vector3.UP * 1.2
-				if not ElementFx.bolt_arc(p, e.global_position + Vector3.UP):
-					ElementFx.beam("Lightning", p, e.global_position + Vector3.UP)
+				var pillar: Vector3 = c.pillars[randi() % c.pillars.size()] + Vector3.UP * 1.2
+				if not ElementFx.bolt_arc(pillar, e.global_position + Vector3.UP):
+					ElementFx.beam("Lightning", pillar, e.global_position + Vector3.UP)
 
 
 ## A caught one is struck where it stands: cage_trap_damage of the spell, no throw.
@@ -601,6 +653,10 @@ func _shock(c: Dictionary, e: Node) -> void:
 ## The pillars collapse in one big burst.
 func _end_cage(c: Dictionary) -> void:
 	_cages.erase(c)
+	for e in c.trapped:  # let go, so the burst can throw them
+		if is_instance_valid(e) and e.held_by == c.hold:
+			e.release_grab()
+	c.hold.queue_free()
 	for b: Dictionary in c.bolts:
 		if is_instance_valid(b.hawk):
 			b.hawk.queue_free()

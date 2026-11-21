@@ -768,12 +768,21 @@ func test_spells() -> void:
 	check(cage.bolts.all(func(b): return b.hawk != null), "each bolt is carried by a lightning hawk, %.0f m across" % t.cage_hawk_size)
 	await _frames(10)
 	var flier: Dictionary = cage.bolts[1]
-	var headed: Vector3 = (cage.pillars[flier.to] as Vector3) + Vector3.UP * 1.2 - flier.hawk.global_position
+	var headed: Vector3 = (cage.pillars[flier.to] as Vector3) + Vector3.UP * float(flier.h) - flier.hawk.global_position
 	check((-flier.hawk.global_basis.z).normalized().dot(headed.normalized()) > 0.5, "the hawk flies at the pillar it's headed for")
 	caged[0].global_position = spot + Vector3(0, 0, -15)  # knocked out of it
 	await _frames(2)
 	check(Vector2(caged[0].global_position.x - spot.x, caged[0].global_position.z - spot.z).length() < 6.0, "a caught one can't leave the pillars")
 	check(cage.bolts.size() == 3 and t.cage_max_bolts == 3, "three hawks in all, however often they bounce (%d)" % cage.bolts.size())
+	var flung: Enemy = caged[1]
+	var was: Vector3 = flung.global_position
+	await _frames(6)
+	var moved: float = flung.global_position.distance_to(was) / (6.0 / hz)
+	check(flung.held_by == cage.hold and moved > t.cage_fling_speed * 0.5, "a caught one is flung round at %.0f m/s (%.0f)" % [t.cage_fling_speed, moved])
+	var flung_off: Vector3 = flung.global_position - cage.spot
+	check(Vector2(flung_off.x, flung_off.z).length() <= cage.radius and flung_off.y >= -0.1 and flung_off.y <= t.cage_bolt_top + 0.1, "bouncing inside the pillars' bounds")
+	var heights: Array = cage.bolts.map(func(b): return b.h)
+	check(heights.all(func(h): return h >= 1.0 and h <= t.cage_bolt_top) and heights.max() - heights.min() > 0.1, "the bolts climb and dive between the pillars (%s)" % [heights])
 	var up: float = p.global_position.y
 	check(up > y0 + 1.0, "you're still up just after the last pillar (%.1f)" % (up - y0))
 	await _frames(int((t.cage_fall_delay + 0.6) * hz))

@@ -327,6 +327,11 @@ extends Resource
 @export_range(0.0, 10.0, 0.1) var cage_fall_delay := 0.5
 @export_range(1, 60) var cage_max_bolts := 3  # 24 until 2026-11-20 (user: three hawks in all)
 @export_range(0.05, 2.0, 0.05) var cage_rehit := 0.4
+## Bolts meet each pillar anywhere from 1 m up to this high (m), and caught enemies bounce no higher.
+@export_range(1.5, 40.0, 0.5) var cage_bolt_top := 10.0
+## Caught enemies (inside the pillars when it starts, or hit by a bolt) fly this fast (m/s),
+## bouncing off the pillars' bounds, the ground and that ceiling until it ends.
+@export_range(2.0, 80.0, 1.0) var cage_fling_speed := 30.0
 @export_range(0.2, 15.0, 0.1) var cage_hawk_size := 5.0
 ## Each pillar is a large lightning bolt (your bolt pictures) this tall and wide (m), a new picture every this many s.
 @export_range(2.0, 40.0, 0.5) var cage_pillar_height := 14.0
