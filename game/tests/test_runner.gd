@@ -56,7 +56,7 @@ func _ready() -> void:
 		"test_level_ups", "test_one_god_per_race",
 		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_practice_picks", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_bestiary_saved", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head", "test_pixelfx_effects", "test_hit_reactions", "test_aim_every_spell", "test_lance_flight_and_shoulder_camera",
 	]
-	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
+	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_spells runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
 	for t in tests:
 		await _setup()
@@ -458,7 +458,11 @@ func test_fire_ultimate() -> void:
 	var t: CombatTuning = GameData.tuning
 	var spot: Vector3 = p.global_position + Vector3(0, 0, -12)
 	var lifted: Vector3 = p.global_position + Vector3.UP * t.ult_lift_height  # where you'll hang
+	# The dragons' ways are random (visual only, the global RNG): seeded, the test sees the same five
+	# flights every run. Unseeded, a fast one (ult_dragon_land_spread) could already be diving low.
+	seed(7)
 	check(p.abilities.cast("Ultimate", p, Vector3.FORWARD, spot), "the Fire ultimate casts")
+	randomize()
 	await _frames(int(t.ult_arc_gap * 2.0 * hz) + 4)
 	var over := get_tree().get_nodes_in_group("magic_circle").filter(func(c):
 		var to: Vector3 = c.global_position - lifted
