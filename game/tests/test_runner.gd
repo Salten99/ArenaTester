@@ -54,7 +54,7 @@ func _ready() -> void:
 		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_spells", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_bull_rush", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_bestiary_saved", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head", "test_pixelfx_effects", "test_hit_reactions", "test_aim_every_spell", "test_lance_flight_and_shoulder_camera",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_bestiary_saved", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head", "test_pixelfx_effects", "test_hit_reactions", "test_aim_every_spell", "test_lance_flight_and_shoulder_camera",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -1309,10 +1309,9 @@ func test_shelved_races() -> void:
 			"the %s is set aside: not offered, no army in fights" % race)
 		check(GameData.text(GameData.race(race), "race_id") == race, "but its row still loads, for old saves and later")
 	# Milestone 1's roster (Council VIII; gods cut to Fire, Ice, Lightning, Stone 2026-11-16).
-	var start: Array = GameData.rows("races").filter(func(r): return not r.race_id in GameData.START_HIDDEN_RACES)
 	var elements: Array = GameData.rows("gods").map(func(g): return GameData.text(g, "element"))
 	elements.sort()
-	check(start.size() == 10 and elements == ["Fire", "Ice", "Lightning", "Stone"], "10 races to start as and the Fire, Ice, Lightning and Stone gods (%d, %s)" % [start.size(), elements])
+	check(elements == ["Fire", "Ice", "Lightning", "Stone"], "the Fire, Ice, Lightning and Stone gods (%s)" % [elements])
 	var shelved := func(r): return r.get("god_id") in GameData.SHELVED_GODS or r.get("god_a") in GameData.SHELVED_GODS or r.get("god_b") in GameData.SHELVED_GODS
 	check(not GameData.rows("god_abilities").any(shelved) and not GameData.rows("godly_gifts").any(shelved) and not GameData.rows("duo_godly_gifts").any(shelved),
 		"set-aside gods' abilities, gifts and duo gifts are never offered")
@@ -1322,39 +1321,30 @@ func test_shelved_races() -> void:
 func test_race_actives() -> void:
 	var p: Player = _arena.player
 	p.god_mode = false
-	for r in GameData.rows("races"):
-		p.setup(r.race_id, "forge_god")
-		p.health.heal(99999.0)
-		p.race_active.cooldown = 0.0
-		p.abilities.invulnerable = false  # the Angel's dive may still be in the air
-		var foes := _cluster(2, 3.0)
-		p.facing = Vector3(0, 0, -1)
-		foes[0].global_position = p.global_position + Vector3(0, 0, -3)  # straight ahead: line skills are narrow
-		var hp: float = foes[0].health.hp
-		check(p.race_active.cast() and p.race_active.cooldown > 0.0 and not p.race_active.cast(), "the %s active runs, then cools down (%s)" % [r.race_id, p.race_active.title()])
-		await _frames(2)
-		p.race_active.invulnerable = false
-		p.race_active._charge_time = -1.0
-		if r.race_id in ["elf", "bird", "owl", "elephant", "dragon", "macaque", "treekin"]:
-			check(not is_instance_valid(foes[0]) or foes[0].health.hp < hp, "the %s active hurts enemies" % r.race_id)
-		if r.race_id in ["macaque", "treekin"]:
-			check(not is_instance_valid(foes[0]) or foes[0].state == Enemy.State.FROZEN or foes[0].is_dead(), "the %s active holds them in place" % r.race_id)
-		for e in foes:
-			if is_instance_valid(e):
-				e.queue_free()
-		await _frames(1)
 	p.setup("dwarf", "forge_god")
 	p.race_active.cooldown = 0.0
-	p.race_active.cast()
+	p.abilities.invulnerable = false
+	check(p.race_active.cast() and p.race_active.cooldown > 0.0 and not p.race_active.cast(), "the dwarf's active runs, then cools down (%s)" % p.race_active.title())
 	check(p.is_invulnerable(), "the dwarf can't be hurt while its active lasts")
 	p.race_active.invulnerable = false
+	# Any other race gets a plain blast.
+	p.setup("human", "forge_god")
+	p.race_active.cooldown = 0.0
+	var foe: Enemy = _cluster(1, 3.0)[0]
+	var hp: float = foe.health.hp
+	p.race_active.cast()
+	check(not p.is_invulnerable() and (not is_instance_valid(foe) or foe.health.hp < hp), "another race's active is a blast that hurts")
+	if is_instance_valid(foe):
+		foe.queue_free()
+	p.setup("dwarf", "forge_god")
 	var s := _scripted()
 	p.race_active.cooldown = 0.0
-	get_tree().paused = false  # the kills above may have opened a level-up choice
+	get_tree().paused = false  # a kill may have opened a level-up choice
 	p.abilities.invulnerable = false
 	s.press("race_active")
 	await _frames(3)
 	check(p.race_active.cooldown > 0.0, "the race skill has its own button")
+	p.race_active.invulnerable = false
 
 
 func test_paired_claws() -> void:
@@ -1401,33 +1391,8 @@ func test_race_active_fixes() -> void:
 	check(e.model == null or e.model.anim == null or e.model.anim.speed_scale == 0.0, "a frozen enemy stops moving")
 	await _frames(12)
 	check(e.state != Enemy.State.FROZEN and (e.model == null or e.model.anim == null or e.model.anim.speed_scale == 1.0), "and moves again when it thaws")
-	# The Minotaur's charge goes through an enemy instead of stopping at it.
-	p.setup("minotaur", "forge_god")
-	await _until_on_floor()
-	p.facing = Vector3(0, 0, -1)
-	e.global_position = p.global_position + Vector3(0, 0, -3)
-	e.freeze(5.0)
-	var hp: float = e.health.hp
-	p.race_active.cooldown = 0.0
-	p.abilities.invulnerable = false
-	get_tree().paused = false
-	var held := _scripted()
-	held.hold({"race_active_held": true}, 40)
-	p.race_active.cast()
-	await _frames(30)
-	check(p.race_active._charge_time > 0.0, "a charge keeps going after it reaches an enemy (%.2f)" % p.race_active._charge_time)
-	check(not is_instance_valid(e) or e.health.hp < hp, "and hurts the enemy it runs into")
-	p.race_active._charge_time = -1.0
-	p.race_active.invulnerable = false
-	if is_instance_valid(e):
-		e.queue_free()
-	# Bosses shake off being held in half the time.
-	var big: Enemy = _cluster(1, 6.0)[0]
-	big.is_large = true
-	p.race_active._hold(big, 4.0)
-	check(is_equal_approx(big._state_len, 2.0), "a large enemy is held half as long (%.1f s)" % big._state_len)
-	big.queue_free()
-	check(GameData.num(GameData.race("dwarf"), "duration") == 5.0 and GameData.num(GameData.race("frog"), "active_bonus_damage") == 50.0, "the race skill numbers are the user's choices")
+	e.queue_free()
+	check(GameData.num(GameData.race("dwarf"), "duration") == 5.0, "the race skill numbers are the user's choices")
 	# Skill timers wait out a level-up choice.
 	p.setup("dwarf", "forge_god")
 	p.race_active.cooldown = 0.0
@@ -1932,8 +1897,6 @@ func test_demon_and_wings() -> void:
 		moved = maxf(moved, rest.angle_to(m._skeleton.get_bone_pose_rotation(bone)))
 	check(moved > 0.1, "and beats them while it flies (%.2f rad)" % moved)
 	m.queue_free()
-	var src := FileAccess.get_file_as_string("res://scripts/valley/wilds.gd")
-	check(not src.contains("Discovered:"), "finding a new kind of creature shows no message")
 
 
 func test_combat_feel() -> void:
@@ -1976,7 +1939,7 @@ func test_combat_feel() -> void:
 func test_end_of_run_exit() -> void:
 	# Playtest 2026-11-05: the final kill's level-up took the mouse from "Back to the start screen".
 	var hud: Hud = _arena.hud
-	hud.offer_choice("test", "A choice", ["a"], ["1.  A"])
+	hud._open_choice("test", "A choice", ["a"], ["1.  A"])
 	hud.show_action("Back to the start screen", func(): pass)
 	hud._pick(0)
 	check(hud.mouse_after_choice() == Input.MOUSE_MODE_VISIBLE, "closing a menu leaves the mouse free while the end-of-run button waits")
@@ -1984,31 +1947,6 @@ func test_end_of_run_exit() -> void:
 	await _frames(1)
 	check(hud.mouse_after_choice() == Input.MOUSE_MODE_CAPTURED, "otherwise the mouse goes back to the camera")
 	check(FileAccess.get_file_as_string("res://scripts/arena/arena.gd").contains("if not Run.active or Run.state.pending_level_ups"), "no level-up opens after the run is over")
-
-
-func test_bull_rush() -> void:
-	var p: Player = _arena.player
-	p.setup("minotaur", "forge_god")
-	await _until_on_floor()
-	# A minotaur sprinting flat out tramples what's in front.
-	p.god_mode = false
-	p.flying = false
-	var foe: Enemy = _cluster(1, 1.5)[0]
-	await _frames(1)
-	foe.health.setup(9999.0)
-	p.velocity = p.facing * GameData.tuning.sprint_speed
-	p._rush_time = 0.0
-	p._rushed.clear()
-	var hp := foe.health.hp
-	p._bull_rush(0.016)
-	check(foe.health.hp < hp and not foe.thrown, "a minotaur at a sprint tramples, without throwing at first")
-	p._rushed.clear()
-	p._rush_time = GameData.tuning.rush_throw_after
-	p.velocity = p.facing * GameData.tuning.sprint_speed
-	p._bull_rush(0.016)
-	check(foe.thrown, "and after 2 s at full speed throws them")
-	p.setup("human", "forge_god")
-	p.god_mode = true
 
 
 func test_blood_and_falls() -> void:

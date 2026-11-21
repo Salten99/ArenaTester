@@ -74,7 +74,6 @@ func _ready() -> void:
 	add_child(hud)
 	hud.godly_gift_chosen.connect(_on_godly_gift_chosen)
 	hud.level_up_chosen.connect(_on_level_up_chosen)
-	hud.choice_made.connect(func(_kind, _id): _offer_level_up.call_deferred())  # a level-up that waited behind another menu
 	Combat.killed.connect(_on_killed)
 
 	var debug := DebugTools.new()  # only P (god mode) works in a release .exe

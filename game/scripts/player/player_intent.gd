@@ -35,4 +35,3 @@ var wheel_back := false       ## the wheel turned back (down) this frame: reels 
 var race_active := false      ## just pressed: your race's active skill
 var throw := false            ## just pressed: start winding up a throw of the weapon in your hand
 var throw_held := false       ## held: the throw gathers force; let go to throw
-var race_active_held := false ## held: the Minotaur's charge lasts as long as this

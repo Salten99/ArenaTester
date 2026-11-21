@@ -421,14 +421,6 @@ extends Resource
 ## combat feel plan, 2026-11-18: over the top).
 @export_range(0, 60) var blood_hit_drops := 24
 @export_range(0, 120) var blood_slam_drops := 40
-## A minotaur's bull rush (sprinting flat out, Player._bull_rush): each enemy it tramples takes this
-## damage and knockback; after rush_throw_after s at full speed they're thrown back this fast (m/s,
-## and up), go ragdoll (people; animals fly whole) and get back up if they live.
-@export_range(0.0, 200.0, 1.0) var rush_damage := 40.0
-@export_range(0.0, 60.0, 0.5) var rush_force := 20.0
-@export_range(0.0, 10.0, 0.1) var rush_throw_after := 2.0
-@export_range(0.0, 40.0, 0.5) var rush_throw_speed := 16.0
-@export_range(0.0, 20.0, 0.5) var rush_throw_lift := 6.0
 ## A thrown enemy that suddenly loses this much speed hit something (a tree, a
 ## house, a rock) and takes this much damage per m/s lost.
 @export_range(1.0, 20.0, 0.5) var throw_impact_min := 6.0

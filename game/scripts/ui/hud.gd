@@ -5,10 +5,6 @@ extends CanvasLayer
 
 signal godly_gift_chosen(godly_gift_id: String)
 signal level_up_chosen(upgrade_id: String)
-## The godly gift id picked from a god ("" for none).
-signal god_chosen(choice: String)
-## Any other choice opened with offer_choice(): its kind and the picked id.
-signal choice_made(kind: String, id: String)
 
 var player: Player
 var waves: WaveDirector
@@ -279,24 +275,7 @@ func offer_godly_gifts(god_id: String, ids: Array) -> void:
 		ids.map(func(id): return _describe(id, ids.find(id) + 1)))
 
 
-## A god revealed itself: take one of its godly gifts. Your own god stays (user, 2026-11-05:
-## no switching gods; the gods you meet add to the build your race's god started).
-func offer_god(god_id: String, godly_gift_ids: Array) -> void:
-	var g := GameData.god(god_id)
-	var ids: Array = []
-	var texts: Array = []
-	for id in godly_gift_ids:
-		if ids.size() >= 3:
-			break
-		ids.append(id)
-		texts.append(_describe(id, ids.size()))
-	if ids.is_empty():  # nothing left to give: a menu with no buttons would never close
-		god_chosen.emit("")
-		return
-	_open_choice("god", "%s, %s, appears" % [GameData.text(g, "display_name"), GameData.text(g, "epithet")], ids, texts)
-
-
-## A big button in the middle of the screen (e.g. "Return to the valley").
+## A big button in the middle of the screen (e.g. "Try again").
 func show_action(text: String, action: Callable) -> void:
 	var b := Button.new()
 	_action = b
@@ -308,11 +287,6 @@ func show_action(text: String, action: Callable) -> void:
 	get_node("Root").add_child(b)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	b.grab_focus()
-
-
-## A choice of up to 3 options (e.g. befriend or attack a tribe). Answers via choice_made.
-func offer_choice(kind: String, title: String, ids: Array, texts: Array) -> void:
-	_open_choice(kind, title, ids, texts)
 
 
 ## A level-up: pick one of the offered stat upgrades.
@@ -368,15 +342,11 @@ func _pick(index: int) -> void:
 	get_tree().paused = false
 	if _offer_kind == "level":
 		level_up_chosen.emit(_offer[index])
-	elif _offer_kind == "god":
-		god_chosen.emit(_offer[index])
 	elif _offer_kind == "godly_gift":
 		godly_gift_chosen.emit(_offer[index])
-	else:
-		choice_made.emit(_offer_kind, _offer[index])
 	if not _choice.visible and not _waiting_choices.is_empty():
 		_open_choice.callv(_waiting_choices.pop_front())
-	if not _choice.visible:  # the next page (the elder's) keeps the cursor where it is, not captured and freed
+	if not _choice.visible:  # a menu that waited opens next and keeps the cursor free
 		Input.mouse_mode = mouse_after_choice()
 
 

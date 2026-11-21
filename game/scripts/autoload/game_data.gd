@@ -28,9 +28,6 @@ func _ready() -> void:
 ## Their rows still load by id, so an old save with one of them doesn't break.
 ## Empty this list to bring them back.
 const SHELVED_RACES := ["owl", "elephant", "dragon", "fennec"]
-## Milestone 1's roster (user, 2026-11-09, Council VIII: "less options for the characters").
-## Races you can't start as any more.
-const START_HIDDEN_RACES := ["gnome", "gnoll", "centaur", "treekin", "ratfolk", "cat"]
 ## Gods (and with them their damage types) set aside: no one worships them, they offer no gifts,
 ## their abilities and gifts (and duo gifts with them) are never offered. Rows stay on the sheet
 ## and still load by id; empty this list to bring them back. Any race may take any kept god.

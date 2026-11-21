@@ -27,7 +27,6 @@ var statuses := StatusEffects.new()
 var godly_gifts := GodlyGiftManager.new()
 var abilities := AbilityRunner.new()
 var race_active := RaceActive.new()
-var race_active_held := false
 var _crosshair := Vector3.INF  ## what you're aiming at (PlayerIntent.crosshair)
 ## How far a throw is wound up (0..1) while you hold the throw key; -1 = not throwing.
 var throw_charge := -1.0
@@ -212,7 +211,6 @@ func _physics_process(delta: float) -> void:
 		return
 	var intent: PlayerIntent = input_source.read() if input_source != null else PlayerIntent.new()
 	aiming = aims_with_body()
-	_bull_rush(delta)
 	_state_time += delta
 	_combo_timer -= delta
 	if Combat.now_msec() - _stamina_used_msec > t.stamina_regen_delay * 1000.0:
@@ -265,7 +263,6 @@ func _physics_process(delta: float) -> void:
 		elif intent.heavy:
 			_queued_light = false
 			_start_heavy(intent.aim_yaw)
-	race_active_held = intent.race_active_held
 	if intent.race_active and state == State.FREE:
 		race_active.cast()
 	_update_throw(delta, intent)
@@ -834,38 +831,6 @@ func hit_targets(targets: Array, base: float, kind: DamageInfo.Kind, knockback: 
 		godly_gifts.trigger(event, {"target": landed[0], "position": impact, "phase": "swing", "targets": landed})
 
 
-## Minotaurs charge (user, 2026-11-05): sprinting flat out they trample what's in front
-## (rush_damage, rush_force), and after rush_throw_after s at full speed they throw it.
-const RUSH_RACES := ["minotaur"]
-const RUSH_RANGE := 2.2  ## who's in front of you within this range
-const RUSH_REPEAT := 0.8  ## s before the same enemy can be trampled again
-var _rush_time := 0.0
-var _rushed := {}  ## enemy instance id -> seconds before it can be trampled again
-
-
-func _bull_rush(delta: float) -> void:
-	for id in _rushed.keys():
-		_rushed[id] -= delta
-		if _rushed[id] <= 0.0:
-			_rushed.erase(id)
-	var t: CombatTuning = GameData.tuning
-	var speed := Vector2(velocity.x, velocity.z).length()
-	if not race_id in RUSH_RACES or not is_on_floor() or speed < t.sprint_speed * 0.85:
-		_rush_time = 0.0
-		return
-	_rush_time += delta
-	for e in enemies_in_arc(RUSH_RANGE, 50.0):
-		if _rushed.has(e.get_instance_id()):
-			continue
-		_rushed[e.get_instance_id()] = RUSH_REPEAT
-		var info := make_hit(t.rush_damage, "Physical", "Melee", e, DamageInfo.Kind.HEAVY)
-		info.knockback = t.rush_force
-		info.knockback_dir = (e.global_position - global_position).normalized()
-		info.knockdown = true
-		info.no_launch = true
-		Combat.deal(e, info)
-		if _rush_time >= t.rush_throw_after:
-			e.throw(info.knockback_dir * t.rush_throw_speed + Vector3.UP * t.rush_throw_lift, self)
 var _jump_charging := false
 var _jump_hold := 0.0
 var _jump_power := 1.0

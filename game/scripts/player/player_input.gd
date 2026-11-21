@@ -68,7 +68,6 @@ func read() -> PlayerIntent:
 	i.race_active = Input.is_action_just_pressed("race_active")
 	i.throw = captured and Input.is_action_just_pressed("throw_weapon")
 	i.throw_held = captured and Input.is_action_pressed("throw_weapon")
-	i.race_active_held = Input.is_action_pressed("race_active")
 	i.movement = Input.is_action_just_pressed("ability_movement")
 	i.signature_held = Input.is_action_pressed("ability_signature")
 	i.movement_held = Input.is_action_pressed("ability_movement")
