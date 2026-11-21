@@ -746,6 +746,7 @@ func test_spells() -> void:
 	caged[0].global_position = spot + Vector3(0, 0, -15)  # knocked out of it
 	await _frames(2)
 	check(Vector2(caged[0].global_position.x - spot.x, caged[0].global_position.z - spot.z).length() < 6.0, "a caught one can't leave the pillars")
+	check(cage.bolts.size() == 3 and t.cage_max_bolts == 3, "three hawks in all, however often they bounce (%d)" % cage.bolts.size())
 	await _frames(int(t.ult_lift_time * hz) + 10)
 	check(p.global_position.y > y0 + t.cage_lift_height - 1.0, "you float %.0f m up while it lasts (%.1f)" % [t.cage_lift_height, p.global_position.y - y0])
 	var after_first: float = caged[1].health.hp

@@ -467,10 +467,11 @@ func _start_cage(a: Dictionary, player: Node, pillars: Array, glows: Array, lift
 	radius = maxf(radius, 1.5)
 	var c := {"a": a, "player": player, "spot": spot, "radius": radius, "pillars": pillars, "glows": glows,
 		"left": t.cage_time, "flicker": 0.0, "bolts": [], "struck": {}, "own": _own(a), "trapped": Combat.enemies_in_radius(spot, radius)}
-	# Your bolt, thrown from your hand to the first pillar, and two already bouncing off every pillar.
+	# Your bolt, thrown from your hand to the first pillar, and the rest of the cage_max_bolts
+	# already bouncing off the pillars (user, 2026-11-20: three hawks in all).
 	var hand: Vector3 = player.global_position + Vector3.UP * 1.3 if _alive(player) else pillars[0]
 	_add_bolt(c, hand, 0, t.cage_bolt_speed)
-	for i in pillars.size() * 2:
+	for i in t.cage_max_bolts - 1:
 		var from: int = i % pillars.size()
 		_add_bolt(c, pillars[from] + Vector3.UP * 1.2, _other_pillar(c, from), t.cage_bolt_speed)
 	_cages.append(c)
