@@ -177,8 +177,11 @@ func _fire_ultimate(a: Dictionary, player: Node, spot: Vector3, radius: float) -
 		var land := spot if i == 2 else spot + UltimateFx._in_disc(radius * t.ult_dragon_land_scatter)  # the others scatter round it
 		var d := FireDragon.new()
 		d.p0 = at
-		d.p1 = at + ahead * flat.length() * 0.2 + Vector3.UP * 5.0 + out * 5.0 + _wander(w)  # out * 4 and 3 until 2026-11-20 (user: 25% more spread)
-		d.p2 = land + Vector3.UP * 9.0 - ahead * 2.0 + out * 3.75 + _wander(w)
+		# Out of the circle any way, onto the spot from any side (user, 2026-11-20); never into the ground.
+		d.p1 = at + _any_way(-1.0) * t.ult_dragon_launch_m + _wander(w)
+		d.p2 = land + _any_way(t.ult_dragon_dive_rise) * t.ult_dragon_dive_m + _wander(w)
+		d.p1.y = maxf(d.p1.y, land.y + t.ult_dragon_floor)
+		d.p2.y = maxf(d.p2.y, land.y + t.ult_dragon_floor)
 		d.p3 = land
 		d.side = right if randf() < 0.5 else -right  # weaves left first or right first
 		d.phase = randf() * TAU
@@ -191,6 +194,12 @@ func _fire_ultimate(a: Dictionary, player: Node, spot: Vector3, radius: float) -
 		d.landed.connect(_dragon_lands.bind(a, player, land, radius, i == 2))
 		root.add_child(d)
 	Combat.shake(t.shake_light)
+
+
+## A random direction, evenly over every way whose up part is at least `min_up` (-1: any way at all).
+func _any_way(min_up: float) -> Vector3:
+	var up := randf_range(min_up, 1.0)
+	return Vector3.UP * up + Vector3(1, 0, 0).rotated(Vector3.UP, randf() * TAU) * sqrt(1.0 - up * up)
 
 
 ## A random push up to `w` m, less downward so the path stays in the air.

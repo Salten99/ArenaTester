@@ -225,6 +225,13 @@ extends Resource
 @export_range(0.5, 3.0, 0.05) var ult_dragon_head_scale := 1.25  ## the head, this much bigger than the body
 ## Each dragon's path is pushed up to this far (m) a random way every cast; they still land on the spot.
 @export_range(0.0, 10.0, 0.25) var ult_dragon_wander := 4.0
+## Each dragon leaves its circle any way at all, pulled this far (m) that way, and dives onto its spot
+## from any side, from this far (m) and at least ult_dragon_dive_rise up (0 flat, 1 straight down)
+## (user, 2026-11-20: not just up). Its path never dips below ult_dragon_floor (m) off the ground.
+@export_range(0.0, 20.0, 0.5) var ult_dragon_launch_m := 7.0
+@export_range(0.0, 20.0, 0.5) var ult_dragon_dive_m := 9.0
+@export_range(0.0, 1.0, 0.05) var ult_dragon_dive_rise := 0.35
+@export_range(0.0, 10.0, 0.5) var ult_dragon_floor := 3.0
 @export_range(0.0, 8.0, 0.1) var ult_dragon_wave := 3.75  # 2.5 until 2026-11-20 (user: bigger curves)
 @export_range(0.0, 6.0, 0.25) var ult_dragon_coils := 2.0
 ## Each dragon weaves its own number of times (user, 2026-11-20): ult_dragon_coils, give or take this.
