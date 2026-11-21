@@ -568,8 +568,8 @@ func test_spells() -> void:
 	var t: CombatTuning = GameData.tuning
 	var hz := Engine.physics_ticks_per_second
 	var home: Vector3 = p.global_position
-	var saved := [t.kaminari_time, t.ice_snake_time]
-	t.kaminari_time = 1.5
+	var saved := [t.cage_time, t.ice_snake_time]
+	t.cage_time = 1.5
 	t.ice_snake_time = 1.0
 
 	# Magma Ball (Fire Q, user 2026-11-20): hold Q to aim, let go: you pull a ball of magma out of the
@@ -662,57 +662,65 @@ func test_spells() -> void:
 	check(not p.abilities.beaming(), "and stops after %.1f s" % t.lightning_beam_time)
 	_free_all(line + off)
 
-	# Kaminari (user, 2026-11-20): a thrown lightning spear, a dragon coiled round it, jumps enemy to
-	# enemy for kaminari_time; with one enemy left it strikes in and out of it until it's dead.
+	# Kaminari (user, 2026-11-20): you place its pillars one by one where you aim; then bolts bounce
+	# between them, each carried by a lightning hawk, while you float above, and who's inside is caught.
 	var spot: Vector3 = p.global_position + Vector3(0, 0, -12)
-	var struck := [_dummy(Vector3(0, 0, -12)), _dummy(Vector3(4, 0, -14))]
-	var ground_y: float = p.global_position.y
-	# While you aim it, the bolt is already in your hand; stop aiming without throwing and it's gone.
-	p.abilities.spells.hold_bolt(p.abilities.defs.Ultimate, p)
-	var held: Dictionary = p.abilities.spells._spears[0]
-	check(held.waiting and held.bolt != null and (held.at as Vector3).distance_to(p.global_position) < 2.5, "aiming Kaminari, the bolt is in your hand")
-	await _frames(2)  # (not aiming here)
-	check(not p.abilities.spells.caging(), "stop aiming without throwing and it's gone")
-	p.abilities.spells.hold_bolt(p.abilities.defs.Ultimate, p)
-	p.abilities.cast("Ultimate", p, Vector3.FORWARD, spot)  # let go: the one in your hand is thrown
+	var caged := [_dummy(Vector3(0, 0, -12)), _dummy(Vector3(1, 0, -13))]
+	var y0: float = p.global_position.y
+	var def: Dictionary = p.abilities.defs.Ultimate
+	var places: Array = []
+	for i in t.cage_pillars:
+		places.append(spot + UltimateFx._around(i, t.cage_pillars, 5.0))
+	var each_placed := true
+	for i in t.cage_pillars - 1:
+		each_placed = p.abilities.spells.place_pillar(def, p, places[i]) and each_placed
+	check(each_placed and p.abilities.spells.pillars_placed() == t.cage_pillars - 1 and not p.abilities.spells.caging() and p.abilities.ready_in("Ultimate") == 0.0,
+		"each let-go places one of Kaminari's pillars (%d), nothing cast yet" % p.abilities.spells.pillars_placed())
+	check(not p.abilities.spells.place_pillar(def, p, places[-1]), "the last one casts it")
+	p.abilities.cast("Ultimate", p, Vector3.FORWARD, places[-1])
 	await _frames(3)
-	check(p.abilities.spells._spears.size() == 1 and not p.abilities.spells._spears[0].waiting, "Kaminari's bolt is out, the one from your hand")
-	var spear: Dictionary = p.abilities.spells._spears[0]
-	check(spear.held > 0.0 and (spear.at as Vector3).distance_to(p.global_position) < 2.5 and spear.bolt != null, "it's in your hand first, your bolt pictures")
-	var dragon: Array = spear.pieces
-	var tip: Vector3 = spear.at + spear.fwd * t.kaminari_bolt_length * 0.5
-	check(dragon.size() == t.kaminari_dragon_segments and dragon[0].global_position.distance_to(tip) < t.kaminari_coil_radius * 1.5, "a lightning dragon coils round it")
-	await _frames(int((t.kaminari_hold_time + 14.0 / t.kaminari_speed) * hz) + 20)
-	check(_hurt(struck) == 2, "it jumps from enemy to enemy (%d of 2)" % _hurt(struck))
-	struck[0].queue_free()  # one left
-	var last_hp: float = struck[1].health.hp
-	await _frames(int(t.kaminari_time * hz) + 10)
-	check(p.abilities.spells.caging() and struck[1].health.hp < last_hp, "with one enemy left it keeps striking in and out past its time")
-	check(p.global_position.y > ground_y + t.kaminari_lift_height - 1.0, "you hover %.0f m up while it lasts (%.1f)" % [t.kaminari_lift_height, p.global_position.y - ground_y])
-	struck[1].queue_free()  # dead
-	await _frames(3)
-	check(not p.abilities.spells.caging(), "and stops once that one's gone")
-	var near_one := _dummy(Vector3(0, 0, -5))
-	p.abilities.spells.hold_bolt(p.abilities.defs.Ultimate, p)
-	p.abilities.spells._spark(p.abilities.spells._spears[0])
-	check(near_one.health.hp < near_one.health.max_hp, "aiming, small bolts strike out of its tip and hurt")
-	_free_all([near_one])
-	await _frames(int(2.0 * hz))  # back down before the next spell
-	# Aiming it (user, 2026-11-20) you hold the throw at its arm's highest point; after kaminari_aim_max
-	# s it throws itself, so its sparks can't go on forever.
+	check(p.abilities.spells.caging() and p.abilities.ready_in("Ultimate") > 0.0, "then Kaminari starts, and its cooldown")
+	var cage: Dictionary = p.abilities.spells._cages[0]
+	check(cage.pillars.size() == t.cage_pillars and cage.pillars.all(func(q: Vector3) -> bool: return places.any(func(w: Vector3) -> bool: return w.distance_to(q) < 0.1)),
+		"its pillars stand where you placed them")
+	check(caged.all(func(e): return cage.trapped.has(e)) and cage.bolts.size() >= t.cage_pillars, "who's inside is caught, and bolts already bounce off every pillar (%d)" % cage.bolts.size())
+	check(cage.bolts.all(func(b): return b.hawk != null), "each bolt is carried by a lightning hawk")
+	await _frames(10)
+	var flier: Dictionary = cage.bolts[1]
+	var headed: Vector3 = (cage.pillars[flier.to] as Vector3) + Vector3.UP * 1.2 - flier.hawk.global_position
+	check((-flier.hawk.global_basis.z).normalized().dot(headed.normalized()) > 0.5, "the hawk flies at the pillar it's headed for")
+	caged[0].global_position = spot + Vector3(0, 0, -15)  # knocked out of it
+	await _frames(2)
+	check(Vector2(caged[0].global_position.x - spot.x, caged[0].global_position.z - spot.z).length() < 6.0, "a caught one can't leave the pillars")
+	await _frames(int(t.ult_lift_time * hz) + 10)
+	check(p.global_position.y > y0 + t.cage_lift_height - 1.0, "you float %.0f m up while it lasts (%.1f)" % [t.cage_lift_height, p.global_position.y - y0])
+	var after_first: float = caged[1].health.hp
+	await _frames(int(t.cage_time * hz) + 6)
+	check(not p.abilities.spells.caging() and _hurt(caged) == 2, "Kaminari strikes what's inside, then collapses (%d of 2)" % _hurt(caged))
+	check(caged[1].health.hp < after_first, "caught ones are struck again and again")
+	_free_all(caged)
+	await _frames(int(2.0 * hz))  # back down
+	# Placing too slowly: with two pillars or more it starts with those; with one it fizzles, no cooldown.
+	var place_time := t.cage_place_time
+	t.cage_place_time = 0.5
 	p.abilities.remaining.erase("Ultimate")
-	p.stamina = 999.0
-	var aim_at: Vector3 = p.global_position + Vector3(0, 1, -10)
-	var keys := _scripted()
-	keys.hold({"ultimate": true, "ultimate_held": true, "aim_point": aim_at}, 1)
-	keys.hold({"ultimate_held": true, "aim_point": aim_at}, int((t.kaminari_aim_max + 1.0) * hz))
-	await _frames(int(0.8 * hz))
-	check(p._aim_slot == "Ultimate" and p.visual.strike_held() and absf(p.visual.anim.current_animation_position - CharacterModel.HOLD_AT.Human_ThrowSpear) < 0.05,
-		"aiming Kaminari you hold the throw at its highest point (%.2f s in)" % p.visual.anim.current_animation_position)
-	await _frames(int((t.kaminari_aim_max - 0.8) * hz) + 10)
-	check(p._aim_slot == "" and p.abilities.spells.caging() and not p.abilities.spells._spears[0].waiting, "after %.1f s of aiming it throws itself, key still held" % t.kaminari_aim_max)
-	p.input_source = null
-	await _frames(int(3.0 * hz))  # it's done and you're back down
+	p.abilities.spells.place_pillar(def, p, places[0])
+	p.abilities.spells.place_pillar(def, p, places[2])
+	await _frames(int(0.5 * hz) + 5)
+	check(p.abilities.spells.caging() and p.abilities.spells._cages[0].pillars.size() == 2 and p.abilities.ready_in("Ultimate") > 0.0,
+		"placing too slowly, it starts with the pillars you placed")
+	await _frames(int(t.cage_time * hz) + 6)
+	p.abilities.remaining.erase("Ultimate")
+	p.abilities.spells.place_pillar(def, p, places[0])
+	await _frames(int(0.5 * hz) + 5)
+	check(not p.abilities.spells.caging() and p.abilities.spells.pillars_placed() == 0 and p.abilities.ready_in("Ultimate") == 0.0,
+		"with only one placed it fizzles, no cooldown")
+	t.cage_place_time = place_time
+	p.abilities.cast("Ultimate", p, Vector3.FORWARD, spot)  # not aimed (scripted): they stand round the spot
+	await _frames(2)
+	check(p.abilities.spells.caging() and p.abilities.spells._cages[0].pillars.size() == t.cage_pillars, "cast without placing, its pillars stand round the spot")
+	await _frames(int(t.cage_time * hz) + 6)
+	await _frames(int(2.0 * hz))  # back down before the next spell
 
 	# Stone Slab: launches what's in front.
 	p.abilities.load_for("animal_god")
@@ -762,7 +770,7 @@ func test_spells() -> void:
 	check(get_tree().get_nodes_in_group("stone_ram").is_empty(), "then they shrink away like the pillars did")
 	_free_all([crushed, away])
 
-	t.kaminari_time = saved[0]
+	t.cage_time = saved[0]
 	t.ice_snake_time = saved[1]
 	p.global_position = home
 	p.abilities.defs = kept

@@ -81,6 +81,8 @@ func aim_reach(slot: String) -> float:
 
 ## How wide the aiming circle on the ground is.
 func aim_radius(slot: String) -> float:
+	if GameData.text(defs.get(slot, {}), "shape") == "Cage":
+		return 0.8  # where one of Kaminari's pillars goes
 	if slot == "Ultimate":
 		return ultimate_radius()
 	var r := GameData.num(defs.get(slot, {}), "radius_m")

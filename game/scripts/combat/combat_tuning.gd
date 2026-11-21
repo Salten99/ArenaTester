@@ -283,39 +283,23 @@ extends Resource
 @export_range(0.1, 4.0, 0.1) var icicle_stay := 1.0
 ## Bolt Fan: how wide the fan of bolts spreads in front of you (degrees).
 @export_range(10.0, 360.0, 5.0) var fan_arc_deg := 130.0
-## Kaminari (user, 2026-11-20): a thrown lightning spear that jumps enemy to enemy for this long (s)
-## (past it while one enemy is left, until that one's dead), this fast (m/s), to the nearest enemy
-## this close (m); with no other to jump to it flies this far out of the one it struck and back in.
-@export_range(1.0, 30.0, 0.5) var kaminari_time := 5.0
-@export_range(2.0, 80.0, 0.5) var kaminari_speed := 28.0
-@export_range(2.0, 60.0, 0.5) var kaminari_jump_range := 15.0
-@export_range(1.0, 15.0, 0.5) var kaminari_out_m := 4.0
-## You hover this high (m) while it lasts (user, 2026-11-20). While you aim, a small bolt strikes
-## out of its tip about every this many s, at the nearest enemy this close (m), for this much of its damage.
-@export_range(0.0, 30.0, 0.5) var kaminari_lift_height := 10.0
-## Aim it this long at most (s): then it throws itself (user, 2026-11-20).
-@export_range(0.5, 10.0, 0.1) var kaminari_aim_max := 2.5
-@export_range(0.05, 2.0, 0.05) var kaminari_spark_every := 0.2
-@export_range(1.0, 40.0, 0.5) var kaminari_spark_range := 15.0
-@export_range(0.0, 1.0, 0.05) var kaminari_spark_damage := 0.15
-## It stays in your hand this long after you let go (s), while the throw lands; the bolt is this long and wide (m), a new
-## picture of it every this many s.
-@export_range(0.0, 2.0, 0.05) var kaminari_hold_time := 0.1
-@export_range(0.5, 6.0, 0.1) var kaminari_bolt_length := 2.0
-@export_range(0.1, 3.0, 0.05) var kaminari_bolt_width := 0.6
-@export_range(0.02, 0.5, 0.01) var kaminari_bolt_frame := 0.05
-## Its lightning dragon coils round the spear: this many pieces, this big, this far apart along the
-## spear (m), this far out from it (m), each this far round from the last (degrees), spinning this fast (degrees/s).
-@export_range(2, 30) var kaminari_dragon_segments := 8
-@export_range(0.1, 2.0, 0.05) var kaminari_dragon_size := 0.45
-@export_range(0.05, 2.0, 0.05) var kaminari_dragon_gap := 0.3
-@export_range(0.1, 3.0, 0.05) var kaminari_coil_radius := 0.5
-@export_range(0.0, 180.0, 5.0) var kaminari_coil_turn := 50.0
-@export_range(0.0, 2000.0, 10.0) var kaminari_coil_spin := 540.0
-## Every this many s or so (user, 2026-11-20) the dragon coils a new way: up to this much faster or
-## slower and tighter or looser (0.6 = 60%), now and then the other way round.
-@export_range(0.05, 3.0, 0.05) var kaminari_coil_change := 0.4
-@export_range(0.0, 1.0, 0.05) var kaminari_coil_vary := 0.6
+## Kaminari (user, 2026-11-20): you place cage_pillars pillars one at a time where you aim, within
+## cage_place_time s (after that it starts with what's placed, two or more). Then bolts bounce between
+## them for cage_time s at cage_bolt_speed m/s (each bounce cage_speedup times faster, at most
+## cage_max_bolts at once), each carried by a lightning hawk cage_hawk_size m across the wings, and
+## the same enemy is struck again after cage_rehit s at the soonest.
+@export_range(1.0, 30.0, 0.5) var cage_time := 5.0
+@export_range(2, 10) var cage_pillars := 5
+@export_range(1.0, 30.0, 0.5) var cage_place_time := 10.0
+@export_range(2.0, 80.0, 0.5) var cage_bolt_speed := 28.0
+@export_range(1.0, 1.5, 0.01) var cage_speedup := 1.0
+@export_range(1, 60) var cage_max_bolts := 24
+@export_range(0.05, 2.0, 0.05) var cage_rehit := 0.4
+@export_range(0.2, 6.0, 0.1) var cage_hawk_size := 1.6
+## Whoever stands inside the pillars when it starts is caught there until it ends, struck every
+## cage_rehit s for this much of its damage. You float this high (m) while it lasts.
+@export_range(0.0, 1.0, 0.05) var cage_trap_damage := 0.25
+@export_range(0.0, 20.0, 0.5) var cage_lift_height := 10.0
 ## Ice Slide: how long the slide takes (s) and how long its ice trail stays (s).
 @export_range(0.1, 2.0, 0.05) var slide_time := 0.4
 @export_range(0.5, 10.0, 0.5) var ice_trail_time := 3.0

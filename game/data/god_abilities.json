@@ -688,7 +688,7 @@
   "god_id": "storm_god",
   "slot": "Ultimate",
   "display_name": "Kaminari",
-  "description": "Throw a lightning spear at the aimed spot, a lightning dragon coiling round it; for 5 s it jumps from enemy to enemy, striking each, and once only one enemy is left it strikes in and out of it until it's dead.",
+  "description": "Place 5 lightning pillars one by one where you aim; then for 5 s bolts bounce between them, each carried by a lightning hawk, tossing every enemy they pass, while you float above, and whoever stood inside the pillars is caught there, struck again and again.",
   "damage_type": "Lightning",
   "base_damage": 40,
   "cooldown_s": 60,
@@ -697,8 +697,8 @@
   "hits_or_projectiles": 20,
   "status_effect": "lightning",
   "status_chance_pct": 100,
-  "animation_name": "Human_ThrowSpear",
-  "shape": "Spear",
+  "animation_name": "Ranged_Magic_Raise",
+  "shape": "Cage",
   "vfx_sfx_notes": null
  },
  {
