@@ -291,7 +291,7 @@ func _think(delta: float) -> void:
 		_update_poise(delta)
 	_retarget -= delta
 	if _retarget <= 0.0:
-		_retarget = randf_range(0.3, 0.5)  # uneven, so an army spawned together drifts apart instead of all re-picking in one tick
+		_retarget = RunRng.randf_range(0.3, 0.5)  # uneven, so an army spawned together drifts apart instead of all re-picking in one tick
 		target = _pick_target()
 	_update_color()
 	var t: CombatTuning = GameData.tuning
@@ -1179,7 +1179,7 @@ func _crash() -> void:
 	_charge_cd = CHARGE_COOLDOWN
 	Vfx.burst(global_position + Vector3.UP, 1.2, Color(0.9, 0.85, 0.7, 0.9), 0.15)
 	Combat.shake(0.25)
-	health.take(health.max_hp * 0.15)
+	Combat.deal(self, DamageInfo.make(health.max_hp * 0.15, "Physical", DamageInfo.Kind.STATUS, null))  # through Combat, so a death here counts as a kill
 	if not is_dead():
 		_break()
 

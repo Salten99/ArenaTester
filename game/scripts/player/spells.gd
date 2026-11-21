@@ -425,7 +425,7 @@ func _fill_round(held: Dictionary) -> void:
 		mid /= held.pillars.size()
 	var radius := GameData.num(held.a, "radius_m", 4.0)
 	while held.pillars.size() < t.cage_pillars:
-		var p := mid + Vector3.FORWARD.rotated(Vector3.UP, randf() * TAU) * radius * randf_range(0.7, 1.2)
+		var p := mid + Vector3.FORWARD.rotated(Vector3.UP, RunRng.randf_range(0.0, TAU)) * radius * RunRng.randf_range(0.7, 1.2)
 		var ground: float = player.floor_below(p.x, p.z, mid.y + 30.0) if _alive(player) and player.has_method("floor_below") else -INF
 		p.y = ground if ground != -INF else mid.y
 		_add_pillar(held, p)
@@ -515,7 +515,7 @@ func _add_bolt(c: Dictionary, from: Vector3, to: int, speed: float) -> void:
 
 ## How high up its next pillar a bolt flies to (user, 2026-11-20: they climb and dive, not only level).
 func _bolt_height() -> float:
-	return randf_range(1.0, GameData.tuning.cage_bolt_top)
+	return RunRng.randf_range(1.0, GameData.tuning.cage_bolt_top)
 
 
 ## Where bolt `b` is headed: its pillar, b.h up.
@@ -536,14 +536,14 @@ func _catch(c: Dictionary, e: Node) -> void:
 
 ## Sent off in a new direction, always partly upward, at cage_fling_speed.
 func _fling(c: Dictionary, e: Node) -> void:
-	var way := Vector3(randf_range(-1.0, 1.0), randf_range(0.3, 1.0), randf_range(-1.0, 1.0)).normalized()
+	var way := Vector3(RunRng.randf_range(-1.0, 1.0), RunRng.randf_range(0.3, 1.0), RunRng.randf_range(-1.0, 1.0)).normalized()
 	c.fly[e] = way * GameData.tuning.cage_fling_speed
 
 
 ## A pillar other than `i`, picked at random.
 func _other_pillar(c: Dictionary, i: int) -> int:
 	var n: int = c.pillars.size()
-	return (i + randi_range(1, n - 1)) % n
+	return (i + RunRng.randi_range(1, n - 1)) % n
 
 
 func _physics_process(delta: float) -> void:
@@ -568,7 +568,7 @@ func _update_cage(c: Dictionary, delta: float) -> void:
 	c.flicker -= delta
 	if c.flicker <= 0.0 and not c.own:  # the pillars crackle
 		c.flicker = 0.15
-		var p: Vector3 = c.pillars[randi() % c.pillars.size()]
+		var p: Vector3 = c.pillars[randi() % c.pillars.size()]  # visual only: the global random
 		ElementFx.bolt_arc(p + Vector3.UP * 14.0, p)
 	for b: Dictionary in c.bolts.duplicate():
 		var target := _bolt_target(c, b)

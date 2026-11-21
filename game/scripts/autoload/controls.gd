@@ -56,7 +56,10 @@ func reset_to_defaults(save := true) -> void:
 
 ## Binds `action` to one key or mouse button (replacing its bindings) and saves.
 ## Returns the action that lost this input to avoid a clash ("" if none).
+## A key a fixed action (camera, pause, debug keys) uses can't be taken: does nothing.
 func rebind(action: String, event: InputEvent, save := true) -> String:
+	if reserved_by(event) != "":
+		return ""
 	var stolen := ""
 	for other in REBINDABLE:
 		var id: String = other[0]
@@ -71,6 +74,17 @@ func rebind(action: String, event: InputEvent, save := true) -> String:
 	if save:
 		_save()
 	return stolen
+
+
+## The fixed (not rebindable) action already on this key or button, or "".
+func reserved_by(event: InputEvent) -> String:
+	var rebindable := REBINDABLE.map(func(pair): return pair[0])
+	for action in KEYS.keys() + MOUSE.keys():
+		if not action in rebindable and InputMap.has_action(action):
+			for ev in InputMap.action_get_events(action):
+				if _same(ev, event):
+					return action
+	return ""
 
 
 ## Reads the player's saved bindings (if any).

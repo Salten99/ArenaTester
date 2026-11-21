@@ -101,6 +101,9 @@ func _input(event: InputEvent) -> void:
 		var m := InputEventMouseButton.new()
 		m.button_index = (event as InputEventMouseButton).button_index
 		ev = m
+	if Controls.reserved_by(ev) != "":
+		_note.text = "%s is kept for something else (%s). Press another key." % [Controls.event_text(ev), Controls.reserved_by(ev).replace("_", " ")]
+		return  # still waiting for a key
 	var stolen := Controls.rebind(_waiting, ev)
 	_note.text = "Click an action, then press a key or mouse button."
 	if stolen != "":
