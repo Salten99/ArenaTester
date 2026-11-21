@@ -74,9 +74,8 @@ func read() -> PlayerIntent:
 	i.ultimate = Input.is_action_just_pressed("ability_ultimate")
 	i.ultimate_held = Input.is_action_pressed("ability_ultimate")
 	i.ultimate_released = Input.is_action_just_released("ability_ultimate")
-	if i.ultimate_held or i.ultimate_released or i.signature_held or i.movement_held \
-			or Input.is_action_just_released("ability_signature") or Input.is_action_just_released("ability_movement"):
-		i.aim_point = _camera_ground_point()  # every spell lands where you aim
+	# Every spell lands where you aim, and so does each Kaminari pillar you click down after R is let go.
+	i.aim_point = _camera_ground_point()
 	return i
 
 

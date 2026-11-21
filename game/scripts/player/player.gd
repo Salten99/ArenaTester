@@ -223,6 +223,20 @@ func _physics_process(delta: float) -> void:
 	var move_dir := _world_dir(intent.move, intent.aim_yaw)
 	if flying:
 		intent.dodge = false  # Ctrl flies down instead
+	if abilities.spells.placing():  # Kaminari: a click places a pillar, not an attack (user, 2026-11-20)
+		_update_pillar_aim(intent)
+		intent.light = false
+		intent.light_held = false
+		intent.heavy = false
+		intent.heavy_held = false
+	elif _aim_slot == "" and _aim_ring != null:  # placing ran out of time
+		_stop_aiming()
+	if abilities.spells.riding():  # on the Ice Snake a click breathes icicles instead of a swing
+		if intent.light:
+			abilities.spells.snake_breath()
+		intent.light = false
+		intent.light_held = false
+		intent.heavy = false
 	var light_now := intent.light
 	# Hold light attack to grab (combat feel plan, 2026-11-18): a held click waits grab_hold_time,
 	# then grabs a minion in reach or swings; let go sooner and it swings right away.
@@ -266,7 +280,10 @@ func _physics_process(delta: float) -> void:
 			var pressed: bool = {"Signature": intent.signature, "Movement": intent.movement, "Ultimate": intent.ultimate}[slot]
 			if not pressed or abilities.ready_in(slot) > 0.0:
 				continue
-			if _slot_held(intent, slot) and intent.aim_point != Vector3.INF:
+			var def: Dictionary = abilities.defs.get(slot, {})
+			if slot == "Ultimate" and GameData.text(def, "shape") == "Cage" and intent.aim_point != Vector3.INF:
+				abilities.spells.begin_placing(def, self)  # press R once, then click to place each pillar
+			elif _slot_held(intent, slot) and intent.aim_point != Vector3.INF:
 				_aim_slot = slot
 			else:
 				_cast(slot, intent.aim_yaw, intent.aim_point)
@@ -351,11 +368,16 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 		_finish_move(delta)
 		velocity.y = 0.0  # you drop from rest when it lets go
 		return
-	if abilities.spells.riding():  # the Ice Snake carries you: it never stops, you steer it as you walk
-		if move_dir.length() > 0.1:
-			facing = _turn_toward(move_dir, t.ice_snake_turn * delta)
-		velocity = facing * t.ice_snake_speed
-		velocity.y = clampf((abilities.spells.ride_y() - global_position.y) / 0.15, -20.0, 20.0)
+	if abilities.spells.riding():  # the Ice Snake carries you: it never stops and flies where you look
+		var look := look_direction()
+		facing = _turn_toward(Vector3(look.x, 0.0, look.z), t.ice_snake_turn * delta)
+		velocity = facing * t.ice_snake_speed * sqrt(1.0 - look.y * look.y) + Vector3.UP * look.y * t.ice_snake_speed
+		var low := abilities.spells.ride_floor()
+		var high := abilities.spells.ride_ceiling()
+		if global_position.y < low:  # never down into the ground
+			velocity.y = maxf(velocity.y, (low - global_position.y) / 0.15)
+		elif global_position.y > high:
+			velocity.y = minf(velocity.y, 0.0)
 		collision_mask = 0b001  # over the enemies, not into them
 		_finish_move(delta)
 		return
@@ -1057,6 +1079,16 @@ func _update_aim(intent: PlayerIntent) -> void:
 		_stop_aiming()
 		return
 	var point := aim_target(intent.aim_point, slot)
+	_show_aim_ring(slot, point)
+	if not _slot_held(intent, slot):
+		_stop_aiming()
+		if state == State.FREE:
+			var to := point - global_position
+			_cast(slot, atan2(-to.x, -to.z) if Vector2(to.x, to.z).length() > 0.5 else intent.aim_yaw, point)
+
+
+## The ring on the ground where spell `slot` will land, at `point`.
+func _show_aim_ring(slot: String, point: Vector3) -> void:
 	if _aim_ring == null:
 		_aim_ring = MeshInstance3D.new()
 		var torus := TorusMesh.new()
@@ -1069,15 +1101,17 @@ func _update_aim(intent: PlayerIntent) -> void:
 	var r := abilities.aim_radius(slot)
 	_aim_ring.global_position = point + Vector3.UP * 0.15
 	_aim_ring.scale = Vector3(r, 1.0, r)
-	if not _slot_held(intent, slot):
+
+
+## Placing Kaminari's pillars: the ring shows where the next goes; a click puts it there, and the
+## last one casts the ultimate.
+func _update_pillar_aim(intent: PlayerIntent) -> void:
+	var point := aim_target(intent.aim_point, "Ultimate")
+	_show_aim_ring("Ultimate", point)
+	if intent.light and not abilities.spells.place_pillar(point):
 		_stop_aiming()
-		var def: Dictionary = abilities.defs.get(slot, {})
-		# Kaminari's pillars are placed one per let-go (user, 2026-11-20); the last one casts it.
-		if state == State.FREE and GameData.text(def, "shape") == "Cage" and abilities.spells.place_pillar(def, self, point):
-			return
-		if state == State.FREE:
-			var to := point - global_position
-			_cast(slot, atan2(-to.x, -to.z) if Vector2(to.x, to.z).length() > 0.5 else intent.aim_yaw, point)
+		var to := point - global_position
+		_cast("Ultimate", atan2(-to.x, -to.z) if Vector2(to.x, to.z).length() > 0.5 else intent.aim_yaw, point)
 
 
 func _stop_aiming() -> void:

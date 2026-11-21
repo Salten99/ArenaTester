@@ -5,7 +5,7 @@ extends Node
 ##   Rings   rings roll out from you to radius_m; the nearer, the harder (Lava Ripple, Ring of Ice)
 ##   Strike  one big bolt on the spot range_m ahead, throwing what's near (Thunder Crash)
 ##   Fan     hits_or_projectiles bolts fan across fan_arc_deg in front, range_m long (Bolt Fan)
-##   Cage    pillars you place one by one, bolts bouncing between them on lightning hawks (Kaminari)
+##   Cage    press R, fly up, click to place pillars; bolts bounce between them on lightning hawks (Kaminari)
 ##   Slide   slide range_m on a trail of ice that slows (Ice Slide)
 ##   Snake   a giant ice snake you ride; it freezes what it touches, shatters what it kills (Ice Snake)
 ##   Slab    a stone fist, hammer, tree or dolphin shoots up where aimed, launches what's on it (you too, unhurt), then bursts into dust (Stone Slab)
@@ -315,14 +315,27 @@ const HAWK_WINGSPAN := 4.11  ## m across beast_hawk.glb's wings at scale 1
 var _placing := {}  ## Kaminari's pillars placed so far, before its bolts start
 
 
-## You place Kaminari's cage_pillars pillars one at a time where you aim (user, 2026-11-20): each
-## let-go of the aimed ultimate strikes one down there. True while more are to come; false for the
-## last, which casts the ultimate (_cage starts it there).
-func place_pillar(a: Dictionary, player: Node, at: Vector3) -> bool:
+## Press R once (user, 2026-11-20): you fly cage_lift_height up and have cage_place_time s to place
+## cage_pillars pillars where you aim, one per click (Player._update_pillar_aim). Time's up: the rest
+## stand at random round the ones you placed, and the bolts start.
+func begin_placing(a: Dictionary, player: Node) -> void:
+	if not _placing.is_empty():
+		return
 	var t: CombatTuning = GameData.tuning
-	if _placing.is_empty():
-		_placing = {"a": a, "player": player, "pillars": [], "glows": [], "left": t.cage_place_time}
-	if _placing.pillars.size() + 1 >= t.cage_pillars:
+	var feet: Vector3 = player.global_position
+	_placing = {"a": a, "player": player, "pillars": [], "glows": [], "left": t.cage_place_time,
+		"feet": feet, "lift": feet.y + t.cage_lift_height}
+	_hover(_placing.lift, t.cage_place_time + 0.2)
+
+
+func placing() -> bool:
+	return not _placing.is_empty()
+
+
+## A pillar where you clicked. True while more are to come; false for the last, which casts the
+## ultimate (_cage puts it there and starts the bolts).
+func place_pillar(at: Vector3) -> bool:
+	if _placing.is_empty() or _placing.pillars.size() + 1 >= GameData.tuning.cage_pillars:
 		return false
 	_add_pillar(_placing, at)
 	return true
@@ -332,61 +345,117 @@ func pillars_placed() -> int:
 	return _placing.get("pillars", []).size()
 
 
-## A pillar at `p` in `holder`: a bolt from the sky and a column of light that stands till it ends.
+## Holds you `y` high for `seconds` more (Player._move).
+func _hover(y: float, seconds: float) -> void:
+	var r := _runner()
+	r.hover_y = y
+	r._hover_left = maxf(r._hover_left, seconds)
+
+
+## A pillar at `p` in `holder`: struck down from the sky, a large lightning bolt standing there till
+## it ends (user, 2026-11-20): your bolt pictures, cage_pillar_height tall, flickering through them.
 func _add_pillar(holder: Dictionary, p: Vector3) -> void:
 	holder.pillars.append(p)
 	if _own(holder.a):
 		return
-	var col := CylinderMesh.new()
-	col.top_radius = 0.18
-	col.bottom_radius = 0.18
-	col.height = 14.0
-	col.radial_segments = 6
-	var glow := Vfx._spawn(col, Color(ElementFx.color("Lightning"), 0.75), p + Vector3.UP * 7.0)
-	if glow != null:
-		holder.glows.append(glow)
+	var t: CombatTuning = GameData.tuning
+	var frames := ElementFx.bolt_frames()
+	var root := Vfx._root()
+	if not frames.is_empty() and root != null:
+		var quad := QuadMesh.new()
+		quad.size = Vector2(t.cage_pillar_width, t.cage_pillar_height)
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		mat.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y  # upright, turned to the camera
+		mat.albedo_color = Color(0.85, 0.92, 1.0)
+		mat.albedo_texture = frames[0]
+		var bolt := MeshInstance3D.new()
+		bolt.mesh = quad
+		bolt.material_override = mat
+		bolt.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(bolt)
+		bolt.global_position = p + Vector3.UP * t.cage_pillar_height * 0.5
+		var tw := bolt.create_tween().set_loops()
+		tw.tween_callback(func() -> void: mat.albedo_texture = frames[randi() % frames.size()])
+		tw.tween_interval(t.cage_pillar_frame)
+		holder.glows.append(bolt)
+	else:
+		var col := CylinderMesh.new()
+		col.top_radius = 0.18
+		col.bottom_radius = 0.18
+		col.height = 14.0
+		col.radial_segments = 6
+		var glow := Vfx._spawn(col, Color(ElementFx.color("Lightning"), 0.75), p + Vector3.UP * 7.0)
+		if glow != null:
+			holder.glows.append(glow)
 	if not ElementFx.bolt_arc(p + Vector3.UP * 18.0, p):
 		ElementFx.beam("Lightning", p + Vector3.UP * 18.0, p)
-	Combat.shake(GameData.tuning.shake_light)
+	Combat.shake(t.shake_light)
 
 
-## The last pillar goes at `spot` and the bolts start. Cast without placing any (scripted), the
-## pillars stand round the spot, radius_m out.
+## The last pillar goes at `spot` and the bolts start. Cast without placing (scripted), the pillars
+## stand round the spot, radius_m out.
 func _cage(a: Dictionary, player: Node, spot: Vector3) -> void:
 	var t: CombatTuning = GameData.tuning
 	var held: Dictionary = _placing if not _placing.is_empty() else {"a": a, "player": player, "pillars": [], "glows": []}
 	_placing = {}
-	if held.pillars.is_empty():
+	if held.pillars.is_empty() and not held.has("lift"):
 		for i in t.cage_pillars:
 			_add_pillar(held, spot + UltimateFx._around(i, t.cage_pillars, GameData.num(a, "radius_m", 6.0)))
 	else:
 		_add_pillar(held, spot)
-	_start_cage(a, player, held.pillars, held.glows)
+		_fill_round(held)
+	_start_cage(a, player, held.pillars, held.glows, held.get("lift", INF))
 
 
-## Placing took too long (cage_place_time): with two pillars or more it starts with those,
-## the ultimate's cooldown then; with fewer it fizzles, no cooldown.
+## The pillars not placed stand at random round a circle radius_m out from the middle of the
+## placed ones (from where you rose if none).
+func _fill_round(held: Dictionary) -> void:
+	var t: CombatTuning = GameData.tuning
+	var player: Node = held.player
+	var mid: Vector3 = held.feet
+	if not held.pillars.is_empty():
+		mid = Vector3.ZERO
+		for p: Vector3 in held.pillars:
+			mid += p
+		mid /= held.pillars.size()
+	var radius := GameData.num(held.a, "radius_m", 4.0)
+	while held.pillars.size() < t.cage_pillars:
+		var p := mid + Vector3.FORWARD.rotated(Vector3.UP, randf() * TAU) * radius * randf_range(0.7, 1.2)
+		var ground: float = player.floor_below(p.x, p.z, mid.y + 30.0) if _alive(player) and player.has_method("floor_below") else -INF
+		p.y = ground if ground != -INF else mid.y
+		_add_pillar(held, p)
+
+
+## While you place them you stay up; once cage_place_time runs out, the rest are placed for you and
+## the bolts start (the ultimate's cooldown with them).
 func _update_placing(delta: float) -> void:
-	_placing.left -= delta
 	var player: Node = _placing.player
-	if _placing.left > 0.0 and _alive(player):
+	if not _alive(player):
+		for g in _placing.glows:
+			if is_instance_valid(g):
+				g.queue_free()
+		_placing = {}
+		return
+	_placing.left -= delta
+	_hover(_placing.lift, 0.2)
+	if _placing.left > 0.0:
 		return
 	var held := _placing
 	_placing = {}
-	if held.pillars.size() >= 2 and _alive(player):
-		var r := _runner()
-		r.remaining["Ultimate"] = r.cooldown_of("Ultimate", player)
-		r.cooldowns_changed.emit()
-		_start_cage(held.a, player, held.pillars, held.glows)
-		return
-	for g in held.glows:
-		if is_instance_valid(g):
-			g.queue_free()
+	_fill_round(held)
+	var r := _runner()
+	r.remaining["Ultimate"] = r.cooldown_of("Ultimate", player)
+	r.cooldowns_changed.emit()
+	_start_cage(held.a, player, held.pillars, held.glows, held.lift)
 
 
 ## Bolts bounce between `pillars` for cage_time, each carried by a lightning hawk; who stands
 ## inside them when it starts is caught there, struck again and again; you float above.
-func _start_cage(a: Dictionary, player: Node, pillars: Array, glows: Array) -> void:
+func _start_cage(a: Dictionary, player: Node, pillars: Array, glows: Array, lift := INF) -> void:
 	var t: CombatTuning = GameData.tuning
 	var spot := Vector3.ZERO
 	for p: Vector3 in pillars:
@@ -406,10 +475,8 @@ func _start_cage(a: Dictionary, player: Node, pillars: Array, glows: Array) -> v
 		_add_bolt(c, pillars[from] + Vector3.UP * 1.2, _other_pillar(c, from), t.cage_bolt_speed)
 	_cages.append(c)
 	Combat.shake(t.shake_heavy)
-	if _alive(player):  # you float cage_lift_height up while it lasts
-		var r := _runner()
-		r.hover_y = player.global_position.y + t.cage_lift_height
-		r._hover_left = t.cage_time
+	if _alive(player):  # you float cage_lift_height up while it lasts (already up, if you placed them)
+		_hover(lift if lift != INF else player.global_position.y + t.cage_lift_height, t.cage_time)
 
 
 ## A bolt flying from `from` to pillar `to` at `speed`, carried by a lightning hawk (user,
@@ -587,36 +654,91 @@ func _ice_patch(a: Dictionary, player: Node, p: Vector3) -> void:
 # ---------------------------------------------------------------- Snake: Ice Snake
 
 ## A giant ice snake rises out of the ground under you (user, 2026-11-20). You ride it for
-## ice_snake_time s; it never stops, you steer it as you walk (Player._move). Its body freezes what it
-## touches; what that touch kills shatters.
+## ice_snake_time s; it never stops and flies where you look (Player._move); a click breathes
+## icicles (snake_breath). Its body freezes what it touches; what that touch kills shatters.
 func _snake_ride(a: Dictionary, player: Node) -> void:
 	var t: CombatTuning = GameData.tuning
 	var feet: Vector3 = player.global_position
-	var gap := t.ice_snake_size * 0.6  # meters between pieces
+	var gap := t.ice_snake_size * 0.45  # meters between pieces: they overlap into one smooth body
 	var trail: Array[Vector3] = []
 	for i in t.ice_snake_segments:  # standing straight down into the ground: it pours up out of it
 		trail.append(feet - Vector3.UP * gap * (t.ice_snake_segments - i))
 	_snake = {"a": a, "player": player, "left": t.ice_snake_time, "ground": feet.y, "trail": trail,
-		"gap": gap, "touched": {}, "node": null, "pieces": [] as Array[Node3D]}
+		"gap": gap, "touched": {}, "node": null, "pieces": [] as Array[Node3D], "breath_at": 0}
 	_runner().invulnerable = true
 	var root := Vfx._root()
 	if not _own(a) and root != null:
 		var node := Node3D.new()
 		root.add_child(node)
 		_snake.node = node
-		_snake.pieces = FireDragon.build(node, t.ice_snake_segments, t.ice_snake_size, "Ice", 3, ElementFx.color("Ice").lightened(0.3))
+		_snake.pieces = _snake_body(node, t.ice_snake_segments, t.ice_snake_size)
 		UltimateFx._cracks(feet, Vector3.UP, 3.0)
 		ElementFx.area("Ice", feet, 3.0)
 	Combat.shake(t.shake_heavy)
+
+
+## The snake built in code (user, 2026-11-20: a snake, not a dragon): round ice pieces thinning to
+## the tail, a flat wedge of a head with two dark eyes. Hidden until they're out of the ground.
+func _snake_body(parent: Node3D, n: int, size: float) -> Array[Node3D]:
+	var out: Array[Node3D] = []
+	var ice := StandardMaterial3D.new()
+	ice.albedo_color = ElementFx.color("Ice").lightened(0.35)
+	ice.emission_enabled = true
+	ice.emission = ElementFx.color("Ice") * 0.35
+	ice.metallic_specular = 1.0
+	ice.roughness = 0.15
+	var ball := SphereMesh.new()
+	ball.radius = 0.5
+	ball.height = 1.0
+	for i in n:
+		var piece := Node3D.new()
+		var skin := MeshInstance3D.new()
+		skin.mesh = ball
+		skin.material_override = ice
+		piece.add_child(skin)
+		var k := float(i) / maxi(n - 1, 1)  # 0 at the head, 1 at the tail
+		if i == 0:
+			skin.scale = Vector3(0.95, 0.55, 1.5)  # wide, flat and long
+			skin.position.z = -0.25
+			for side in [-1.0, 1.0]:
+				var eye := MeshInstance3D.new()
+				eye.mesh = ball
+				eye.material_override = Vfx.material(Color(0.05, 0.1, 0.2))
+				eye.scale = Vector3.ONE * 0.16
+				eye.position = Vector3(side * 0.38, 0.2, -0.55)
+				piece.add_child(eye)
+		else:
+			skin.scale = Vector3(1.0, 1.0, 1.3)  # a little longer than round: the pieces blend
+		piece.scale = Vector3.ONE * size * (1.0 if i == 0 else lerpf(0.9, 0.15, k))
+		piece.visible = false
+		if i % 4 == 1:
+			var mist := ElementFx.trail("Ice")
+			if mist != null:
+				piece.add_child(mist)
+				mist.emitting = true
+		parent.add_child(piece)
+		out.append(piece)
+	return out
 
 
 func riding() -> bool:
 	return not _snake.is_empty()
 
 
-## The height the rider sits at.
-func ride_y() -> float:
+## The lowest and highest the rider can fly.
+func ride_floor() -> float:
 	return _snake.ground + GameData.tuning.ice_snake_height
+
+
+func ride_ceiling() -> float:
+	return _snake.ground + GameData.tuning.ice_snake_max_height
+
+
+## Where the snake's head is and which way it looks.
+func _snake_head(player: Node) -> Array:
+	var v: Vector3 = player.velocity
+	var ahead: Vector3 = v.normalized() if v.length() > 0.5 else player.facing
+	return [player.global_position + ahead * _snake.gap * 2.0 - Vector3.UP * GameData.tuning.ice_snake_size * 0.4, ahead]
 
 
 func _update_snake(delta: float) -> void:
@@ -626,7 +748,8 @@ func _update_snake(delta: float) -> void:
 	if _snake.left <= 0.0 or not _alive(player):
 		_end_snake()
 		return
-	var head: Vector3 = player.global_position + player.facing * _snake.gap - Vector3.UP * t.ice_snake_size * 0.5
+	var hd := _snake_head(player)
+	var head: Vector3 = hd[0]
 	var trail: Array[Vector3] = _snake.trail
 	if head.distance_to(trail[-1]) >= _snake.gap:
 		trail.append(head)
@@ -635,7 +758,7 @@ func _update_snake(delta: float) -> void:
 	var pieces: Array[Node3D] = _snake.pieces
 	for i in pieces.size():  # the head where you're going, the body down the way you came
 		var here: Vector3 = head if i == 0 else trail[maxi(trail.size() - i, 0)]
-		var toward: Vector3 = player.facing if i == 0 else (head if i == 1 else trail[mini(trail.size() - i + 1, trail.size() - 1)]) - here
+		var toward: Vector3 = hd[1] if i == 0 else (head if i == 1 else trail[mini(trail.size() - i + 1, trail.size() - 1)]) - here
 		pieces[i].visible = here.y > _snake.ground - 0.5
 		pieces[i].global_position = here
 		if toward.length() > 0.001 and absf(toward.normalized().y) < 0.999:
@@ -645,6 +768,8 @@ func _update_snake(delta: float) -> void:
 		if p.y < _snake.ground - 0.5:
 			continue  # still in the ground
 		for e in Combat.enemies_in_radius(p, t.ice_snake_reach):
+			if p.y - e.global_position.y > t.ice_snake_reach + e.aim_height():
+				continue  # flying over its head
 			if not touched.has(e.get_instance_id()):
 				touched[e.get_instance_id()] = true
 				_snake_touch(_snake.a, player, e)
@@ -665,6 +790,38 @@ func _snake_touch(a: Dictionary, player: Node, e: Node) -> void:
 		Vfx.chunk(at, Vector3(cos(k * TAU / 8.0), randf_range(0.5, 1.2), sin(k * TAU / 8.0)) * 5.0, col, 0.2)
 	Vfx.burst(at, 1.3, Color(col, 0.85), 0.2)
 	ElementFx.hit("Ice", at, 1.5)
+
+
+## A click while riding (user, 2026-11-20): the snake breathes a fan of icicles where you look. They
+## knock what they hit back hard and pin it to the wall behind (a heavy Missile hit: Enemy.launch_from_hit).
+func snake_breath() -> void:
+	var t: CombatTuning = GameData.tuning
+	if not riding() or Combat.now_msec() < _snake.breath_at:
+		return
+	_snake.breath_at = Combat.now_msec() + int(t.ice_breath_gap * 1000.0)
+	var player: Node = _snake.player
+	var mouth: Vector3 = _snake_head(player)[0] + Vector3.UP * t.ice_snake_size * 0.2
+	var look: Vector3 = player.look_direction()
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.0
+	cone.bottom_radius = 0.12
+	cone.height = 0.9
+	cone.radial_segments = 6
+	for i in t.ice_breath_icicles:
+		var f := (float(i) / maxi(t.ice_breath_icicles - 1, 1) - 0.5) * 2.0  # -1..1 across the fan
+		var dir := look.rotated(Vector3.UP, deg_to_rad(t.ice_breath_spread_deg * 0.5 * f))
+		var info: DamageInfo = player.make_hit(t.ice_breath_damage, "Ice", "Missile", null, DamageInfo.Kind.HEAVY)
+		info.knockback = t.knockback_heavy
+		info.pin_weapon = "icicle"
+		var shot := Projectile.fire(mouth, dir, t.ice_breath_speed, info, ElementFx.color("Ice").lightened(0.4), 2)
+		if shot == null:
+			continue
+		shot.radius = 0.6
+		shot._mesh.mesh = cone
+		shot._mesh.rotation.x = -PI * 0.5  # the point leads
+	if not _own(_snake.a):
+		ElementFx.hit("Ice", mouth + look, 1.0)  # the frost puff from its mouth
+	Combat.shake(t.shake_light)
 
 
 ## Time's up: the snake bursts into ice under you and you drop.

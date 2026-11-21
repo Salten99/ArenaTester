@@ -768,6 +768,17 @@ func _show_pin_bolt(chest: Vector3, flat: Vector3) -> void:
 	_pin_bolt.top_level = true
 	_pin_bolt.global_position = chest
 	_pin_bolt.look_at(chest + flat, Vector3.UP if absf(flat.y) < 0.99 else Vector3.RIGHT)
+	if _pin_weapon == "icicle":  # the Ice Snake's breath (spells.gd): an icicle through it, point in the wall
+		var spike := MeshInstance3D.new()
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0.0
+		cone.bottom_radius = 0.14
+		cone.height = 1.4
+		spike.mesh = cone
+		spike.rotation.x = PI * 0.5
+		spike.material_override = Vfx.material(ElementFx.color("Ice").lightened(0.4))
+		_pin_bolt.add_child(spike)
+		return
 	var weapon := WeaponPickup.add_model(_pin_bolt, _pin_weapon) if _pin_weapon != "" else null
 	if weapon != null:  # the thrown weapon through its chest, the grip sticking out toward you
 		weapon.rotation.y = PI

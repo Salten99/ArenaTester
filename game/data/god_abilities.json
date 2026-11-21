@@ -688,7 +688,7 @@
   "god_id": "storm_god",
   "slot": "Ultimate",
   "display_name": "Kaminari",
-  "description": "Place 5 lightning pillars one by one where you aim; then for 5 s bolts bounce between them, each carried by a lightning hawk, tossing every enemy they pass, while you float above, and whoever stood inside the pillars is caught there, struck again and again.",
+  "description": "Fly up and place 3 lightning pillars where you aim, one per click, within 3 s (the rest stand at random round them); then for 5 s bolts bounce between them, each carried by a giant lightning hawk, tossing every enemy they pass, and whoever stood inside the pillars is caught there, struck again and again.",
   "damage_type": "Lightning",
   "base_damage": 40,
   "cooldown_s": 60,

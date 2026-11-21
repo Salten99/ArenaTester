@@ -628,6 +628,8 @@ func test_spells() -> void:
 	var weak := _dummy(Vector3(7, 0, 0.5), false)
 	weak.health.hp = 1.0
 	var lift: float = p.global_position.y
+	var steer := _scripted()
+	steer.aim_yaw = -PI * 0.5  # looking right: it flies right
 	p.abilities.cast("Ultimate", p, Vector3.RIGHT)
 	for i in int(0.6 * hz):
 		get_tree().paused = false  # a kill can open a level-up choice
@@ -641,6 +643,34 @@ func test_spells() -> void:
 		await _frames(1)
 	check(not p.abilities.spells.riding() and not p.is_invulnerable(), "after its time it's gone and you drop")
 	_free_all([cold, weak])
+	p.global_position = home
+	# A click while riding breathes icicles: what they hit flies back and is pinned to the wall behind.
+	var wall := StaticBody3D.new()
+	var wall_box := CollisionShape3D.new()
+	wall_box.shape = BoxShape3D.new()
+	wall_box.shape.size = Vector3(1.0, 12.0, 30.0)
+	wall.add_child(wall_box)
+	wall.collision_layer = 0b001
+	_arena.add_child(wall)
+	wall.global_position = home + Vector3(16, 4, 0)
+	var target := _dummy(Vector3(10, 0, 0), false)
+	target.health.setup(9999.0)
+	p.abilities.remaining["Ultimate"] = 0.0
+	p.abilities.cast("Ultimate", p, Vector3.RIGHT)
+	await _frames(int(0.15 * hz))
+	steer.hold({"light": true, "aim_pitch": -0.08}, 1)
+	for i in int(0.8 * hz):
+		get_tree().paused = false
+		await _frames(1)
+		if target._pinned:
+			break
+	check(target._pinned and target.health.hp < 9999.0, "the snake's icicle breath knocks it back and pins it to the wall")
+	check(target.global_position.x - home.x > 12.0, "back against the wall (%.1f m)" % (target.global_position.x - home.x))
+	for i in int(1.0 * hz):
+		get_tree().paused = false
+		await _frames(1)
+	_free_all([target, wall])
+	p.input_source = null
 	p.global_position = home
 
 	# Thunder Crash and Bolt Fan: in front, not behind.
@@ -666,8 +696,9 @@ func test_spells() -> void:
 	check(not p.abilities.beaming(), "and stops after %.1f s" % t.lightning_beam_time)
 	_free_all(line + off)
 
-	# Kaminari (user, 2026-11-20): you place its pillars one by one where you aim; then bolts bounce
-	# between them, each carried by a lightning hawk, while you float above, and who's inside is caught.
+	# Kaminari (user, 2026-11-20): press R once and you fly up; click to place its pillars (large
+	# lightning bolts) where you aim, within cage_place_time; then bolts bounce between them, each
+	# carried by a lightning hawk, and who's inside is caught.
 	var spot: Vector3 = p.global_position + Vector3(0, 0, -12)
 	var caged := [_dummy(Vector3(0, 0, -12)), _dummy(Vector3(1, 0, -13))]
 	var y0: float = p.global_position.y
@@ -675,20 +706,34 @@ func test_spells() -> void:
 	var places: Array = []
 	for i in t.cage_pillars:
 		places.append(spot + UltimateFx._around(i, t.cage_pillars, 5.0))
-	var each_placed := true
-	for i in t.cage_pillars - 1:
-		each_placed = p.abilities.spells.place_pillar(def, p, places[i]) and each_placed
-	check(each_placed and p.abilities.spells.pillars_placed() == t.cage_pillars - 1 and not p.abilities.spells.caging() and p.abilities.ready_in("Ultimate") == 0.0,
-		"each let-go places one of Kaminari's pillars (%d), nothing cast yet" % p.abilities.spells.pillars_placed())
-	check(not p.abilities.spells.place_pillar(def, p, places[-1]), "the last one casts it")
+	var keys := _scripted()
+	keys.hold({"ultimate": true, "ultimate_held": true, "aim_point": places[0]}, 1)
+	keys.hold({"aim_point": places[0]}, 4)
+	keys.hold({"light": true, "light_held": true, "aim_point": places[0]}, 1)
+	keys.hold({"aim_point": places[1]}, 4)
+	keys.hold({"light": true, "light_held": true, "aim_point": places[1]}, 1)
+	keys.hold({"aim_point": places[1]}, 30)
+	await _frames(14)
+	check(p.abilities.spells.placing() and p.abilities.spells.pillars_placed() == 2 and p.state == Player.State.FREE and p.abilities.ready_in("Ultimate") == 0.0,
+		"press R once, then each click places a pillar where you aim, not an attack (%d)" % p.abilities.spells.pillars_placed())
+	check(p._aim_ring != null, "a ring shows where the next goes")
+	await _frames(20)
+	check(p.global_position.y > y0 + 1.0, "you fly up while you place them")
+	var pillar: MeshInstance3D = p.abilities.spells._placing.glows[0]
+	check(pillar.mesh is QuadMesh and (pillar.mesh as QuadMesh).size.y == t.cage_pillar_height and (pillar.material_override as StandardMaterial3D).albedo_texture != null,
+		"each pillar is a large lightning bolt, your bolt pictures")
+	p.input_source = null
+	for i in range(2, t.cage_pillars - 1):
+		check(p.abilities.spells.place_pillar(places[i]), "pillar %d placed" % (i + 1))
+	check(not p.abilities.spells.place_pillar(places[-1]), "the last one casts it")
 	p.abilities.cast("Ultimate", p, Vector3.FORWARD, places[-1])
 	await _frames(3)
-	check(p.abilities.spells.caging() and p.abilities.ready_in("Ultimate") > 0.0, "then Kaminari starts, and its cooldown")
+	check(p.abilities.spells.caging() and not p.abilities.spells.placing() and p.abilities.ready_in("Ultimate") > 0.0, "then Kaminari starts, and its cooldown")
 	var cage: Dictionary = p.abilities.spells._cages[0]
 	check(cage.pillars.size() == t.cage_pillars and cage.pillars.all(func(q: Vector3) -> bool: return places.any(func(w: Vector3) -> bool: return w.distance_to(q) < 0.1)),
 		"its pillars stand where you placed them")
 	check(caged.all(func(e): return cage.trapped.has(e)) and cage.bolts.size() >= t.cage_pillars, "who's inside is caught, and bolts already bounce off every pillar (%d)" % cage.bolts.size())
-	check(cage.bolts.all(func(b): return b.hawk != null), "each bolt is carried by a lightning hawk")
+	check(cage.bolts.all(func(b): return b.hawk != null), "each bolt is carried by a lightning hawk, %.0f m across" % t.cage_hawk_size)
 	await _frames(10)
 	var flier: Dictionary = cage.bolts[1]
 	var headed: Vector3 = (cage.pillars[flier.to] as Vector3) + Vector3.UP * 1.2 - flier.hawk.global_position
@@ -704,22 +749,23 @@ func test_spells() -> void:
 	check(caged[1].health.hp < after_first, "caught ones are struck again and again")
 	_free_all(caged)
 	await _frames(int(2.0 * hz))  # back down
-	# Placing too slowly: with two pillars or more it starts with those; with one it fizzles, no cooldown.
+	# Out of time (cage_place_time): the rest stand at random round the ones placed, and it starts.
 	var place_time := t.cage_place_time
 	t.cage_place_time = 0.5
 	p.abilities.remaining.erase("Ultimate")
-	p.abilities.spells.place_pillar(def, p, places[0])
-	p.abilities.spells.place_pillar(def, p, places[2])
+	p.abilities.spells.begin_placing(def, p)
+	p.abilities.spells.place_pillar(places[0])
+	p.abilities.spells.place_pillar(places[2])
 	await _frames(int(0.5 * hz) + 5)
-	check(p.abilities.spells.caging() and p.abilities.spells._cages[0].pillars.size() == 2 and p.abilities.ready_in("Ultimate") > 0.0,
-		"placing too slowly, it starts with the pillars you placed")
+	var filled: Array = p.abilities.spells._cages[0].pillars if p.abilities.spells.caging() else []
+	var mid: Vector3 = (places[0] + places[2]) * 0.5
+	var radius := GameData.num(def, "radius_m")
+	check(filled.size() == t.cage_pillars and p.abilities.ready_in("Ultimate") > 0.0
+		and filled.slice(2).all(func(q: Vector3) -> bool: return absf(Vector2(q.x - mid.x, q.z - mid.z).length() - radius) <= radius * 0.35),
+		"out of time, the rest stand round a circle about the placed ones, and it starts")
 	await _frames(int(t.cage_time * hz) + 6)
-	p.abilities.remaining.erase("Ultimate")
-	p.abilities.spells.place_pillar(def, p, places[0])
-	await _frames(int(0.5 * hz) + 5)
-	check(not p.abilities.spells.caging() and p.abilities.spells.pillars_placed() == 0 and p.abilities.ready_in("Ultimate") == 0.0,
-		"with only one placed it fizzles, no cooldown")
 	t.cage_place_time = place_time
+	p.abilities.remaining.erase("Ultimate")
 	p.abilities.cast("Ultimate", p, Vector3.FORWARD, spot)  # not aimed (scripted): they stand round the spot
 	await _frames(2)
 	check(p.abilities.spells.caging() and p.abilities.spells._cages[0].pillars.size() == t.cage_pillars, "cast without placing, its pillars stand round the spot")
@@ -3147,6 +3193,7 @@ func test_training_ground() -> void:
 	Input.action_release("slide")
 	var after := input.read()
 	check(held.slide and held.slide_held and not still.slide and still.slide_held and not after.dodge, "held, it slides (no dash when let go)")
+	check(after.aim_point != Vector3.INF, "where you aim is known with no spell key held (each Kaminari pillar lands where you click)")
 	check(Enemy.DEATH_LAUNCH > 1.3 and Grabber.THROW_BOOST > 1.3 and Throwable.DEBRIS_SCALE > 1.3, "killing blows launch, throws and debris fly a third farther")
 
 

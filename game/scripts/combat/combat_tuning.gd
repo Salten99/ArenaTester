@@ -279,29 +279,33 @@ extends Resource
 @export_range(0.1, 4.0, 0.1) var icicle_stay := 1.0
 ## Bolt Fan: how wide the fan of bolts spreads in front of you (degrees).
 @export_range(10.0, 360.0, 5.0) var fan_arc_deg := 130.0
-## Kaminari (user, 2026-11-20): you place cage_pillars pillars one at a time where you aim, within
-## cage_place_time s (after that it starts with what's placed, two or more). Then bolts bounce between
+## Kaminari (user, 2026-11-20): press R once and you fly up; click to place cage_pillars pillars where you aim, within
+## cage_place_time s (after that the rest stand at random round the ones placed). Then bolts bounce between
 ## them for cage_time s at cage_bolt_speed m/s (each bounce cage_speedup times faster, at most
 ## cage_max_bolts at once), each carried by a lightning hawk cage_hawk_size m across the wings, and
 ## the same enemy is struck again after cage_rehit s at the soonest.
 @export_range(1.0, 30.0, 0.5) var cage_time := 5.0
-@export_range(2, 10) var cage_pillars := 5
-@export_range(1.0, 30.0, 0.5) var cage_place_time := 10.0
+@export_range(2, 10) var cage_pillars := 3  # 5 until 2026-11-20 (user)
+@export_range(0.5, 30.0, 0.5) var cage_place_time := 3.0
 @export_range(2.0, 80.0, 0.5) var cage_bolt_speed := 28.0
 @export_range(1.0, 1.5, 0.01) var cage_speedup := 1.0
 @export_range(1, 60) var cage_max_bolts := 24
 @export_range(0.05, 2.0, 0.05) var cage_rehit := 0.4
-@export_range(0.2, 6.0, 0.1) var cage_hawk_size := 1.6
+@export_range(0.2, 15.0, 0.1) var cage_hawk_size := 5.0
+## Each pillar is a large lightning bolt (your bolt pictures) this tall and wide (m), a new picture every this many s.
+@export_range(2.0, 40.0, 0.5) var cage_pillar_height := 14.0
+@export_range(0.5, 10.0, 0.25) var cage_pillar_width := 3.0
+@export_range(0.02, 0.5, 0.01) var cage_pillar_frame := 0.06
 ## Whoever stands inside the pillars when it starts is caught there until it ends, struck every
 ## cage_rehit s for this much of its damage. You float this high (m) while it lasts.
 @export_range(0.0, 1.0, 0.05) var cage_trap_damage := 0.25
-@export_range(0.0, 20.0, 0.5) var cage_lift_height := 10.0
+@export_range(0.0, 20.0, 0.5) var cage_lift_height := 7.0  # 10 until 2026-11-20 (user: 3 m lower)
 ## Ice Slide: how long the slide takes (s) and how long its ice trail stays (s).
 @export_range(0.1, 2.0, 0.05) var slide_time := 0.4
 @export_range(0.5, 10.0, 0.5) var ice_trail_time := 3.0
-## Ice Snake (the Ice ultimate): how long you ride it (s), how fast it goes (m/s), how fast it turns
-## your way, how high you sit (m), how near its body freezes (m) and for how long (s), how many
-## pieces long it is and how big.
+## Ice Snake (the Ice ultimate): how long you ride it (s), how fast it flies (m/s), how fast it turns
+## where you look, the lowest it flies (m), how near its body freezes (m) and for how long (s), how
+## many pieces long it is and how big, and the highest it flies (m).
 @export_range(1.0, 15.0, 0.5) var ice_snake_time := 5.0
 @export_range(2.0, 40.0, 0.5) var ice_snake_speed := 13.0
 @export_range(0.5, 20.0, 0.5) var ice_snake_turn := 4.0
@@ -310,6 +314,14 @@ extends Resource
 @export_range(0.5, 10.0, 0.25) var ice_snake_freeze := 3.0
 @export_range(6, 80) var ice_snake_segments := 28
 @export_range(0.2, 4.0, 0.05) var ice_snake_size := 1.5
+@export_range(1.0, 40.0, 0.5) var ice_snake_max_height := 12.0
+## Its icicle breath (a click while riding): icicles a breath, how wide they fan (degrees), how fast
+## they fly (m/s), the damage each, and the time between breaths (s).
+@export_range(1, 15) var ice_breath_icicles := 5
+@export_range(0.0, 90.0, 1.0) var ice_breath_spread_deg := 24.0
+@export_range(5.0, 120.0, 1.0) var ice_breath_speed := 45.0
+@export_range(0.0, 200.0, 1.0) var ice_breath_damage := 20.0
+@export_range(0.05, 2.0, 0.05) var ice_breath_gap := 0.3
 ## Stone Slab: how long the shape stands before it bursts into dust (s).
 @export_range(0.1, 5.0, 0.1) var slab_stay := 1.0
 ## Stone Slab: what comes up out of the ground; Random picks one each cast.
