@@ -734,7 +734,10 @@ func test_spells() -> void:
 	check(crushed.health.hp == crushed.health.max_hp, "and nothing is crushed before the pillars meet")
 	check(get_tree().get_nodes_in_group("stone_ram").size() == 2, "two stone rams come out of the circles")
 	check((get_tree().get_nodes_in_group("stone_ram")[0].find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).material_override.cull_mode == BaseMaterial3D.CULL_DISABLED, "stone on both sides, so no holes")
-	await _frames(int((t.pillar_delay + t.pillar_time) * hz) + 6)
+	await _frames(int((t.pillar_delay + t.pillar_time + t.ram_rear_time * 0.6) * hz))
+	var reared: Node3D = get_tree().get_nodes_in_group("stone_ram")[0]
+	check(reared.basis.z.normalized().y > 0.7 and crushed.health.hp == crushed.health.max_hp, "the rams rear up on their hind legs before they collide (%.2f)" % reared.basis.z.normalized().y)
+	await _frames(int((t.ram_rear_time * 0.4 + t.ram_lunge_time) * hz) + 6)
 	check(crushed.health.hp < crushed.health.max_hp and away.health.hp == away.health.max_hp, "the pillars crush what's between them")
 	var ram: Node3D = get_tree().get_nodes_in_group("stone_ram")[0]
 	var anims := ram.find_children("*", "AnimationPlayer", true, false)[0] as AnimationPlayer

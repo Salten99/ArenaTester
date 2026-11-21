@@ -15,6 +15,8 @@ extends Node
 ## The numbers are in combat_tuning.tres, group Spells.
 
 const RAM := "res://models/own/mount_war_ram.glb"  # the Crush rams
+const RAM_HOOF := Vector3(0.0, -0.04, -0.62)  # its hind hooves in the leap pose (measured in Blender)
+const RAM_REAR_DEG := 55.0  # how far it rears up (the user's photo, 2026-11-20)
 static var STONE_SKIN := _stone_skin()  # solid and two-sided like the model's own material, so no see-through holes
 
 
@@ -742,16 +744,26 @@ func _crush(a: Dictionary, player: Node, dir: Vector3, spot: Vector3) -> void:
 			var tw := ram.create_tween()
 			tw.tween_property(ram, "scale", size, t.pillar_delay * 0.5).set_delay(t.pillar_delay * 0.5)
 			tw.tween_callback(_play.bind(ram, "Gallop"))
-			# slow start, fast finish, leaping a little at the end; stops horns locked (measured in Blender:
-			# in the clash pose the horns reach 0.97 m ahead of the model's middle)
-			var meet: Vector3 = spot + right * s * 0.97 * t.ram_size + Vector3.UP * 0.3 * t.ram_size
-			tw.tween_property(ram, "global_position", meet, t.pillar_time).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
+			var face := ram.basis.orthonormalized()
+			var k := t.ram_size
+			# slow start, fast finish; stops a body length short, then rears up on its hind hooves
+			var rear_at: Vector3 = spot + right * s * 1.97 * k
+			tw.tween_property(ram, "global_position", rear_at, t.pillar_time).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
 			tw.parallel().tween_method(_shed.bind(ram), 0, int(t.pillar_time * 20.0), t.pillar_time)
-			tw.tween_callback(_clash_pose.bind(ram))
+			tw.tween_callback(_leap_pose.bind(ram))
+			var hoof: Vector3 = rear_at + face * RAM_HOOF * k
+			tw.tween_method(func(d: float): _lean(ram, face, k, d, hoof), 0.0, RAM_REAR_DEG, t.ram_rear_time * 0.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			tw.tween_interval(t.ram_rear_time * 0.7)
+			# then drops forward into the clash: horns locked, the front 15 degrees up (measured in
+			# Blender: in that pose the horns reach 0.97 m ahead of the model's middle)
+			tw.tween_callback(_head_down.bind(ram))
+			var meet: Vector3 = spot + right * s * 0.97 * k + Vector3.UP * 0.3 * k
+			var hoof_meet: Vector3 = meet + (face * Basis(Vector3.RIGHT, deg_to_rad(-15.0))) * RAM_HOOF * k
+			tw.tween_method(func(f: float): _lean(ram, face, k, lerpf(RAM_REAR_DEG, 15.0, f), hoof.lerp(hoof_meet, f)), 0.0, 1.0, t.ram_lunge_time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 			tw.tween_interval(0.35)
 			tw.tween_property(ram, "scale", size * 0.3, 0.3)
 			tw.tween_callback(ram.queue_free)
-	_later(t.pillar_delay + t.pillar_time, _slam.bind(a, player, spot, right, half))
+	_later(t.pillar_delay + t.pillar_time + t.ram_rear_time + t.ram_lunge_time, _slam.bind(a, player, spot, right, half))
 
 
 ## Your war ram model, all stone, standing at `at` and facing `facing`.
@@ -782,17 +794,22 @@ func _shed(_tick: int, ram: Node3D) -> void:
 		Vfx.chunk(ram.global_position + Vector3.UP * k + UltimateFx._in_disc(k * 0.8), Vector3(randf_range(-2, 2), randf_range(1, 4), randf_range(-2, 2)), UltimateFx.STONE, 0.12 * k)
 
 
-## The rams' end pose (the user's photos, 2026-11-20): mid-leap from Gallop_Jump, head and neck lowered
-## from Attack_Headbutt, front tipped 15 degrees up. Frames are Blender's, 24 a second.
-func _clash_pose(ram: Node3D) -> void:
-	ram.rotate_object_local(Vector3.RIGHT, deg_to_rad(-15.0))
+## The rams' leap legs (the user's photos, 2026-11-20): Gallop_Jump held at frame 10, front legs tucked.
+## Frames are Blender's, 24 a second.
+func _leap_pose(ram: Node3D) -> void:
+	for p: AnimationPlayer in ram.find_children("*", "AnimationPlayer", true, false):
+		if p.has_animation("Gallop_Jump"):
+			p.play("Gallop_Jump")
+			p.seek(10.0 / 24.0, true)
+			p.active = false  # holds it; the head and neck are set by hand in _head_down
+
+
+## Head and neck lowered for the clash, from Attack_Headbutt frame 6.
+func _head_down(ram: Node3D) -> void:
 	var skels := ram.find_children("*", "Skeleton3D", true, false)
 	for p: AnimationPlayer in ram.find_children("*", "AnimationPlayer", true, false):
-		if skels.is_empty() or not p.has_animation("Gallop_Jump") or not p.has_animation("Attack_Headbutt"):
+		if skels.is_empty() or not p.has_animation("Attack_Headbutt"):
 			continue
-		p.play("Gallop_Jump")
-		p.seek(10.0 / 24.0, true)
-		p.active = false  # holds the leap; the head and neck are set by hand below
 		var butt := p.get_animation("Attack_Headbutt")
 		var skel := skels[0] as Skeleton3D
 		for i in butt.get_track_count():
@@ -803,6 +820,15 @@ func _clash_pose(ram: Node3D) -> void:
 				skel.set_bone_pose_rotation(bone, butt.rotation_track_interpolate(i, 6.0 / 24.0))
 			elif butt.track_get_type(i) == Animation.TYPE_POSITION_3D:
 				skel.set_bone_pose_position(bone, butt.position_track_interpolate(i, 6.0 / 24.0))
+
+
+## Tips the ram `deg` nose-up about its hind hooves, which stand at `hoof`. `face`: its unscaled facing.
+func _lean(ram: Node3D, face: Basis, k: float, deg: float, hoof: Vector3) -> void:
+	if not is_instance_valid(ram):
+		return
+	var b := (face * Basis(Vector3.RIGHT, deg_to_rad(-deg))).scaled(Vector3.ONE * k)
+	ram.basis = b
+	ram.global_position = hoof - b * RAM_HOOF
 
 
 ## A slab breaks into rubble.
