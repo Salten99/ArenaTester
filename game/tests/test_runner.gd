@@ -709,11 +709,14 @@ func test_spells() -> void:
 	var away := _dummy(Vector3(0, 0, -24))
 	p.abilities.cast("Ultimate", p, Vector3.FORWARD, spot)
 	await _frames(3)
-	check(get_tree().get_nodes_in_group("magic_circle").filter(func(c): return c.global_position.distance_to(spot) < 7.0).size() >= 2, "Crushing Pillars opens two circles at the aimed spot")
+	check(get_tree().get_nodes_in_group("magic_circle").filter(func(c): return c.global_position.distance_to(spot) < t.pillar_gap * 0.5 + 3.0).size() >= 2, "Crushing Pillars opens two circles at the aimed spot")
 	check(crushed.health.hp == crushed.health.max_hp, "and nothing is crushed before the pillars meet")
 	check(get_tree().get_nodes_in_group("stone_ram").size() == 2, "two stone rams come out of the circles")
+	check((get_tree().get_nodes_in_group("stone_ram")[0].find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).material_override.cull_mode == BaseMaterial3D.CULL_DISABLED, "stone on both sides, so no holes")
 	await _frames(int((t.pillar_delay + t.pillar_time) * hz) + 6)
 	check(crushed.health.hp < crushed.health.max_hp and away.health.hp == away.health.max_hp, "the pillars crush what's between them")
+	await _frames(int(0.4 * hz))
+	check(get_tree().get_nodes_in_group("stone_ram").is_empty(), "and the rams are gone, broken into rubble in the middle")
 	_free_all([crushed, away])
 
 	t.kaminari_time = saved[0]

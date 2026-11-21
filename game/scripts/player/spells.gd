@@ -15,6 +15,16 @@ extends Node
 ## The numbers are in combat_tuning.tres, group Spells.
 
 const RAM := "res://models/own/mount_war_ram.glb"  # the Crush rams
+static var STONE_SKIN := _stone_skin()  # solid and two-sided like the model's own material, so no see-through holes
+
+
+static func _stone_skin() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = UltimateFx.STONE
+	m.roughness = 0.9
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return m
+
 
 var _spears := []  # Kaminari spears while they fly
 var _snake := {}  # the Ice Snake while you ride it
@@ -719,7 +729,7 @@ func _crush(a: Dictionary, player: Node, dir: Vector3, spot: Vector3) -> void:
 		var ram_scene := load(RAM) as PackedScene
 		for s in [-1.0, 1.0]:
 			var at: Vector3 = spot + right * s * half
-			UltimateFx.circle("Stone", at + Vector3.UP * 1.6, -right * s, 1.7, t.pillar_delay + t.pillar_time + 0.3)
+			UltimateFx.circle("Stone", at + Vector3.UP * t.ram_size, -right * s, t.ram_size * 1.1, t.pillar_delay + t.pillar_time + 0.3)
 			var ram := _stone_ram(ram_scene, at, -right * s)
 			if ram == null:
 				continue
@@ -728,12 +738,14 @@ func _crush(a: Dictionary, player: Node, dir: Vector3, spot: Vector3) -> void:
 			var tw := ram.create_tween()
 			tw.tween_property(ram, "scale", size, t.pillar_delay * 0.5).set_delay(t.pillar_delay * 0.5)
 			tw.tween_callback(_play.bind(ram, "Gallop"))
-			# stops nose to nose: the model's nose is 1.27 m ahead of its middle
-			tw.tween_property(ram, "global_position", spot + right * s * 1.27 * t.ram_size, t.pillar_time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			# slow start, fast finish; stops nose to nose (the model's nose is 1.27 m ahead of its middle)
+			tw.tween_property(ram, "global_position", spot + right * s * 1.27 * t.ram_size, t.pillar_time).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
+			tw.parallel().tween_method(_shed.bind(ram), 0, int(t.pillar_time * 20.0), t.pillar_time)
 			tw.tween_callback(_play.bind(ram, "Attack_Headbutt"))
-			tw.tween_interval(0.6)
-			tw.tween_callback(_crumble.bind(ram))
-			tw.tween_property(ram, "scale", size * 0.3, 0.3)
+			tw.tween_callback(_ram_rubble.bind(ram, -right * s))
+			# the whole ram goes on into the middle where they meet, breaking up as it goes
+			tw.tween_property(ram, "global_position", spot, 0.25).set_ease(Tween.EASE_OUT)
+			tw.parallel().tween_property(ram, "scale", size * 0.02, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 			tw.tween_callback(ram.queue_free)
 	_later(t.pillar_delay + t.pillar_time, _slam.bind(a, player, spot, right, half))
 
@@ -745,7 +757,7 @@ func _stone_ram(scene: PackedScene, at: Vector3, facing: Vector3) -> Node3D:
 		return null
 	var ram := scene.instantiate() as Node3D
 	for m in ram.find_children("*", "MeshInstance3D", true, false):
-		(m as MeshInstance3D).material_override = Vfx.material(UltimateFx.STONE)
+		(m as MeshInstance3D).material_override = STONE_SKIN
 	ram.add_to_group("stone_ram")
 	root.add_child(ram)
 	ram.global_position = at
@@ -759,7 +771,22 @@ func _play(ram: Node3D, anim: String) -> void:
 			(p as AnimationPlayer).play(anim)
 
 
-## A stone ram breaks into rubble.
+## Stone bits shaken off a charging ram (called 20 times a second; `_tick` is the count).
+func _shed(_tick: int, ram: Node3D) -> void:
+	var k := ram.scale.x
+	for i in GameData.tuning.ram_shed_chunks:
+		Vfx.chunk(ram.global_position + Vector3.UP * k + UltimateFx._in_disc(k * 0.8), Vector3(randf_range(-2, 2), randf_range(1, 4), randf_range(-2, 2)), UltimateFx.STONE, 0.12 * k)
+
+
+## A ram hits: it breaks into rubble that sprays forward and up.
+func _ram_rubble(ram: Node3D, ahead: Vector3) -> void:
+	var k := ram.scale.x
+	for i in GameData.tuning.ram_rubble_chunks:
+		var v := ahead * randf_range(1, 6) + Vector3(randf_range(-4, 4), randf_range(2, 9), randf_range(-4, 4))
+		Vfx.chunk(ram.global_position + Vector3.UP * k + UltimateFx._in_disc(k), v, UltimateFx.STONE, randf_range(0.1, 0.3) * k)
+
+
+## A pillar or slab breaks into rubble.
 func _crumble(pillar: Node3D) -> void:
 	for k in 6:
 		Vfx.chunk(pillar.global_position + UltimateFx._in_disc(1.0), Vector3(randf_range(-3, 3), randf_range(2, 6), randf_range(-3, 3)), UltimateFx.STONE, 0.4)

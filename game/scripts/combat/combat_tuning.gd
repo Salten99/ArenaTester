@@ -320,12 +320,15 @@ extends Resource
 ## Stone Slab: how long the pillar stands before it bursts into dust (s).
 @export_range(0.1, 5.0, 0.1) var slab_stay := 1.0
 ## Crushing Pillars: how far apart the two circles open (m), the wait before the rams charge (s),
-## and how long they take to meet (s). (user 2026-11-20: faster; rams, not pillars.)
-@export_range(4.0, 30.0, 0.5) var pillar_gap := 10.0
-@export_range(0.0, 2.0, 0.05) var pillar_delay := 0.25
-@export_range(0.05, 2.0, 0.05) var pillar_time := 0.2
-## Crushing Pillars: how big the two stone rams are (1 = the war ram mount's own size).
-@export_range(0.5, 4.0, 0.1) var ram_size := 1.6
+## and how long they take to meet (s). (user 2026-11-20: rams; slow start, fast finish.)
+@export_range(4.0, 30.0, 0.5) var pillar_gap := 16.0
+@export_range(0.0, 2.0, 0.05) var pillar_delay := 0.5
+@export_range(0.05, 2.0, 0.05) var pillar_time := 0.9
+## Crushing Pillars: how big the two stone rams are (1 = the war ram mount's own size), the stone bits
+## each sheds 20 times a second while charging, and the rubble each breaks into on impact.
+@export_range(0.5, 4.0, 0.1) var ram_size := 2.6
+@export_range(0, 10) var ram_shed_chunks := 2
+@export_range(0, 150) var ram_rubble_chunks := 50
 
 @export_group("Enemies")
 ## How many enemies may be winding up or striking at once (attack tokens).
