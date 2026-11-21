@@ -300,6 +300,8 @@ extends Resource
 @export_range(0.05, 1.0, 0.05) var cage_throw_windup := 0.1
 @export_range(2.0, 80.0, 0.5) var cage_bolt_speed := 28.0
 @export_range(1.0, 1.5, 0.01) var cage_speedup := 1.0
+## You fall this many s after the last pillar is placed (user, 2026-11-20; you used to float the whole cage_time).
+@export_range(0.0, 10.0, 0.1) var cage_fall_delay := 0.5
 @export_range(1, 60) var cage_max_bolts := 3  # 24 until 2026-11-20 (user: three hawks in all)
 @export_range(0.05, 2.0, 0.05) var cage_rehit := 0.4
 @export_range(0.2, 15.0, 0.1) var cage_hawk_size := 5.0

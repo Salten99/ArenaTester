@@ -325,7 +325,7 @@ func begin_placing(a: Dictionary, player: Node) -> void:
 	var feet: Vector3 = player.global_position
 	_placing = {"a": a, "player": player, "pillars": [], "glows": [], "left": t.cage_place_time,
 		"feet": feet, "lift": feet.y + t.cage_lift_height}
-	_hover(_placing.lift, t.cage_place_time + 0.2)
+	_hover(_placing.lift, 0.2)  # _update_placing renews it each frame, so it ends with the placing
 
 
 func placing() -> bool:
@@ -476,8 +476,8 @@ func _start_cage(a: Dictionary, player: Node, pillars: Array, glows: Array, lift
 		_add_bolt(c, pillars[from] + Vector3.UP * 1.2, _other_pillar(c, from), t.cage_bolt_speed)
 	_cages.append(c)
 	Combat.shake(t.shake_heavy)
-	if _alive(player):  # you float cage_lift_height up while it lasts (already up, if you placed them)
-		_hover(lift if lift != INF else player.global_position.y + t.cage_lift_height, t.cage_time)
+	if _alive(player):  # you stay cage_lift_height up (already up, if you placed them), then fall cage_fall_delay s after the last pillar
+		_hover(lift if lift != INF else player.global_position.y + t.cage_lift_height, t.cage_fall_delay)
 
 
 ## A bolt flying from `from` to pillar `to` at `speed`, carried by a lightning hawk (user,

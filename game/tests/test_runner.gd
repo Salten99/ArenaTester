@@ -766,8 +766,10 @@ func test_spells() -> void:
 	await _frames(2)
 	check(Vector2(caged[0].global_position.x - spot.x, caged[0].global_position.z - spot.z).length() < 6.0, "a caught one can't leave the pillars")
 	check(cage.bolts.size() == 3 and t.cage_max_bolts == 3, "three hawks in all, however often they bounce (%d)" % cage.bolts.size())
-	await _frames(int(t.ult_lift_time * hz) + 10)
-	check(p.global_position.y > y0 + t.cage_lift_height - 1.0, "you float %.0f m up while it lasts (%.1f)" % [t.cage_lift_height, p.global_position.y - y0])
+	var up: float = p.global_position.y
+	check(up > y0 + 1.0, "you're still up just after the last pillar (%.1f)" % (up - y0))
+	await _frames(int((t.cage_fall_delay + 0.6) * hz))
+	check(p.global_position.y < up - 1.0 and p.abilities.spells.caging(), "you fall %.1f s after the last pillar, while the hawks still fly (%.1f)" % [t.cage_fall_delay, p.global_position.y - y0])
 	var after_first: float = caged[1].health.hp
 	await _frames(int(t.cage_time * hz) + 6)
 	check(not p.abilities.spells.caging() and _hurt(caged) == 2, "Kaminari strikes what's inside, then collapses (%d of 2)" % _hurt(caged))
