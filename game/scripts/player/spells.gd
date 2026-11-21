@@ -302,6 +302,11 @@ func _fan(a: Dictionary, player: Node, dir: Vector3) -> void:
 ## 2026-11-20). It jumps from enemy to enemy for kaminari_time; once only one enemy is left alive it
 ## strikes in and out of that one until it's dead.
 func _spear(a: Dictionary, player: Node, spot: Vector3) -> void:
+	for w: Dictionary in _spears:  # already in your hand from aiming: that one's thrown
+		if w.get("waiting", false) and w.player == player:
+			w.waiting = false
+			w.goal = spot
+			return
 	var t: CombatTuning = GameData.tuning
 	var hand := _right_hand(player)
 	var s := {"a": a, "player": player, "at": hand, "goal": spot, "target": null, "last": null,
@@ -349,9 +354,22 @@ func _right_hand(player: Node) -> Vector3:
 	return v.bone_position("handslot.r", near) if v != null and v.has_method("bone_position") else near
 
 
+## While you aim Kaminari the bolt is already in your hand, pointing at the crosshair (user,
+## 2026-11-20); the throw takes it, and it's gone if you stop aiming without throwing.
+func hold_bolt(a: Dictionary, player: Node) -> void:
+	if _spears.any(func(w: Dictionary) -> bool: return w.get("waiting", false) and w.player == player):
+		return
+	_spear(a, player, _right_hand(player) + player.facing * 10.0)
+	_spears[-1].waiting = true
+
+
 func _update_spear(s: Dictionary, delta: float) -> void:
 	var t: CombatTuning = GameData.tuning
-	var done: bool = not _alive(s.player) or s.get("done", false)
+	var waiting: bool = s.get("waiting", false)
+	var done: bool = not _alive(s.player) or s.get("done", false) or (waiting and not s.player.aiming_a_shot())
+	if waiting and not done:
+		var aim: Vector3 = s.player.aim_point()
+		s.goal = aim if aim != Vector3.INF else _right_hand(s.player) + s.player.facing * 10.0
 	if s.held <= 0.0:
 		s.left -= delta
 	if s.left <= 0.0 and not done:  # time's up, unless one enemy is left: then it's struck until it's dead
@@ -362,7 +380,8 @@ func _update_spear(s: Dictionary, delta: float) -> void:
 			s.node.queue_free()
 		return
 	if s.held > 0.0:  # in your hand until the throw
-		s.held -= delta
+		if not waiting:
+			s.held -= delta
 		s.at = _right_hand(s.player)
 		var aim: Vector3 = (s.goal as Vector3) - (s.at as Vector3)
 		if aim.length() > 0.01:

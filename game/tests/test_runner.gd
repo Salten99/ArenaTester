@@ -662,9 +662,16 @@ func test_spells() -> void:
 	# enemy for kaminari_time; with one enemy left it strikes in and out of it until it's dead.
 	var spot: Vector3 = p.global_position + Vector3(0, 0, -12)
 	var struck := [_dummy(Vector3(0, 0, -12)), _dummy(Vector3(4, 0, -14))]
-	p.abilities.cast("Ultimate", p, Vector3.FORWARD, spot)
+	# While you aim it, the bolt is already in your hand; stop aiming without throwing and it's gone.
+	p.abilities.spells.hold_bolt(p.abilities.defs.Ultimate, p)
+	var held: Dictionary = p.abilities.spells._spears[0]
+	check(held.waiting and held.bolt != null and (held.at as Vector3).distance_to(p.global_position) < 2.5, "aiming Kaminari, the bolt is in your hand")
+	await _frames(2)  # (not aiming here)
+	check(not p.abilities.spells.caging(), "stop aiming without throwing and it's gone")
+	p.abilities.spells.hold_bolt(p.abilities.defs.Ultimate, p)
+	p.abilities.cast("Ultimate", p, Vector3.FORWARD, spot)  # let go: the one in your hand is thrown
 	await _frames(3)
-	check(p.abilities.spells.caging(), "Kaminari's bolt is out")
+	check(p.abilities.spells._spears.size() == 1 and not p.abilities.spells._spears[0].waiting, "Kaminari's bolt is out, the one from your hand")
 	var spear: Dictionary = p.abilities.spells._spears[0]
 	check(spear.held > 0.0 and (spear.at as Vector3).distance_to(p.global_position) < 2.5 and spear.bolt != null, "it's in your hand first, your bolt pictures")
 	var dragon: Array = spear.pieces

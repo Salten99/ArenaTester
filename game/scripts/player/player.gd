@@ -282,6 +282,8 @@ func _physics_process(delta: float) -> void:
 				if GameData.text(def, "shape") == "Spear" and visual != null:  # drawn back to throw until you let go (user, 2026-11-20)
 					var wind := GameData.tuning.weapon_throw_charge_time
 					visual.play_strike(GameData.text(def, "animation_name"), wind, wind + CAST_CLIP, true)
+				if GameData.text(def, "shape") == "Spear":
+					abilities.spells.hold_bolt(def, self)
 			else:
 				_cast(slot, intent.aim_yaw, intent.aim_point)
 			break
