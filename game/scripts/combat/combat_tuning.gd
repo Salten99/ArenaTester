@@ -426,10 +426,6 @@ extends Resource
 ## ...starting this many seconds after you were last hit.
 @export_range(0.0, 30.0, 0.5) var rest_regen_delay := 5.0
 
-@export_group("Progression")
-## XP needed scales with this; lower = faster level-ups.
-@export_range(0.1, 5.0, 0.05) var xp_scale := 1.0
-
 @export_group("Weapons, shots and launches")
 ## Every weapon in a hand is drawn this much bigger (user, 2026-11-01: 30%).
 @export_range(0.5, 3.0, 0.05) var weapon_scale := 1.3
@@ -483,13 +479,6 @@ extends Resource
 ## The third-person camera swings this many degrees round to your right, still looking at you in the
 ## middle of the screen (user, 2026-11-20: 15; 0 = straight behind you).
 @export_range(0.0, 60.0, 1.0) var camera_side_deg := 15.0
-
-@export_group("Waves")
-## Enemies per wave; the arena runs through them in order.
-@export var wave_sizes: PackedInt32Array = PackedInt32Array([8, 14, 22, 30, 40])
-@export_range(0.0, 10.0, 0.5) var time_between_waves := 2.0
-## Show a godly gift choice after every cleared wave.
-@export var godly_gift_after_each_wave := true
 
 @export_group("Feedback")
 @export var show_damage_numbers := true

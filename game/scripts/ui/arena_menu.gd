@@ -74,7 +74,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if _mode == "pause":
 		close()
-	elif _mode == "" and arena != null and not arena.player.is_dead() and not arena.hud.is_choosing():
+	elif _mode == "" and arena != null and not arena.player.is_dead():
 		open_pause()
 	else:
 		return

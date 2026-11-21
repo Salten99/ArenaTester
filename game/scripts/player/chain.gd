@@ -238,7 +238,7 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 			if not fresh.is_empty():
 				_swing_hit.append_array(fresh)
 				player.hit_targets(fresh, player.moveset._base(player) * t.heavy_multiplier * swing_power(), DamageInfo.Kind.HEAVY, t.knockback_heavy,
-					false, t.hitstop_heavy, t.shake_heavy * 0.5, [], _hold_at, "Physical", false, false)
+					false, t.hitstop_heavy, t.shake_heavy * 0.5, _hold_at, "Physical", false, false)
 		Mode.DRAG:
 			if not intent.light_held:
 				return _end()  # it lies there, then gets up
@@ -289,7 +289,7 @@ func kick(e: Node3D) -> void:
 	var t: CombatTuning = GameData.tuning
 	var big := pulls_you(e)
 	player.hit_targets([e], player.moveset._base(player) * player.heavy_mult(), DamageInfo.Kind.HEAVY,
-		t.knockback_heavy * 1.5, true, t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], e.global_position + Vector3.UP,
+		t.knockback_heavy * 1.5, true, t.hitstop_heavy, t.shake_heavy, e.global_position + Vector3.UP,
 		"Physical", false, true, not big)
 	Vfx.burst(e.global_position + Vector3.UP, 1.1, Color(1.0, 0.85, 0.4, 0.9), 0.1)
 	if not big or not is_instance_valid(e):
@@ -390,7 +390,7 @@ func _slam(land: Vector3) -> void:
 	e.global_position = land
 	var near: Array = Combat.enemies_in_radius(land, t.hurl_burst_radius, [e])
 	player.hit_targets(([e] if e is Enemy else []) + near, player.moveset._base(player) * t.heavy_multiplier, DamageInfo.Kind.HEAVY, t.knockback_heavy,
-		true, t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], land, "Physical", false, false)
+		true, t.hitstop_heavy, t.shake_heavy, land, "Physical", false, false)
 	if e is Throwable:
 		e._shatter()  # an item breaks where it lands
 	ElementFx.area("Physical", land, t.hurl_burst_radius)

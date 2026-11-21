@@ -47,12 +47,12 @@ func _ready() -> void:
 	await get_tree().process_frame
 	var tests := [
 		"test_data_loads", "test_data_is_consistent", "test_rng_is_deterministic", "test_damage_pipeline",
-		"test_fire_ticks", "test_godly_gift_offer_and_duo", "test_unbuilt_content_is_hidden", "test_dodge_iframes", "test_guardian_parry", "test_minotaur_charge_throws_you",
-		"test_searing_strikes_ignites_slam", "test_thunderforged_combo", "test_attack_tokens",
-		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_spells", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
+		"test_fire_ticks", "test_dodge_iframes", "test_guardian_parry", "test_minotaur_charge_throws_you",
+		"test_attack_tokens",
+		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_spells", "test_ragdoll_death", "test_performance_40_enemies",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
-		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_practice_picks", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head", "test_pixelfx_effects", "test_hit_reactions", "test_aim_every_spell", "test_lance_flight_and_shoulder_camera", "test_walls_and_ledges", "test_audit_fixes_3",
+		"test_one_god_per_race",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_practice_picks", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head", "test_pixelfx_effects", "test_hit_reactions", "test_aim_every_spell", "test_lance_flight_and_shoulder_camera", "test_walls_and_ledges", "test_audit_fixes_3",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_spells runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -137,7 +137,6 @@ func test_data_is_consistent() -> void:
 func test_data_loads() -> void:
 	check(GameData.rows("gods").size() == 15 - GameData.SHELVED_GODS.size(), "every god not set aside is loaded")
 	check(GameData.rows("races").size() == 20 - GameData.SHELVED_RACES.size(), "every race not set aside is loaded")
-	check(GameData.godly_gifts_for("forge_god").size() == 6, "6 forge godly_gifts")
 	check(not GameData.status("fire").is_empty(), "fire status exists")
 	check(GameData.abilities_for("forge_god").size() == 3, "forge has 3 abilities")
 	check(GameData.text(GameData.weapon("warhammer"), "weapon_class") == "Heavy", "the warhammer is a Heavy weapon")
@@ -177,39 +176,6 @@ func test_fire_ticks() -> void:
 	check(e.health.hp <= hp - 8.0 and e.health.hp >= hp - 12.0, "fire ticked twice (hp %.1f -> %.1f)" % [hp, e.health.hp])
 	await _frames(150)
 	check(not e.statuses.has("fire"), "fire expired after its duration")
-
-
-func test_unbuilt_content_is_hidden() -> void:
-	var unbuilt: Array = GodlyGiftManager.unbuilt().map(func(u): return u.id)
-	check(not unbuilt.is_empty() and not "forge_masterwork" in unbuilt,
-		"godly gifts without code are found (%d), including ones on triggers that never happen (block)" % unbuilt.size())
-	var b: GodlyGiftManager = _arena.player.godly_gifts
-	var offered_bad := []
-	for g in GameData.rows("gods"):
-		for i in 25:
-			for id in b.make_offer(g.god_id):
-				if id in unbuilt:
-					offered_bad.append(id)
-	check(offered_bad.is_empty(), "a godly gift that does nothing is never offered (offered: %s)" % [offered_bad])
-	var s := _fresh_run(61)
-	var bad_levels := []
-	for i in 60:
-		for id in LevelSystem.make_offer(s):
-			if not LevelSystem.is_implemented(GameData.row("level_up_options", id)):
-				bad_levels.append(id)
-	check(bad_levels.is_empty() and not LevelSystem.is_implemented(GameData.row("level_up_options", "magnet")), "level-ups that raise an unread stat are never offered (offered: %s)" % [bad_levels])
-	_fresh_run()
-
-
-func test_godly_gift_offer_and_duo() -> void:
-	var b: GodlyGiftManager = _arena.player.godly_gifts
-	var offer := b.make_offer("forge_god")
-	check(offer.size() == 3, "offer has 3 godly_gifts")
-	check(offer.size() == Array(offer).filter(func(id): return offer.count(id) == 1).size(), "offer has no duplicates")
-	check(b.available_duos().is_empty(), "no duo before a storm godly_gift")
-	b.add_godly_gift("storm_thunderclap")
-	check("duo_forge_storm" in b.available_duos(), "the Fire + Lightning duo godly_gift unlocks with a storm godly_gift")
-	check(b.add_godly_gift("storm_thunderclap") and b.rank_of("storm_thunderclap") == 2, "taking it again ranks up")
 
 
 func test_dodge_iframes() -> void:
@@ -291,17 +257,6 @@ func test_guardian_parry() -> void:
 	e.queue_free()
 
 
-func test_searing_strikes_ignites_slam() -> void:
-	var p: Player = _arena.player
-	p.godly_gifts.add_godly_gift("forge_searing_strikes")
-	var enemies := _cluster(5, 2.5, "barb_warlord")
-	var s := _scripted()
-	s.press("heavy")
-	await _frames(40)
-	var burning := enemies.filter(func(e): return is_instance_valid(e) and e.statuses.has("fire")).size()
-	check(burning == 5, "heavy slam set all 5 enemies on fire (got %d)" % burning)
-
-
 ## Stamina (user, 2026-10-29): sprinting, charging a heavy attack and casting spend it; it comes back.
 func test_stamina() -> void:
 	var p: Player = _arena.player
@@ -351,28 +306,6 @@ func test_stamina() -> void:
 	s.hold({"move": Vector2(0, 1), "sprint": true}, 60)
 	await _frames(60)
 	check(p.winded and p.stamina > 8.0, "holding Shift with no stamina: you walk and it still refills (%.0f)" % p.stamina)
-
-
-func test_thunderforged_combo() -> void:
-	var p: Player = _arena.player
-	for id in DebugTools.COMBO_KIT:
-		p.godly_gifts.add_godly_gift(id)
-	_fire_godly_gift_hits = 0
-	Combat.hit_landed.connect(_count_fire_godly_gift_hit)
-	_cluster(6, 2.5, "barb_warlord")
-	var s := _scripted()
-	s.press("heavy")
-	await _frames(45)
-	Combat.hit_landed.disconnect(_count_fire_godly_gift_hit)
-	check(_fire_godly_gift_hits >= 6, "the Fire + Lightning duo godly_gift explosions hit enemies (got %d fire godly_gift hits)" % _fire_godly_gift_hits)
-
-
-var _fire_godly_gift_hits := 0
-
-
-func _count_fire_godly_gift_hit(_target: Node, info: DamageInfo, _dealt: float) -> void:
-	if info.kind == DamageInfo.Kind.GODLY_GIFT and info.damage_type == "Fire":
-		_fire_godly_gift_hits += 1
 
 
 func test_attack_tokens() -> void:
@@ -1004,41 +937,6 @@ func test_performance_40_enemies() -> void:
 	check(avg_ms < 8.0, "40 enemies simulate in under 8 ms per frame (got %.2f)" % avg_ms)
 
 
-func test_wave_and_godly_gift_flow() -> void:
-	# Replace the test arena with one that starts like a real run.
-	_arena.queue_free()
-	await _frames(1)
-	_arena = ARENA.instantiate()
-	_arena.run_seed = 99
-	add_child(_arena)
-	await _frames(2)
-	var hud: Hud = _arena.hud
-	check(hud.is_choosing() and get_tree().paused, "run starts with a paused godly_gift choice")
-	hud._pick(0)
-	check(not get_tree().paused and _arena.player.godly_gifts.owned.size() == 1, "picking a godly_gift unpauses and adds it")
-	await _frames(int(GameData.tuning.time_between_waves * 60.0) + 10)
-	var first_wave := GameData.tuning.wave_sizes[0]
-	check(_arena.waves.wave == 0 and _arena.waves.alive() == first_wave, "wave 1 spawned %d enemies (got %d)" % [first_wave, _arena.waves.alive()])
-	for e in get_tree().get_nodes_in_group("enemies"):
-		Combat.deal(e, DamageInfo.make(9999.0, "Physical", DamageInfo.Kind.GODLY_GIFT, _arena.player))
-	await _frames(40)
-	while hud.is_choosing() and hud._offer_kind == "level":  # the wave's XP can bring a level-up first (it pauses the waves)
-		hud._pick(0)
-		await _frames(40)
-	check(hud.is_choosing(), "clearing the wave offers another godly_gift")
-	check(GameData.text(GameData.god("storm_god"), "display_name") in hud._choice_title.text, "second offer comes from the Storm Caller (Storm)")
-	hud._pick(0)
-
-
-func test_kiln_heart_on_burning_kill() -> void:
-	var p: Player = _arena.player
-	p.godly_gifts.add_godly_gift("forge_kiln_heart")
-	var e: Enemy = _cluster(1)[0]
-	Combat.apply_status(e, "fire", 1, p)
-	Combat.deal(e, DamageInfo.make(999.0, "Physical", DamageInfo.Kind.LIGHT, p))
-	check(p.stats.get_stat("damage_pct") >= 10.0, "killing a burning enemy grants Kiln Heart's +10%% damage (got %.0f)" % p.stats.get_stat("damage_pct"))
-
-
 func _horizontal_speed() -> float:
 	var v: Vector3 = _arena.player.velocity
 	return Vector2(v.x, v.z).length()
@@ -1113,22 +1011,6 @@ func test_models_and_animations() -> void:
 
 # ---------------------------------------------------------------- architecture
 
-func _fresh_run(seed_value := 777) -> RunState:
-	return Run.start_new("dwarf", "forge_god", seed_value)
-
-
-func test_level_ups() -> void:
-	var s := _fresh_run(3)
-	var p: Player = _arena.player
-	var ups := LevelSystem.add_xp(s, LevelSystem.xp_to_next(1) + LevelSystem.xp_to_next(2), p.stats)
-	check(ups == 2 and s.level == 3, "enough XP gives two level-ups")
-	var offer := LevelSystem.make_offer(s)
-	check(offer.size() == 3, "a level-up offers 3 upgrades")
-	var hp_before := p.health.max_hp
-	LevelSystem.pick(s, "vitality", p.stats)
-	check(p.health.max_hp > hp_before, "Vitality raises max health (%.0f -> %.0f)" % [hp_before, p.health.max_hp])
-
-
 func test_one_god_per_race() -> void:
 	check(not ResourceLoader.exists("res://scripts/progression/pledge_system.gd"), "you can't switch gods any more")
 	var src := FileAccess.get_file_as_string("res://scripts/ui/hud.gd")
@@ -1139,13 +1021,9 @@ func test_one_god_per_race() -> void:
 
 func test_void_mark() -> void:
 	var p: Player = _arena.player
-	p.godly_gifts.add_godly_gift("forge_tempered")
 	for i in 5:
 		Combat.apply_status(p, "void", 1, null)
-	check(p.godly_gifts.is_suppressed(), "a full Void mark switches godly_gifts off")
-	check(not p.statuses.has("void"), "and the mark resets")
-	await _frames(int(StatusEffects.VOID_SUPPRESS_SECONDS * 60.0) + 5)
-	check(not p.godly_gifts.is_suppressed(), "godly_gifts come back after 3 s")
+	check(not p.statuses.has("void"), "a full Void mark resets")
 	Combat.apply_status(p, "void", 2, null)
 	var s := _scripted()
 	s.press("dodge")
@@ -1241,7 +1119,7 @@ func test_own_effects() -> void:
 	var explosions := func() -> int:
 		return Combat.effects_root.get_children().filter(func(n): return n.scene_file_path.ends_with("fire_explosion.tscn")).size()
 	var booms: int = explosions.call()
-	p.hit_targets([], 10.0, DamageInfo.Kind.HEAVY, 1.0, false, 0.0, 0.0, [], p.global_position + p.facing * 2.0)
+	p.hit_targets([], 10.0, DamageInfo.Kind.HEAVY, 1.0, false, 0.0, 0.0, p.global_position + p.facing * 2.0)
 	check(explosions.call() == booms + 1, "a weapon heavy plays your god's explosion where it lands, even on a miss (user, 2026-11-08)")
 	p.setup(p.race_id, god)
 	before = Combat.effects_root.get_child_count()
@@ -1371,13 +1249,15 @@ func test_weapons_and_classes() -> void:
 		"the warhammer is the Barbarian's, the twin blades the Rogue's")
 	# Weapons differ only in damage and attack speed (user, 2026-11-20): holding one changes no stat.
 	p.equip(GameData.FISTS)
+	var stats := ["max_hp_pct", "damage_pct", "melee_pct", "missile_pct", "magic_pct", "attack_speed_pct", "move_speed_pct",
+		"stamina_pct", "stamina_regen_pct", "crit_chance", "crit_damage_pct", "armor_pct", "cdr_pct", "lifesteal_pct", "dodge_distance_pct"]
 	var plain := {}
-	for stat in PlayerStats.READ_STATS:
+	for stat in stats:
 		plain[stat] = p.stats.get_stat(stat)
 	var plain_hp: float = p.health.max_hp
 	for w in GameData.pickup_weapons():
 		p.equip(w)
-		check(p.health.max_hp == plain_hp and PlayerStats.READ_STATS.all(func(s): return p.stats.get_stat(s) == plain[s]), "holding the %s changes none of your stats" % w)
+		check(p.health.max_hp == plain_hp and stats.all(func(s): return p.stats.get_stat(s) == plain[s]), "holding the %s changes none of your stats" % w)
 	check(not InputMap.has_action("sidearm") and not InputMap.has_action("switch_weapon"), "no bow to switch to any more (user, 2026-11-20)")
 
 
@@ -1390,9 +1270,8 @@ func test_shelved_races() -> void:
 	var elements: Array = GameData.rows("gods").map(func(g): return GameData.text(g, "element"))
 	elements.sort()
 	check(elements == ["Fire", "Ice", "Lightning", "Stone"], "the Fire, Ice, Lightning and Stone gods (%s)" % [elements])
-	var shelved := func(r): return r.get("god_id") in GameData.SHELVED_GODS or r.get("god_a") in GameData.SHELVED_GODS or r.get("god_b") in GameData.SHELVED_GODS
-	check(not GameData.rows("god_abilities").any(shelved) and not GameData.rows("godly_gifts").any(shelved) and not GameData.rows("duo_godly_gifts").any(shelved),
-		"set-aside gods' abilities, gifts and duo gifts are never offered")
+	var shelved := func(r): return r.get("god_id") in GameData.SHELVED_GODS
+	check(not GameData.rows("god_abilities").any(shelved), "set-aside gods' abilities are never offered")
 	check(GameData.text(GameData.god("moon_god"), "god_id") == "moon_god", "but their rows still load")
 
 
@@ -1822,20 +1701,8 @@ func test_top_review_fixes() -> void:
 	var p: Player = _arena.player
 	p.god_mode = true
 	await _until_on_floor()
-	# Duo gifts that apply a status don't set themselves off forever.
 	var foe: Enemy = _cluster(1, 4.0)[0]
 	foe.health.setup(9999.0)
-	var count := [0]
-	var counter := func(_t, _s, _b): count[0] += 1
-	Combat.status_applied.connect(counter)
-	for id in ["duo_snow_sea", "duo_desert_wind", "duo_disease_sea"]:
-		p.godly_gifts.owned = []
-		p.godly_gifts.add_godly_gift(id)
-		count[0] = 0
-		Combat.apply_status(foe, "poison", 1, p)
-		check(count[0] <= 4, "%s reacts once to a status (%d)" % [id, count[0]])
-	Combat.status_applied.disconnect(counter)
-	p.godly_gifts.owned = []
 	# A full Void mark leaves no aura behind.
 	var marks := int(GameData.num(GameData.status("void"), "max_stacks", 5))
 	p.statuses.clear()
@@ -2013,19 +1880,6 @@ func test_combat_feel() -> void:
 	p.setup("human", "forge_god", "warhammer")
 
 
-func test_end_of_run_exit() -> void:
-	# Playtest 2026-11-05: the final kill's level-up took the mouse from "Back to the start screen".
-	var hud: Hud = _arena.hud
-	hud._open_choice("test", "A choice", ["a"], ["1.  A"])
-	hud.show_action("Back to the start screen", func(): pass)
-	hud._pick(0)
-	check(hud.mouse_after_choice() == Input.MOUSE_MODE_VISIBLE, "closing a menu leaves the mouse free while the end-of-run button waits")
-	hud._action.queue_free()
-	await _frames(1)
-	check(hud.mouse_after_choice() == Input.MOUSE_MODE_CAPTURED, "otherwise the mouse goes back to the camera")
-	check(FileAccess.get_file_as_string("res://scripts/arena/arena.gd").contains("if not Run.active or Run.state.pending_level_ups"), "no level-up opens after the run is over")
-
-
 func test_blood_and_falls() -> void:
 	var p: Player = _arena.player
 	p.god_mode = true
@@ -2102,7 +1956,7 @@ func test_practice_picks() -> void:
 	await _frames(2)
 	check(Run.state.race_id == "dwarf" and Run.state.god_id == god and Run.state.weapon_id == GameData.FISTS,
 		"Practice starts as a dwarf with the god picked, bare-handed (%s, %s)" % [Run.state.god_id, Run.state.weapon_id])
-	check(_arena.player.god_id == god and god in _arena.offer_gods, "and offers that god's gifts")
+	check(_arena.player.god_id == god, "and you fight with that god's element")
 	Flow.practice_god = ""
 
 
@@ -2265,19 +2119,6 @@ func test_audit_fixes() -> void:
 	fresh.global_position = p.global_position + Vector3(30, 0, 30)
 	check(fresh in Combat.enemies_in_radius(fresh.global_position, 1.0) and not fresh in Combat.enemies_in_radius(p.global_position, 3.0),
 		"hit searches find who is near, through the crowd grid")
-	# The Void mark switches conditional passives off too.
-	p.godly_gifts.add_godly_gift("forge_tempered")  # bonus damage on large enemies
-	var big: Enemy = _cluster(1, 3.0, "barb_warlord")[0]
-	var bonus := p.godly_gifts.damage_bonus_pct(big)
-	p.godly_gifts.suppress(3.0)
-	check(bonus > 0.0 and p.godly_gifts.damage_bonus_pct(big) == 0.0, "a full Void mark switches Tempered off (%.0f%% before)" % bonus)
-	# xp_scale 0 in the Inspector must not hang the game.
-	var scale := GameData.tuning.xp_scale
-	GameData.tuning.xp_scale = 0.0
-	var s := RunState.new()
-	var ups := LevelSystem.add_xp(s, 5.0)
-	GameData.tuning.xp_scale = scale
-	check(ups == 5 and s.xp == 0, "xp_scale 0 levels once per point instead of forever (%d)" % ups)
 
 
 ## The second audit (2026-11-17).
@@ -2998,10 +2839,7 @@ func test_arena_menu() -> void:
 	add_child(_arena)
 	await _frames(2)
 	var a: EndlessArena = _arena
-	check(a.menu != null and not a.hud._godly_gifts.visible, "the arena has its menu and shows no godly gifts")
-	var level := Run.state.level
-	a.give_xp(100000.0)
-	check(Run.state.level == level and Run.state.pending_level_ups == 0 and not a.hud.is_choosing(), "no XP or level-up upgrades in the arena")
+	check(a.menu != null, "the arena has its menu")
 	var esc := InputEventAction.new()
 	esc.action = "release_mouse"
 	esc.pressed = true
@@ -3247,23 +3085,6 @@ func test_training_ground() -> void:
 	check(Enemy.DEATH_LAUNCH > 1.3 and Grabber.THROW_BOOST > 1.3 and Throwable.DEBRIS_SCALE > 1.3, "killing blows launch, throws and debris fly a third farther")
 
 
-func test_kill_reported_once() -> void:
-	# The Fire + Lightning duo finishes a burning enemy inside the lightning hit's own deal():
-	# that kill must be reported once (it used to be twice: double XP and kill score).
-	var p: Player = _arena.player
-	p.godly_gifts.add_godly_gift("duo_forge_storm")
-	var e: Enemy = _cluster(1)[0]
-	await _frames(2)
-	Combat.apply_status(e, "fire", 1, null)
-	e.health.hp = 20.0
-	var count := [0]
-	var on_kill := func(t, _i): if t == e: count[0] += 1
-	Combat.killed.connect(on_kill)
-	Combat.deal(e, DamageInfo.make(5.0, "Lightning", DamageInfo.Kind.LIGHT, p))
-	Combat.killed.disconnect(on_kill)
-	check(e.is_dead() and count[0] == 1, "a kill by a gift inside a hit is reported once (dead %s, reported %d)" % [e.is_dead(), count[0]])
-
-
 func test_endless_waves() -> void:
 	# Endless survival: each cleared wave brings a bigger one, kills are counted, and it never ends.
 	check(EndlessArena.wave_units(1).size() > EndlessArena.wave_units(0).size(), "each wave is bigger than the last")
@@ -3295,7 +3116,6 @@ func test_endless_waves() -> void:
 	var hits := ceili(raider.health.max_hp / hit)
 	check(hits >= 3 and hits <= 4, "a raider takes 3-4 light hits (%d: %.0f hp, %.0f a hit)" % [hits, raider.health.max_hp, hit])
 	raider.queue_free()
-	check(not a.hud.is_choosing(), "no godly gift menu between waves")
 	await _frames(int(EndlessArena.WAVE_GAP * 60.0) + 10)
 	check(get_tree().get_nodes_in_group("arena_pickups").size() == 1, "a health orb waits between waves")
 	check(a.waves.wave == 1 and a.waves.alive() + a.waves.reserve.size() == EndlessArena.wave_units(1).size(), "wave 2 follows, bigger (%d)" % (a.waves.alive() + a.waves.reserve.size()))

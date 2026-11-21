@@ -17,20 +17,11 @@ static func run() -> Array:
 	for r in GameData.rows("races"):
 		for gid in GameData.text(r, "starting_gods").split(",", false):
 			_ref(problems, "Races", r.race_id, "starting_gods", gid.strip_edges(), gods)
-	for b in GameData.rows("godly_gifts"):
-		_ref(problems, "Godly Gifts", b.godly_gift_id, "god_id", b.get("god_id"), gods)
-		_ref(problems, "Godly Gifts", b.godly_gift_id, "status_effect", b.get("status_effect"), statuses, true)
-	for d in GameData.rows("duo_godly_gifts"):
-		_ref(problems, "Duo Godly Gifts", d.duo_id, "god_a", d.get("god_a"), gods)
-		_ref(problems, "Duo Godly Gifts", d.duo_id, "god_b", d.get("god_b"), gods)
 	for a in GameData.rows("god_abilities"):
 		_ref(problems, "God Abilities", a.ability_id, "god_id", a.get("god_id"), gods)
 		_ref(problems, "God Abilities", a.ability_id, "status_effect", a.get("status_effect"), statuses, true)
 	for u in GameData.rows("army_units"):
 		_ref(problems, "Army Units", u.unit_id, "race_id", u.get("race_id"), races)
-	for o in GameData.rows("level_up_options"):
-		if not LevelSystem.STAT_KEYS.has(GameData.text(o, "stat")):
-			problems.append("Level Up Options %s: unknown stat '%s'" % [o.upgrade_id, GameData.text(o, "stat")])
 	return problems
 
 

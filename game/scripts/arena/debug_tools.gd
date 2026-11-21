@@ -2,9 +2,6 @@ class_name DebugTools
 extends Node
 ## Debug shortcuts for testing combat fast (F1 shows the list on screen).
 
-## The godly gifts that make the Milestone 0 combo: slam ignites, lightning explodes the burning.
-const COMBO_KIT := ["forge_searing_strikes", "storm_thunderclap", "storm_static_strikes", "duo_forge_storm"]
-
 var arena: Node
 
 
@@ -29,19 +26,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			arena.waves.spawn(WaveDirector.BASIC_UNIT, player.global_position)
 	elif event.is_action("debug_spawn_large"):
 		arena.waves.spawn(WaveDirector.LARGE_UNIT, player.global_position)
-	elif (event.is_action("debug_godly_gift") or event.is_action("debug_combo_kit")) and arena is EndlessArena:
-		return  # no godly gifts in the endless arena for now
-	elif event.is_action("debug_godly_gift"):
-		var god: String = RunRng.pick(arena.offer_gods)
-		var offer: Array = player.godly_gifts.make_offer(god, 1)
-		if not offer.is_empty():
-			player.godly_gifts.add_godly_gift(offer[0])
-			arena.hud.show_message("Debug: gained %s" % arena._godly_gift_name(offer[0]), 1.5)
-	elif event.is_action("debug_combo_kit"):
-		for id in COMBO_KIT:
-			if not player.godly_gifts.has_godly_gift(id):
-				player.godly_gifts.add_godly_gift(id)
-		arena.hud.show_message("Debug: combo kit added. Slam a crowd with RMB!", 2.5)
 	elif event.is_action("debug_god_mode") or event.is_action("god_mode"):
 		player.god_mode = not player.god_mode
 		player.flying = player.god_mode

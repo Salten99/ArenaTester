@@ -1,6 +1,5 @@
 extends Node
-## The fight in progress: who you are (race, weapon, god), your godly gifts and level
-## (Run.state). Scenes read Run.state.
+## The fight in progress: who you are (race, weapon, god) (Run.state). Scenes read Run.state.
 
 var state: RunState
 var active := false

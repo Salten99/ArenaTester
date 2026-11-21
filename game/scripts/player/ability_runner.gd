@@ -298,7 +298,7 @@ func _strike(a: Dictionary, player: Node, e: Node, center: Vector3, explosive :=
 	info.knockback = t.knockback_explosion
 	info.explosive = explosive
 	info.knockdown = a.get("slot") == "Ultimate"
-	_add_status(a, player, info)
+	_add_status(a, info)
 	Combat.deal(e, info)
 
 
@@ -525,16 +525,12 @@ func _multi_hit(a: Dictionary, player: Node, dir: Vector3, at := Vector3.INF) ->
 			return
 		var e: Node = targets[i % targets.size()]
 		var info: DamageInfo = player.make_hit(GameData.num(a, "base_damage"), element, "Magic", e, DamageInfo.Kind.ABILITY)
-		_add_status(a, player, info)
+		_add_status(a, info)
 		ElementFx.beam(element, from, e.global_position + Vector3.UP)
 		Combat.deal(e, info)
 
 
-func _add_status(a: Dictionary, player: Node, info: DamageInfo) -> void:
+func _add_status(a: Dictionary, info: DamageInfo) -> void:
 	var status := GameData.text(a, "status_effect")
 	if status != "" and RunRng.chance(GameData.num(a, "status_chance_pct", 100.0)):
 		info.with_status(status)
-	if a.get("slot") == "Ultimate":
-		var extra: String = player.godly_gifts.ultimate_status()
-		if extra != "" and extra != status:
-			info.with_status(extra)

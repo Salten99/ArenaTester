@@ -1,11 +1,10 @@
 class_name WaveDirector
 extends Node
 ## Runs a fight's waves: spawn a wave, wait until it's cleared, spawn the next.
-## Practice waves come from the tuning resource; the endless arena plans its own (plan_waves, reserve).
+## The endless arena plans the waves (plan_waves, reserve).
 
 signal wave_started(index: int, total: int)
 signal wave_cleared(index: int)
-signal all_waves_cleared
 
 ## Unit ids from the sheets: the arena's mythical roster (fantasy pivot, 2026-11-19).
 const BASIC_UNIT := "horde_skeleton_warrior"
@@ -25,9 +24,7 @@ var center := Vector3.ZERO
 ## Ground raycasts start this far above the reference height.
 var ray_height := 20.0
 var running := false
-## Endless survival (EndlessArena): the arena adds the next wave each time one is cleared.
-var endless := false
-## Planned waves ([[unit_id, ...], ...]); empty = the practice waves from tuning.
+## Planned waves ([[unit_id, ...], ...]).
 var plan_waves: Array = []
 ## Hostile units this fight is waiting on (the ones it spawned).
 var members: Array = []
@@ -53,30 +50,17 @@ func start() -> void:
 
 
 func total() -> int:
-	return plan_waves.size() if not plan_waves.is_empty() else GameData.tuning.wave_sizes.size()
+	return plan_waves.size()
 
 
 func next_wave() -> void:
-	var sizes: PackedInt32Array = GameData.tuning.wave_sizes
 	wave += 1
 	if wave >= total():
 		running = false
-		all_waves_cleared.emit()
 		return
-	if not plan_waves.is_empty():
-		for id in plan_waves[wave]:
-			spawn(id)
-		wave_started.emit(wave, total())
-		return
-	var count := sizes[wave]
-	for i in count:
-		var id := BASIC_UNIT
-		if wave >= 1 and i % 7 == 6:
-			id = TOUGH_UNIT
+	for id in plan_waves[wave]:
 		spawn(id)
-	if wave == sizes.size() - 1:
-		spawn(LARGE_UNIT)
-	wave_started.emit(wave, sizes.size())
+	wave_started.emit(wave, total())
 
 
 ## `token` is a unit id.

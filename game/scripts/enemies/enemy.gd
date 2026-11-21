@@ -610,7 +610,7 @@ func _hurl_blow(p: Player, targets: Array, at: Vector3) -> void:
 		return
 	var t: CombatTuning = GameData.tuning
 	p.hit_targets(targets, p.moveset._base(p) * t.heavy_multiplier, DamageInfo.Kind.HEAVY, t.knockback_heavy, false,
-		t.hitstop_heavy, t.shake_heavy, [], at, "Physical", false, false)
+		t.hitstop_heavy, t.shake_heavy, at, "Physical", false, false)
 	Enemy.bowled_over(targets)
 
 

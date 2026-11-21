@@ -1,6 +1,6 @@
 class_name PlayerStats
 extends RefCounted
-## The player's stat modifiers. Each source (race, god, godly gifts, timed buffs)
+## The player's stat modifiers. Each source (race, the arena's pace, timed buffs)
 ## contributes percent bonuses that are summed per stat.
 ##
 ## Stat keys: max_hp_pct, damage_pct, melee_pct, missile_pct, magic_pct,
@@ -8,13 +8,6 @@ extends RefCounted
 ## armor_pct, cdr_pct, ultimate_cdr_pct, chain_bonus, ultimate_duration_pct.
 
 signal stats_changed
-
-## The stats some code actually reads. A godly gift or level-up that raises any
-## other stat would do nothing, so it isn't offered (GodlyGiftManager.is_implemented,
-## LevelSystem.make_offer). Add a stat here when code starts reading it.
-const READ_STATS := ["max_hp_pct", "damage_pct", "melee_pct", "missile_pct", "magic_pct", "attack_speed_pct",
-	"move_speed_pct", "stamina_pct", "stamina_regen_pct", "crit_chance", "crit_damage_pct", "armor_pct",
-	"cdr_pct", "ultimate_cdr_pct", "chain_bonus", "lifesteal_pct", "dodge_distance_pct", "xp_gain_pct"]
 
 var _sources := {}        # source name -> {stat: value}
 var _timed: Array = []    # [{id, stat, value, stacks, max_stacks, expires_msec}]

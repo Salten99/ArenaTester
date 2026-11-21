@@ -7,8 +7,8 @@ const TUNING_PATH := "res://tuning/combat_tuning.tres"
 
 ## The id column for each table. Tables not listed are keyed by their first column.
 const ID_KEYS := {
-	"races": "race_id", "gods": "god_id", "weapons": "weapon_id", "god_abilities": "ability_id", "godly_gifts": "godly_gift_id",
-	"duo_godly_gifts": "duo_id", "status_effects": "status_id", "level_up_options": "upgrade_id",
+	"races": "race_id", "gods": "god_id", "weapons": "weapon_id", "god_abilities": "ability_id",
+	"status_effects": "status_id",
 	"army_units": "unit_id", "barbarians_beasts": "unit_id",
 }
 
@@ -28,8 +28,8 @@ func _ready() -> void:
 ## Their rows still load by id, so an old save with one of them doesn't break.
 ## Empty this list to bring them back.
 const SHELVED_RACES := ["owl", "elephant", "dragon", "fennec"]
-## Gods (and with them their damage types) set aside: no one worships them, they offer no gifts,
-## their abilities and gifts (and duo gifts with them) are never offered. Rows stay on the sheet
+## Gods (and with them their damage types) set aside: no one worships them and their abilities
+## are never offered. Rows stay on the sheet
 ## and still load by id; empty this list to bring them back. Any race may take any kept god.
 ## Kept for now (user, 2026-11-16): Fire (forge_god), Ice (snow_god), Lightning (storm_god) and
 ## Stone (animal_god), the others come back once these four are polished.
@@ -61,8 +61,7 @@ func load_all() -> void:
 		if not parsed is Array:
 			push_error("GameData: %s is not a list of rows." % file)
 			continue
-		tables[table] = parsed.filter(func(r): return not r.get("race_id") in SHELVED_RACES \
-			and not r.get("god_id") in SHELVED_GODS and not r.get("god_a") in SHELVED_GODS and not r.get("god_b") in SHELVED_GODS)
+		tables[table] = parsed.filter(func(r): return not r.get("race_id") in SHELVED_RACES and not r.get("god_id") in SHELVED_GODS)
 		var key: String = ID_KEYS.get(table, "")
 		var index := {}
 		for row in parsed:
@@ -121,10 +120,6 @@ func pickup_weapons() -> Array:
 
 func status(id: String) -> Dictionary:
 	return row("status_effects", id)
-
-
-func godly_gifts_for(god_id: String) -> Array:
-	return where("godly_gifts", "god_id", god_id)
 
 
 func abilities_for(god_id: String) -> Dictionary:

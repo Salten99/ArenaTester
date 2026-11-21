@@ -24,7 +24,6 @@ const GLIDERS := ["angel", "bird"]
 var stats := PlayerStats.new()
 var health := HealthComponent.new()
 var statuses := StatusEffects.new()
-var godly_gifts := GodlyGiftManager.new()
 var abilities := AbilityRunner.new()
 var race_active := RaceActive.new()
 var _crosshair := Vector3.INF  ## what you're aiming at (PlayerIntent.crosshair)
@@ -69,7 +68,6 @@ var _body := ""  ## the model file `visual` was built from
 ## The weapon type's attacks (Fists, Heavy, Blade, Twin, Polearm).
 var moveset: WeaponMoveset = WeaponMoveset.new()
 var _weapon_hits := 0
-var _low_health_fired := false
 var _knock := Vector3.ZERO
 var _thrown := false  ## a minotaur threw you: you fall until you land
 var _thrown_time := 0.0
@@ -88,7 +86,6 @@ var _wall_climbable := false
 var _wall_grace := 0.0  ## s since touching it still counts: a jump just after leaving a wall still works
 const WALL_GRACE := 0.15
 
-const LOW_HEALTH := 0.3
 ## The Guardian's shield (tools/blender/make_shield.py; your own models/own/gear_shield.glb wins).
 const SHIELD := "gear_shield.glb"
 
@@ -106,7 +103,7 @@ func _ready() -> void:
 	add_child(shape)
 	_build_visuals()
 	race_active.player = self
-	for c in [health, statuses, godly_gifts, abilities, race_active]:
+	for c in [health, statuses, abilities, race_active]:
 		add_child(c)
 	if input_source == null:
 		input_source = PlayerInput.new()
@@ -142,18 +139,15 @@ func setup(p_race: String, p_god: String, p_weapon := "") -> void:
 		visual.set_god_colors(race_id, god_id)  # shortcut: a saved run reloads in the pledged god's colors, not the starting god's
 
 
-## Makes the player match a run's saved state: race, pledged god, godly gifts,
-## and level-ups. Used on fight start.
+## Makes the player match the fight's state: race, god, weapon. Used on fight start.
 func apply_run_state(state: RunState) -> void:
 	if state.race_id != race_id or state.god_id != god_id:
 		setup(state.race_id, state.god_id, state.weapon_id)
 	elif state.weapon_id != weapon_id:
 		equip(state.weapon_id)
-	godly_gifts.load_from(state)
-	LevelSystem.apply_all(state, stats)
 
 
-## Level-ups and godly gifts change max health and stamina: keep the current fraction.
+## Stat sources change max health and stamina: keep the current fraction.
 func _on_stats_changed() -> void:
 	var t: CombatTuning = GameData.tuning
 	var new_max := t.base_health * stats.mult("max_hp_pct")
@@ -679,7 +673,7 @@ func throw_weapon(aim_yaw: float) -> Projectile:
 	p.drop = t.weapon_throw_drop
 	p.radius = 0.8
 	p.lifetime = 8.0
-	p.on_hit = _projectile_hit.bind(["on_heavy_hit"])
+	p.on_hit = _after_weapon_hit
 	var thrown := weapon_id
 	var root: Node = Combat.effects_root
 	var dir := p.velocity.normalized()
@@ -899,11 +893,9 @@ func spend_stamina(amount: float) -> void:
 	_stamina_used_msec = Combat.now_msec()
 
 
-## Deals one swing's damage to every target, then fires its godly gift events:
-## first once per enemy ("target" phase), then once for the swing ("swing" phase).
-## Used by every weapon moveset.
+## Deals one swing's damage to every target. Used by every weapon moveset.
 func hit_targets(targets: Array, base: float, kind: DamageInfo.Kind, knockback: float, knockdown: bool,
-		hitstop: float, shake: float, events: Array, impact: Vector3, damage_type := "Physical", explosive := false, god_blast := true, launch := true) -> void:
+		hitstop: float, shake: float, impact: Vector3, damage_type := "Physical", explosive := false, god_blast := true, launch := true) -> void:
 	if kind == DamageInfo.Kind.HEAVY:  # a charged heavy hits harder and knocks farther (user, 2026-11-05)
 		knockback *= 1.0 + heavy_charge * GameData.tuning.heavy_charge_knockback
 		if damage_type == "Physical" and god_blast:  # your god's explosion where a weapon heavy lands, hit or miss (user, 2026-11-08); not for spells, thrown bodies or items (2026-11-19)
@@ -922,12 +914,6 @@ func hit_targets(targets: Array, base: float, kind: DamageInfo.Kind, knockback: 
 		info.shake = shake if landed.is_empty() else 0.0
 		_after_weapon_hit(e, info, Combat.deal(e, info))
 		landed.append(e)
-	if landed.is_empty():
-		return
-	for event in events:
-		for e in landed:
-			godly_gifts.trigger(event, {"target": e, "position": e.global_position, "phase": "target"})
-		godly_gifts.trigger(event, {"target": landed[0], "position": impact, "phase": "swing", "targets": landed})
 
 
 var _jump_charging := false
@@ -965,22 +951,13 @@ func _jump_now(intent: PlayerIntent, delta: float, on_floor: bool) -> bool:
 var aiming := false
 
 
-func _projectile_hit(target: Node, info: DamageInfo, dealt: float, events: Array) -> void:
-	_after_weapon_hit(target, info, dealt)
-	for event in events:
-		godly_gifts.trigger(event, {"target": target, "position": target.global_position, "phase": "target"})
-		godly_gifts.trigger(event, {"target": target, "position": target.global_position, "phase": "swing", "targets": [target]})
-
-
-## Lifesteal, the god's on-hit passive and crit godly gifts, for any weapon hit.
-func _after_weapon_hit(target: Node, info: DamageInfo, dealt: float) -> void:
+## Lifesteal and the god's on-hit passive, for any weapon hit.
+func _after_weapon_hit(target: Node, _info: DamageInfo, dealt: float) -> void:
 	var leech := stats.get_stat("lifesteal_pct")
 	if leech > 0.0:
 		health.heal(dealt * leech / 100.0)
 	_weapon_hits += 1
 	_god_passive_on_hit(target)
-	if info.is_crit:
-		godly_gifts.trigger("on_crit", {"target": target, "position": target.global_position})
 
 
 ## Moves the player by `offset`, stopping at walls (Blade dash-slash).
@@ -1004,7 +981,7 @@ func _lunge_step(f: float, offset: Vector3) -> void:
 	_lunge_done = f
 
 
-## Builds outgoing damage with race, god, godly gift and crit modifiers.
+## Builds outgoing damage with race, god and crit modifiers.
 ## `base` with your damage bonuses for this kind of hit on `target` (no crit).
 func _boosted(base: float, damage_type: String, category: String, target: Node) -> float:
 	var pct := stats.get_stat("damage_pct") + stats.get_stat(category.to_lower() + "_pct")
@@ -1014,7 +991,6 @@ func _boosted(base: float, damage_type: String, category: String, target: Node) 
 		pct += GameData.num(_god, "dmg_element_pct")
 	elif damage_type == GameData.text(_god, "weak_element"):
 		pct += GameData.num(_god, "weak_element_pct")
-	pct += godly_gifts.damage_bonus_pct(target)
 	return base * maxf(0.1, 1.0 + pct / 100.0)
 
 
@@ -1102,7 +1078,6 @@ func _start_dodge(dir: Vector3) -> void:
 	collision_mask = 0b001  # pass through enemies while dodging (after: a cancelled chain pull restores it)
 	_reset_visual()
 	statuses.consume("void")  # dodging shakes off one Void stack
-	godly_gifts.trigger("on_dodge", {"position": global_position})
 	_slow_near()
 
 
@@ -1277,7 +1252,6 @@ func _cast(slot: String, aim_yaw: float, at := Vector3.INF) -> void:
 		if GameData.text(abilities.defs.get(slot, {}), "shape") == "Magma":  # bent down pulling the ball out, until the throw
 			_cast_slow = (GameData.tuning.magma_pull_time + GameData.tuning.magma_hold_time + 0.1) / CAST_TIME
 		_set_state(State.CAST)
-		godly_gifts.trigger({"Signature": "on_signature_cast", "Movement": "on_movement_cast", "Ultimate": "on_ultimate_cast"}[slot], {"position": global_position})
 
 
 # ---------------------------------------------------------------- taking damage
@@ -1305,8 +1279,6 @@ func take_hit(info: DamageInfo) -> float:
 	var own := is_instance_valid(info.source) and info.source == self
 	if info.kind == DamageInfo.Kind.ENEMY or (info.kind == DamageInfo.Kind.STATUS and not own):
 		amount *= GameData.tuning.enemy_damage_scale
-	if health.fraction() >= LOW_HEALTH:
-		_low_health_fired = false  # healed back up: the low-health gift can fire again
 	var dealt := health.take(amount)
 	if dealt > 0.0:
 		_last_hurt_msec = Combat.now_msec()
@@ -1322,10 +1294,6 @@ func take_hit(info: DamageInfo) -> float:
 		_flash(Color(1, 0.3, 0.3))
 		if visual != null and bleeds():
 			visual.set_blood(1.0 - health.fraction())  # bloodier with every hit
-		godly_gifts.trigger("on_take_damage", {"attacker": info.source, "position": global_position})
-		if not _low_health_fired and health.fraction() < LOW_HEALTH:
-			_low_health_fired = true
-			godly_gifts.trigger("on_low_health", {"position": global_position})
 	return dealt
 
 

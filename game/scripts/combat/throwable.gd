@@ -134,7 +134,7 @@ func _strike(targets: Array) -> void:
 	if is_instance_valid(_thrower) and _thrower is Player:
 		var p: Player = _thrower
 		p.hit_targets(targets, p.moveset._base(p) * t.heavy_multiplier, DamageInfo.Kind.HEAVY, t.knockback_heavy, false,
-			t.hitstop_heavy, t.shake_heavy, [], global_position, "Physical", false, false)
+			t.hitstop_heavy, t.shake_heavy, global_position, "Physical", false, false)
 		Enemy.bowled_over(targets)
 		return
 	for u in targets:  # a Large enemy's throw: a heavy enemy blow

@@ -1,14 +1,9 @@
 extends Node
 ## The one place damage is applied. Everything that hurts something goes through
 ## Combat.deal(), which also handles statuses, lightning chains, feedback
-## (hit-stop, shake, damage numbers) and the signals godly gifts listen to.
+## (hit-stop, shake, damage numbers) and the kill signal.
 
-signal hit_landed(target: Node, info: DamageInfo, dealt: float)
 signal killed(target: Node, info: DamageInfo)
-## A status was applied by `source` (used for the on_status_applied trigger).
-signal status_applied(target: Node, status_id: String, source: Node)
-## Non-physical damage from `source` hit a target (used by element combos like the Fire + Lightning duo godly gift).
-signal element_hit(target: Node, element: String, source: Node)
 
 const CHAIN_RADIUS := 4.0
 const CHAIN_BASE_COUNT := 2
@@ -19,8 +14,8 @@ var camera_rig: Node = null
 var effects_root: Node3D = null
 ## Set by the arena: its CrowdDirector, whose grid answers "who is near here" (enemies_in_radius).
 var crowd: CrowdDirector = null
-## Game time in seconds. Godly gift cooldowns and timed buffs use this (not the wall
-## clock), so they pause with the game and run correctly in fast tests.
+## Game time in seconds. Timed buffs and spells use this (not the wall clock), so they
+## pause with the game and run correctly in fast tests.
 var time := 0.0
 
 
@@ -38,7 +33,7 @@ func deal(target: Node, info: DamageInfo) -> float:
 	if target.is_dead():
 		return 0.0
 	var dealt: float = target.take_hit(info)
-	# Only the hit that killed it reports the kill: a gift reacting below can finish the target
+	# Only the hit that killed it reports the kill: a reaction below can finish the target
 	# with its own deal(), which reports it, and this one must not report it again.
 	var died_here: bool = target.is_dead()
 	if dealt > 0.0 and _is_player(info.source) and target is Enemy and target.tactics and info.is_direct():
@@ -50,9 +45,6 @@ func deal(target: Node, info: DamageInfo) -> float:
 		for s in info.statuses:
 			apply_status(target, s.id, s.stacks, info.source, s.duration_bonus)
 	_feedback(target, info, dealt)
-	hit_landed.emit(target, info, dealt)
-	if info.damage_type != "Physical" and _is_player(info.source):
-		element_hit.emit(target, info.damage_type, info.source)
 	if info.damage_type == "Lightning" and info.can_chain and _is_player(info.source):
 		_chain_lightning(target, info)
 	if died_here:
@@ -69,7 +61,6 @@ func apply_status(target: Node, status_id: String, stacks := 1, source: Node = n
 	if statuses == null:
 		return
 	statuses.apply(status_id, stacks, source, duration_bonus)
-	status_applied.emit(target, status_id, source)
 
 
 ## Damages every enemy within `radius` of `center`. Returns the enemies hit.

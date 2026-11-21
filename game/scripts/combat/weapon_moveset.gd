@@ -62,7 +62,7 @@ func heavy_hit(p: Player) -> void:
 	var targets := Combat.enemies_in_radius(center, radius)
 	Breakable.smash_near(p.get_tree(), center, radius, center)
 	p.hit_targets(targets, _base(p) * p.heavy_mult(), DamageInfo.Kind.HEAVY, t.knockback_heavy, true,
-		t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], center)
+		t.hitstop_heavy, t.shake_heavy, center)
 	if targets.is_empty():
 		Combat.shake(t.shake_light)
 
@@ -71,7 +71,7 @@ func heavy_hit(p: Player) -> void:
 func _swing(p: Player, targets: Array, finisher: bool, impact: Vector3) -> void:
 	var t: CombatTuning = GameData.tuning
 	p.hit_targets(targets, _base(p), DamageInfo.Kind.LIGHT, t.knockback_heavy * 0.6 if finisher else t.knockback_light,
-		false, t.hitstop_light, t.shake_light, ["on_light_hit", "on_combo_finisher"] if finisher else ["on_light_hit"], impact)
+		false, t.hitstop_light, t.shake_light, impact)
 
 
 ## Breaks the props a forward swing of `reach` m covers (Breakable): a circle filling the arc in front.
@@ -134,7 +134,7 @@ class Blade extends WeaponMoveset:
 		var targets := _in_line(start, p.facing, dash + 1.0, 1.2)
 		Breakable.smash_line(p.get_tree(), start, p.facing, dash + 1.0, 1.2)
 		p.hit_targets(targets, _base(p) * p.heavy_mult(), DamageInfo.Kind.HEAVY, t.knockback_light, false,
-			t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], start + p.facing * dash * 0.5)
+			t.hitstop_heavy, t.shake_heavy, start + p.facing * dash * 0.5)
 
 
 ## Twin blades (user, 2026-11-06: their own class): quick cuts with both blades; the
@@ -165,7 +165,7 @@ class Twin extends WeaponMoveset:
 		ElementFx.play_own("khopesh_spin", p.global_position, radius)
 		Vfx.ring(p.global_position, radius, Color(1.0, 0.85, 0.6))
 		p.hit_targets(Combat.enemies_in_radius(p.global_position, radius), _base(p) * p.heavy_mult(),
-			DamageInfo.Kind.HEAVY, t.knockback_light, false, t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], p.global_position)
+			DamageInfo.Kind.HEAVY, t.knockback_light, false, t.hitstop_heavy, t.shake_heavy, p.global_position)
 
 
 ## Spears, tridents, scythes, naginata: long thrusts; the finisher sweeps; heavy is a full circle.
@@ -198,7 +198,7 @@ class Polearm extends WeaponMoveset:
 		ElementFx.play_own("naginata_sweep", p.global_position, radius)
 		Vfx.ring(p.global_position, radius, Color(0.9, 0.9, 1.0))
 		p.hit_targets(Combat.enemies_in_radius(p.global_position, radius), _base(p) * p.heavy_mult(),
-			DamageInfo.Kind.HEAVY, t.knockback_heavy, false, t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], p.global_position)
+			DamageInfo.Kind.HEAVY, t.knockback_heavy, false, t.hitstop_heavy, t.shake_heavy, p.global_position)
 
 
 ## Bare hands (user, 2026-11-20: you start with none but the chain): two quick punches and a kick;
@@ -221,7 +221,7 @@ class Fists extends WeaponMoveset:
 		var reach := _reach(p) + 0.6
 		_smash_ahead(p, reach)
 		p.hit_targets(p.enemies_in_arc(reach, 45.0), _base(p) * p.heavy_mult(), DamageInfo.Kind.HEAVY, t.knockback_heavy, true,
-			t.hitstop_heavy, t.shake_heavy, ["on_heavy_hit"], p.global_position + p.facing * reach * 0.6, "Physical", false, false)
+			t.hitstop_heavy, t.shake_heavy, p.global_position + p.facing * reach * 0.6, "Physical", false, false)
 
 
 ## Enemies inside a capsule from `start` along `dir`.

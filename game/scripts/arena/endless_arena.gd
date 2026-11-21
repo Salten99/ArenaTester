@@ -1,8 +1,8 @@
 class_name EndlessArena
 extends Arena
 ## Endless survival against mythical foes: skeleton warriors and archers, gorgons, minotaurs and
-## cyclopes, each wave a little bigger, until you fall. Your score is the wave and the kills. No godly
-## gifts and no level-ups: you fight with your weapon and element as they are.
+## cyclopes, each wave a little bigger, until you fall. Your score is the wave and the kills. You
+## fight with your weapon and element as they are.
 ## Everything else (the player, combat, the gladiator arena, the things to throw) is Arena's.
 
 ## Enemies in the first wave, and how many more each wave brings (user, 2026-11-19: fewer, tougher).
@@ -70,7 +70,9 @@ func light_hit_damage() -> float:
 
 
 func _begin() -> void:
-	waves.endless = true
+	waves.wave_started.connect(_on_wave_started)
+	waves.wave_cleared.connect(_on_wave_cleared)
+	Combat.killed.connect(_on_killed)
 	waves.battle_size = ON_FIELD
 	_queue_wave(0)
 	camera_rig.first_person = true  # FightQuest's view (user, 2026-11-19); T switches back
@@ -86,8 +88,6 @@ func _begin() -> void:
 		player.input_source.slide_dashes = true  # the slide key: tap to dash, hold to slide
 	player.stats.set_source("arena_pace", PACE)  # a little faster combat (user, 2026-11-19)
 	_build_hazards()
-	hud._godly_gifts.visible = false  # no godly gifts here for now (user, 2026-11-19): weapon and element only
-	hud._level_label.visible = false  # and no XP or level-ups: a place to test combat (user, 2026-11-19)
 	menu = ArenaMenu.new()
 	menu.arena = self
 	add_child(menu)
@@ -157,15 +157,9 @@ func _on_wave_cleared(index: int) -> void:
 	get_tree().create_timer(WAVE_GAP, false).timeout.connect(_continue_waves)
 
 
-## No XP, so no level-up upgrades: the arena is for testing combat as it is.
-func give_xp(_xp: float) -> void:
-	pass
-
-
-func _on_killed(target: Node, info: DamageInfo) -> void:
+func _on_killed(target: Node, _info: DamageInfo) -> void:
 	if target is Enemy:
 		kills += 1
-	super(target, info)
 
 
 func _on_player_died() -> void:

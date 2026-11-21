@@ -8,8 +8,6 @@ signal expired(status_id: String)
 
 ## Lightning "shock" damage when the status is applied, if the sheet has no tick damage.
 const DEFAULT_SHOCK_DAMAGE := 10.0
-## How long a full Void mark switches the player's godly gifts off.
-const VOID_SUPPRESS_SECONDS := 3.0
 
 var active := {}  # status_id -> {stacks, time_left, tick_left, source}
 var auras := {}  ## status id -> its looping effect on the character
@@ -109,10 +107,8 @@ func _on_applied(id: String, source: Node) -> void:
 			info.can_chain = false  # the shock itself doesn't jump again, or one hit chains forever
 			Combat.deal.call_deferred(get_parent(), info)
 		"void":
-			# Count Fuckula's mark (Council II 13): a full mark switches the player's godly gifts off.
-			var owner_node := get_parent()
-			if stacks("void") >= int(GameData.num(GameData.status("void"), "max_stacks", 5)) and owner_node.get("godly_gifts") != null:
-				owner_node.godly_gifts.suppress(VOID_SUPPRESS_SECONDS)
+			# Count Fuckula's mark (Council II 13): a full mark resets.
+			if stacks("void") >= int(GameData.num(GameData.status("void"), "max_stacks", 5)):
 				remove("void")
 		"stone":
 			# A stone blow (user, 2026-11-06): knocked down when it lands; the slow is the sheet's slow_pct.

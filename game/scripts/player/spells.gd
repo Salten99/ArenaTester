@@ -646,7 +646,7 @@ func _shock(c: Dictionary, e: Node) -> void:
 	var info: DamageInfo = player.make_hit(GameData.num(c.a, "base_damage") * GameData.tuning.cage_trap_damage, "Lightning", "Magic", e, DamageInfo.Kind.ABILITY)
 	info.no_launch = true
 	info.knockback = 0.0
-	_runner()._add_status(c.a, player, info)
+	_runner()._add_status(c.a, info)
 	Combat.deal(e, info)
 
 

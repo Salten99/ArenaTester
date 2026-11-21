@@ -10,8 +10,8 @@ How the game code is organized. The first part is for you (the developer); the r
 
 | You | Ask Claude |
 |---|---|
-| `data/*.json` (gods, weapons, godly gifts, races, units), edited by hand | Any `.gd` script |
-| `tuning/combat_tuning.tres` in the Inspector (feel, waves, the arena's motes) | New weapon types, godly gift effects, god passives |
+| `data/*.json` (gods, weapons, races, units), edited by hand | Any `.gd` script |
+| `tuning/combat_tuning.tres` in the Inspector (feel, waves, the arena's motes) | New weapon types, god passives |
 | `scenes/gladiator_arena.tscn` in the editor (the arena's sun, sky, haze, glow) | Hooking models up (`ModelRegistry`) |
 | Models in `models/own/` (.glb from Blender; they win over the generated ones) | Fixing anything a test or playtest finds |
 
@@ -22,10 +22,10 @@ start_menu.tscn (main scene): Tutorial, Play (endless_arena.tscn), Test (test_ar
 endless_arena.tscn: EndlessArena extends Arena
    Arena._prepare_run: Run.start_new(race, god, seed)  (god from the arena menu, Flow; you start with fists)
    Arena._build_level: gladiator_arena.tscn (lighting, sky), the arena_ground shader, magic motes, 8 throwables
-   Player (movement, WeaponMoveset, AbilityRunner, Grabber, Chain, GodlyGiftManager)
+   Player (movement, WeaponMoveset, AbilityRunner, Grabber, Chain)
    WaveDirector (EndlessArena.wave_units: ON_FIELD at a time, the rest as reserve)
    Enemies + CrowdDirector, Combat.deal(), Hud, ArenaMenu (loadout, Esc), ArenaHazard (spikes, fire pits)
-main.tscn: a plain Arena, the practice waves from tuning with godly gifts and level-ups (the tests use it)
+main.tscn: a plain Arena with no waves (the tests use it)
 ```
 
 ## Folders
@@ -38,17 +38,16 @@ ArenaGame/
     data/                 game data, one JSON file per table (edited by hand)
     tuning/combat_tuning.tres   feel numbers, edited in the Inspector
     models/               free/, gen/ (generated stand-ins), own/ (the user's models, they win over gen/)
-    scenes/               start_menu.tscn (main), endless_arena.tscn (Play), test_arena.tscn, tutorial_arena.tscn, main.tscn (practice arena, tests only), gladiator_arena.tscn (the level)
+    scenes/               start_menu.tscn (main), endless_arena.tscn (Play), test_arena.tscn, tutorial_arena.tscn, main.tscn (a plain arena, tests only), gladiator_arena.tscn (the level)
     scripts/
       autoload/           global services (see below), DataCheck (data cross-check)
       arena/              Arena, EndlessArena, WaveDirector, ArenaHazard, ArenaPickup, DebugTools
-      combat/             damage, health, statuses, godly gifts, movesets, projectiles, Breakable, Throwable, ElementFx, Vfx, UltimateFx
+      combat/             damage, health, statuses, movesets, projectiles, Breakable, Throwable, ElementFx, Vfx, UltimateFx
       player/             Player, input, camera, AbilityRunner, Grabber, Chain, RaceActive
       enemies/            Enemy AI, CrowdDirector
-      progression/        LevelSystem
-      run/                RunState (who you are this fight), SaveSystem (the profile only)
+      run/                RunState (who you are this fight)
       visual/             CharacterModel, BeastModel, ModelRegistry
-      ui/                 Hud, ArenaMenu, Bestiary, ControlsMenu, UiStyle
+      ui/                 Hud, ArenaMenu, ControlsMenu, UiStyle
     shaders/              arena_ground (grass and stone pictures on the arena), blood overlay, effects
     tests/                test_main.tscn (automated tests), art_checklist.tscn, move_shots and clip_shots (run by hand)
 ```
@@ -57,13 +56,12 @@ ArenaGame/
 
 | Name | File | Job |
 |---|---|---|
-| `GameData` | autoload/game_data.gd | Loads `data/*.json` and the tuning resource. `row`, `rows`, `where`, `num`, `text`, plus helpers (`god`, `race`, `status`, `godly_gifts_for`, `abilities_for`, `unit`). |
+| `GameData` | autoload/game_data.gd | Loads `data/*.json` and the tuning resource. `row`, `rows`, `where`, `num`, `text`, plus helpers (`god`, `race`, `status`, `abilities_for`, `unit`). |
 | `RunRng` | autoload/run_rng.gd | The only gameplay randomness, seeded per fight. |
 | `HitStop` | autoload/hit_stop.gd | Brief game slowdown on impact (real-time timed). |
 | `Controls` | autoload/controls.gd | Registers input actions and key bindings in code. |
-| `Combat` | autoload/combat.gd | The only place damage is applied: `Combat.deal(target, DamageInfo)`. Statuses, lightning chains, feedback, game clock and the signals godly gifts listen to. |
-| `Meta` | autoload/meta.gd | The profile (`user://profile.json`): unlocked races and gods, the bestiary (codex). |
-| `Run` | autoload/run.gd | The fight's player state: `start_new`, `end`. Holds `Run.state` (a `RunState`: race, starting weapon (fists), god, godly gifts, level). |
+| `Combat` | autoload/combat.gd | The only place damage is applied: `Combat.deal(target, DamageInfo)`. Statuses, lightning chains, feedback, game clock and the `killed` signal. |
+| `Run` | autoload/run.gd | The fight's player state: `start_new`, `end`. Holds `Run.state` (a `RunState`: race, starting weapon (fists), god). |
 | `Flow` | autoload/flow.gd | Keeps the god picked in the arena menu across a scene reload; sets the UI theme. |
 | `Playtest` | autoload/playtest.gd | The F11 overlay: session time, deaths, kills, frame time. Deaths go to `user://playtest_log.txt`. Tests set `persist = false`. |
 
@@ -71,10 +69,10 @@ ArenaGame/
 
 1. **Input is separate from logic.** The player reads a `PlayerIntent` each physics frame from `input_source` (keyboard via `PlayerInput`, scripted input in tests). Gameplay code never reads `Input` directly.
 2. **Seeded randomness.** Gameplay uses `RunRng`. Visual-only effects may use the globals.
-3. **Game time, not wall time.** Godly gift cooldowns and timed buffs use `Combat.now_msec()`. Only `HitStop` uses the real clock.
-4. **All damage goes through `Combat.deal()`.** Build a `DamageInfo` and hand it over. `DamageInfo.Kind` stops godly gifts re-triggering on their own damage.
-5. **Data lives in `data/*.json`; feel numbers in `combat_tuning.tres`.** Anything the data can't express yet goes in a small, commented table in code (`GodlyGiftRules.RULES`, `ModelRegistry`). `DataCheck.run()` cross-checks the data on load; its problems print as warnings and fail a test.
-6. **The build lives in `RunState`.** `GodlyGiftManager` writes godly gifts back to `state.godly_gifts`; `Player.apply_run_state(state)` rebuilds the player from it.
+3. **Game time, not wall time.** Timed buffs and spells use `Combat.now_msec()`. Only `HitStop` uses the real clock.
+4. **All damage goes through `Combat.deal()`.** Build a `DamageInfo` and hand it over. `DamageInfo.Kind` tells direct hits from status ticks and chains.
+5. **Data lives in `data/*.json`; feel numbers in `combat_tuning.tres`.** Anything the data can't express yet goes in a small, commented table in code (`ModelRegistry`). `DataCheck.run()` cross-checks the data on load; its problems print as warnings and fail a test.
+6. **Who you are lives in `RunState`.** `Player.apply_run_state(state)` builds the player from it.
 7. **Scenes stay minimal; nodes are built in code.** Claude can edit and test everything as text. Models come from `ModelRegistry`; the capsule is the fallback.
 
 ## The arena
@@ -87,25 +85,18 @@ ArenaGame/
 
 ```
 Player attack ──> WeaponMoveset.light_hit/heavy_hit
-               ──> Player.hit_targets() or fire_projectile()  ──> Player.make_hit() (race % + god % + godly_gift % + crit)
+               ──> Player.hit_targets() or fire_projectile()  ──> Player.make_hit() (race % + god % + crit)
                ──> Combat.deal(enemy, info)
                      ├─ enemy.take_hit()         health, knockback, stagger
                      ├─ statuses applied          StatusEffects.apply()
                      ├─ hit-stop, shake, number   feedback
-                     ├─ signals: hit_landed, element_hit, status_applied, killed
+                     ├─ signal: killed
                      └─ Lightning from the player chains to 2 (+chain_bonus) enemies
-Player ──> GodlyGiftManager.trigger(event, ctx)   twice per swing:
-             phase "target" once per enemy hit (statuses, single-target damage)
-             phase "swing"  once per swing (area blasts, buffs)
 ```
 
-## Godly Gifts
+## Classes
 
 **Classes** (2026-11-09; since 2026-11-20 they come with the weapon in your hand): the class columns on the Weapons sheet (`class_name`, the `_mod_pct` stats, `armor_pct`) of the weapon you hold become the `class` `PlayerStats` source in `Player.equip`. **Class looks per race** (2026-11-17): every race has the same classes; `ModelRegistry.class_part(race, class, part)` finds your `own/<race>/<class>/body|weapon|shield.glb` and `race_part(race, name)` other per-race files. `for_race(race, class)` and `weapon_model` try those first, then the old lookups; the body is built once (`_body`, `Player._build_visuals`) and picking up a weapon doesn't change it. `own()` also finds people files in `own/<race>/people/` (`_own_people`, `rescan()` after an import). The art checklist groups them as `Race: <name>`. Blender sources live in `art_src/`, outside the Godot project. **Guardian parry** (2026-11-17): `Player.parries()` (holding the Guardian's sword and shield) turns the dodge key into `State.PARRY`; `take_hit` asks `_parries_hit` (enemy hit, from the front, within `parry_window`); a melee blow calls `Enemy.parried()` (STAGGER for `parry_stagger`) and `_parry` adds the riposte buffs with `PlayerStats.add_timed`; a hit with `DamageInfo.shot` (set by `Projectile`) is only blocked. The shield is `gear_shield.glb` (`make_weapons.py`) on `handslot.l` via `CharacterModel.set_offhand`; the greatsword file is no longer `TWO_HANDED`.
-
-`GodlyGiftManager` (under the player) owns godly gifts, ranks them up, makes offers (rarity-weighted, plus a duo godly gift once both gods are in the build) and runs effects by `effect_type`: Apply Status, Bonus Damage, Area Blast (or a lingering `Hazard`), Projectile, Stat Buff, Heal, Shield, Knockback/Pull. Passive godly gifts become a `PlayerStats` source. `suppress(seconds)` switches every godly gift off (the Void mark). Godly gifts the code can't run yet (effect type not handled, a trigger that never fires such as on_block, or a stat nobody reads: `PlayerStats.READ_STATS`) are never offered: `GodlyGiftManager.is_implemented()` filters offers and duos, `unbuilt()` lists them, and GameData prints them at startup. Level-ups are filtered the same way (`LevelSystem.is_implemented`). `load_from(state)` restores godly gifts from a save.
-
-Triggers: the sheet's `trigger_event` plus `on_element_hit` (code-only, used by Fire + Lightning).
 
 ## Weapons and abilities
 
@@ -127,7 +118,7 @@ Triggers: the sheet's `trigger_event` plus `on_element_hit` (code-only, used by 
 
 ## Effects
 
-`ElementFx` gives every damage type its look (`STYLES`: colors, particle shape, motion). `Combat._feedback` calls `hit()` on every non-status hit (bigger for heavy hits and crits), `Combat.deal` calls `kill()` on elemental kills, statuses add an `aura()` to the unit while they last (`StatusEffects.auras`, sized by `aura_size`), abilities and godly gift blasts use `area()`, shots use `beam()` (lightning zig-zags), projectiles carry a `trail()`. At most `HITS_PER_FRAME` hit bursts per frame. All particles are CPUParticles3D built in code: swap the table for hand-made effects later.
+`ElementFx` gives every damage type its look (`STYLES`: colors, particle shape, motion). `Combat._feedback` calls `hit()` on every non-status hit (bigger for heavy hits and crits), `Combat.deal` calls `kill()` on elemental kills, statuses add an `aura()` to the unit while they last (`StatusEffects.auras`, sized by `aura_size`), abilities use `area()`, shots use `beam()` (lightning zig-zags), projectiles carry a `trail()`. At most `HITS_PER_FRAME` hit bursts per frame. All particles are CPUParticles3D built in code: swap the table for hand-made effects later.
 
 **Combat feel plan, part 1** (user, 2026-11-18; `docs/COMBAT_FEEL_PLAN.md`): `Vfx.blood` throws round drops scaled by `gore_amount` (the gore slider; 0 = none); `Combat._feedback` adds `Vfx.blood_stains` (splashes raycast onto the ground ahead of the blow, stretched its way, kept `blood_stain_seconds`, oldest gone past `blood_stain_max`) and on a kill a `blood_kill_drops` cloud; hits on `Enemy.wears_metal()` units (by role: Melee, Cavalry, Champion; not barbarians or beasts) throw `Vfx.sparks`, and a killing blow knocks off a `Vfx.armor_piece` (a RigidBody3D helmet or plate, at most `armor_pieces_max`). `CameraRig.kick(dir, amount)` pushes the view toward your blows (`camera_kick`, double for heavy). `CharacterModel.push_ragdoll` spins a launched body end over end (`launch_spin`). `SwingTrail` (combat/swing_trail.gd, made by `Player._update_animation`) draws a ribbon from the weapon's grip to `weapon_tip()` during LIGHT and HEAVY swings, steel tinted `swing_trail_tint` toward your element. **Part 2:** melee light attacks are `light_speed_mult` (1.25) faster (`Player._light_duration`; sidearms unchanged); `Player.charge_shown()` drives the HUD's charge bar under the crosshair (`Hud._charge`, red, orange, yellow by thirds). **Part 3:** `WeaponMoveset.launch_scale()` (Heavy 1.3, Polearm 1.1, Blade/Ranged/Caster 1.0, Twin 0.8) multiplies your launches in `Enemy.launch_from_hit`; spell bolts (`fire_projectile` with `elemental`) freeze `hitstop_heavy` and shake, and `launch_bolt_scale` is 1. No sound yet, so no sound weight. **Part 4, grab, crush and hurl:** `Player._light_hold` waits on a held light attack (`intent.light` with `light_held`; a tap swings at once as before): past `grab_hold_time` it calls `_try_grab()` (melee out, on foot) or swings. `Grabber` (player/grabber.gd, `Player.grabber`) finds the minion (`Grabber.grabbable`: not Large, champion, mini boss or boss) within `grab_reach`/`grab_arc_degrees`, holds it (`State.GRAB`, `Enemy.grab_by`: no collision, `_follow_hand` to `hold_point()`), crushes it after `crush_time`, drops it when you let go (`Enemy.release_grab`) and hurls it on right click (`Enemy.hurl`: a limp `throw` that deals your heavy damage to everyone it passes and, on a wall found by a ray ahead, bursts within `hurl_burst_radius`). `Grabber.shields` redirects an enemy's blow from the front to the held minion. `CharacterModel.free_left_hand` lets go of a two-handed handle meanwhile. **Part 5, the chain grab:** with no minion in reach, `_try_grab(intent)` fires `Chain` (player/chain.gd, `Player.chain`, `State.CHAIN`) at `find_target` (any enemy within `chain_cone_deg` of the crosshair, `chain_range`). A minion is hooked (`Enemy.grab_by`; `Player.hold_point_for` asks the hand or the chain where it hangs); `PlayerIntent.wheel_back` (the wheel turned back, read by `PlayerInput`) reels it into the hand grab (`Player._take_into_hand`), a fast drop in `aim_pitch` (`chain_flick_rate`) slams it (heavy blow within `hurl_burst_radius`), a fast turn of `aim_yaw` (`chain_swing_rate`) swings it at `chain_swing_radius` hitting what it sweeps, and letting go flings it (`Enemy.hurl`) or drops it. Large units, mini bosses and bosses (`Chain.pulls_you`) pull you in at `chain_pull_speed` (`Player._move` uses `pull_velocity`) for a drop kick (a heavy, `Melee_Unarmed_Attack_Kick`). While the chain is out the wheel doesn't switch weapons. The chain is a stretched steel bar until the user makes a chain model. **Part 6, throwable items:** `Throwable` (combat/throwable.gd, group `throwables`) is a barrel, crate, boulder or branch: `grab_by`/`release_grab`/`hurl` like a minion, held where its holder's `hold_point_for` says, flying under gravity, hitting with your heavy (`hit_targets`) or, thrown by an enemy, with its blow x `item_throw_damage_mult`, and breaking where it lands (barrels and crates through `Breakable.smash`, the rest into `Vfx.chunk`s). `Grabber.target` and `Chain.find_target` take items too (`Grabber.is_item`), nearest the aim wins; items aren't crushed. Large enemies lift one within `item_pickup_reach` and throw it (`Enemy._carry_item`). The arena lays out eight. Your own `models/own/world/<kind>.glb` win; the branch is built in code until there's a model. **Part 7, the body split:** `Player._update_animation` calls `CharacterModel.set_split(legs)` while you move (on the ground, faster than 0.6 m/s) during any move (LIGHT, HEAVY, CAST, PARRY, GRAB, CHAIN but not its pull or kick): `anim` plays the walk or run (`Player._legs_clip`) and `play()` sends moves to `_upper`, a second AnimationPlayer (non-deterministic, after `anim`) whose library is a copy of every clip keeping only bones from the spine up (`_upper_body_library`, cached per library). `set_split("")` hands the move back to the whole body. `current()` is the move either way. **Part 8, the crowd split (merged 2026-11-18 with the user's approval):** `CrowdDirector._rank_crowd` (each grid build) marks all but the `crowd_full_fighters` (80) units nearest you `Enemy.in_crowd`; in a crowd they take turns and walk without collisions like far units, and `CharacterModel.in_crowd` steps their animation as if far. Measured in a window on the dev PC, 150 raiders within 2-18 m: 15.9 ms a frame before, 15.2 after (about 63 and 67 fps); `crowd_bench.tscn` takes `BENCH=150,0`, `BENCH_NEAR`, `BENCH_FAR`. The MultiMesh crowd with GPU-baked animation stays for when 500 must run at 60. **Strike frames (the reels, frame by frame, 2026-11-18; `docs/COMBAT_FEEL_PLAN.md` has the sheet):** `CharacterModel.STRIKES` holds each shared clip's blow moment (measured by `tests/clip_probe.tscn`, the right hand at its fastest); `play_strike(clip, windup, total, hold)` plays fast to that frame so it lands with the hit, slow after it, and with `hold` waits `STRIKE_LEAD` before it until `release_strike()` (the charged heavy; `_update_strike` in `_process`; paused clips are tracked by `assigned_animation`). Swings use it with `light_windup_fraction` 0.25; the grab is a compressed `Melee_Unarmed_Attack_Punch_A` (`Player.GRAB_CLAMP`) then `Melee_Blocking`; right click winds up `Throw` for `Grabber.THROW_WINDUP` with the minion swung over your shoulder before it lets go; the squeeze trembles harder (`Grabber.hold_point`) and the crush calls `Player.screen_flash` (`Hud.flash`, red); the chain holds the punch pose, swings on `Melee_2H_Attack_Spinning`, slams on a timed `Melee_2H_Attack_Chop` and starts the kick `Chain.KICK_LEAD` early; Large units lift on `Ranged_Magic_Raise` and throw on a timed `Throw`. Heavy blows flash white (`Combat._feedback`), the hammer slam adds a white ring, `launch_lift` is 7. `tests/clip_shots.tscn` and `tests/move_shots.tscn` (by hand, in a window) picture the clips and your moves.
 
@@ -139,13 +130,12 @@ Triggers: the sheet's `trigger_event` plus `on_element_hit` (code-only, used by 
 
 ## Testing
 
-- `tools\run_tests.bat` runs `tests/test_main.tscn` headless with `--fixed-fps 60` through `tools/run_tests.py`, which also fails the run on any engine `ERROR:` line it doesn't expect (`EXPECTED`). Tests set `Meta.persist = false` so they never touch the real profile.
+- `tools\run_tests.bat` runs `tests/test_main.tscn` headless with `--fixed-fps 60` through `tools/run_tests.py`, which also fails the run on any engine `ERROR:` line it doesn't expect (`EXPECTED`).
 - Add a test for every new system.
 
 ## Adding things
 
-- **A godly gift:** a row in `data/godly_gifts.json`; a special radius, duration or condition (Claude) goes in `GodlyGiftRules.RULES`.
-- **A god:** rows in gods, god_abilities and godly_gifts; a passive (Claude) in `_god_passive_on_hit`.
+- **A god:** rows in gods and god_abilities; a passive (Claude) in `_god_passive_on_hit`.
 - **A weapon:** a row in weapons with one of the classes; its model in `ModelRegistry.WEAPONS`.
 - **A weapon type (Claude):** a subclass in `weapon_moveset.gd` and a case in `for_class`.
 - **An enemy in the waves (Claude):** its id in `WaveDirector` or `EndlessArena` and in `HITS_TO_KILL`; its model through `ModelRegistry`.
