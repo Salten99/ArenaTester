@@ -778,7 +778,7 @@
   "god_id": "animal_god",
   "slot": "Movement",
   "display_name": "Stone Slab",
-  "description": "A stone slab erupts from the ground in front of you, launching every enemy on it.",
+  "description": "A stone slab erupts from the aimed ground, launching every enemy on it. Cast it under yourself and it throws you up, unhurt.",
   "damage_type": "Physical",
   "base_damage": 30,
   "cooldown_s": 7,

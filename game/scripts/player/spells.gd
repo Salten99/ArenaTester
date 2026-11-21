@@ -8,7 +8,7 @@ extends Node
 ##   Spear   a lightning bolt thrown from your hand, a dragon coiled round it, jumping enemy to enemy (Kaminari)
 ##   Slide   slide range_m on a trail of ice that slows (Ice Slide)
 ##   Snake   a giant ice snake you ride; it freezes what it touches, shatters what it kills (Ice Snake)
-##   Slab    a square stone pillar shoots up ahead, launches what's on it, then bursts into dust (Stone Slab)
+##   Slab    a square stone pillar shoots up where aimed, launches what's on it (you too, unhurt), then bursts into dust (Stone Slab)
 ##   Crush   two stone rams charge and headbutt on the aimed spot (Crushing Pillars)
 ##   Magma   reach into the ground, pull out a magma ball and hurl it at the aimed spot (Magma Ball)
 ## The looks are built in code; your models/own/fx/<ability_id>.tscn plays instead once you make it.
@@ -57,7 +57,7 @@ func cast(a: Dictionary, player: Node, dir: Vector3, at: Vector3) -> bool:
 		"Snake":
 			_snake_ride(a, player)
 		"Slab":
-			_later(t.spell_release_delay, _slab.bind(a, player, dir))
+			_later(t.spell_release_delay, _slab.bind(a, player, dir, at))
 		"Crush":
 			_crush(a, player, dir, at)
 		_:
@@ -687,14 +687,14 @@ func _end_snake() -> void:
 
 # ---------------------------------------------------------------- Slab: Stone Slab
 
-func _slab(a: Dictionary, player: Node, dir: Vector3) -> void:
+func _slab(a: Dictionary, player: Node, dir: Vector3, at: Vector3) -> void:
 	if not _alive(player):
 		return
 	var t: CombatTuning = GameData.tuning
 	var feet: Vector3 = player.global_position
 	var length := GameData.num(a, "range_m", 6.0)
 	var half_w := GameData.num(a, "radius_m", 1.5)
-	var mid := feet + dir * (length * 0.5 + 0.5)
+	var mid: Vector3 = at if at != Vector3.INF else feet + dir * (length * 0.5 + 0.5)
 	if not _own(a):
 		var box := BoxMesh.new()
 		box.size = Vector3(half_w * 2.0, 3.0, half_w * 2.0)  # a square pillar
@@ -715,6 +715,10 @@ func _slab(a: Dictionary, player: Node, dir: Vector3) -> void:
 		# what stands on the pillar's square is launched
 		if absf(to.dot(dir)) <= half_w + 0.5 and absf(to.dot(dir.cross(Vector3.UP))) <= half_w + 0.5:
 			_runner()._strike(a, player, e, feet - dir * 2.0, true)  # launched up and away from you
+	# cast under you (user, 2026-11-20): it throws you up too, without hurting you
+	var you := _flat(feet - mid)
+	if absf(you.dot(dir)) <= half_w + 0.5 and absf(you.dot(dir.cross(Vector3.UP))) <= half_w + 0.5:
+		player.velocity.y = t.slab_player_launch
 	Combat.shake(t.shake_explosion)
 	HitStop.trigger(t.hitstop_light)
 

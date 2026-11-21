@@ -321,6 +321,8 @@ extends Resource
 @export_range(0.2, 4.0, 0.05) var ice_snake_size := 1.5
 ## Stone Slab: how long the pillar stands before it bursts into dust (s).
 @export_range(0.1, 5.0, 0.1) var slab_stay := 1.0
+## Stone Slab: how fast it throws you up when you cast it under yourself (m/s; 16 is about 8 m high).
+@export_range(0.0, 40.0, 0.5) var slab_player_launch := 16.0
 ## Crushing Pillars: how far apart the two circles open (m), the wait before the rams charge (s),
 ## and how long they take to meet (s). (user 2026-11-20: rams; slow start, fast finish.)
 @export_range(4.0, 30.0, 0.5) var pillar_gap := 16.0

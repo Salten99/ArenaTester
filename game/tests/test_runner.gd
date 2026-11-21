@@ -718,6 +718,12 @@ func test_spells() -> void:
 	await _frames(int(t.spell_release_delay * hz) + 6)
 	check(slabbed.health.hp < slabbed.health.max_hp and safe.health.hp == safe.health.max_hp, "Stone Slab erupts in front of you")
 	_free_all([slabbed, safe])
+	p.abilities.remaining["Movement"] = 0.0
+	var hp_before: float = p.health.hp
+	p.abilities.cast("Movement", p, Vector3.FORWARD, p.global_position)
+	await _frames(int(t.spell_release_delay * hz) + 6)
+	check(p.velocity.y > 0.0 and p.health.hp == hp_before, "cast under you, Stone Slab throws you up unhurt (%.1f m/s)" % p.velocity.y)
+	await _frames(int(2.5 * hz))  # back down before the next spell
 
 	# Crushing Pillars: two circles, then the pillars meet on the aimed spot.
 	var crushed := _dummy(Vector3(0, 0, -12))
