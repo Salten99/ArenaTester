@@ -2508,6 +2508,8 @@ func test_grab_crush_hurl() -> void:
 func test_chain_grab() -> void:
 	var p: Player = _arena.player
 	var t: CombatTuning = GameData.tuning
+	var crush_was := t.crush_time
+	t.crush_time = 1.0  # these checks hold the button longer than a 0.2 s crush
 	p.god_mode = true
 	await _until_on_floor()
 	var s := _scripted()
@@ -2678,6 +2680,7 @@ func test_chain_grab() -> void:
 	await _frames(60)
 	if is_instance_valid(hopper):
 		hopper.queue_free()
+	t.crush_time = crush_was
 	await _frames(2)
 	# A big one: the chain holds fast, and right click pulls you in for a drop kick.
 	var ogre: Enemy = _cluster(1, 8.0, "human_hired_ogre")[0]
@@ -2890,6 +2893,8 @@ func test_strike_frames() -> void:
 	await _frames(60)
 	# The crush flashes the screen red.
 	var foe: Enemy = _cluster(1, 1.6)[0]
+	var crush_was := t.crush_time
+	t.crush_time = 1.0  # time to see the hold clip before the crush
 	await _frames(2)
 	var frames := ceili(t.grab_hold_time * 60.0) + 3
 	s.hold({"light": true, "light_held": true}, 1)
@@ -2905,6 +2910,7 @@ func test_strike_frames() -> void:
 		await _frames(1)
 		flashed = flashed or (_arena.hud._screen_flash != null and _arena.hud._screen_flash.visible)
 	check(foe.is_dead() and flashed, "the crush flashes the screen red")
+	t.crush_time = crush_was
 	p.god_mode = false
 
 

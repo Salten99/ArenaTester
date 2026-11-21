@@ -523,8 +523,8 @@ extends Resource
 ## How far (m) and how wide (degrees each side of your facing) your hand reaches.
 @export_range(0.5, 5.0, 0.1) var grab_reach := 2.4
 @export_range(10.0, 90.0, 1.0) var grab_arc_degrees := 60.0
-## Keep holding this long (s) and the minion is crushed (user: 1 s).
-@export_range(0.1, 5.0, 0.05) var crush_time := 1.0
+## Keep holding this long (s) and the minion is crushed (user: 0.2 s, 2026-11-20; was 1 s).
+@export_range(0.1, 5.0, 0.05) var crush_time := 0.2
 ## A hurled minion flies this fast ahead (m/s) and this much up; its wall burst hurts everyone this close (m).
 @export_range(5.0, 50.0, 0.5) var hurl_speed := 20.0
 @export_range(0.0, 15.0, 0.5) var hurl_lift := 3.0
