@@ -524,9 +524,15 @@ func unragdoll() -> void:
 	_ragdoll = null
 	ragdolls -= 1
 	_current = ""
+	if _left_ik != null and not get_tree().physics_frame.is_connected(_hand_ik_back):
+		# next physics frame: the hand IK on the same frame as the limp pose bends the arm to a zero size.
+		# A method, not a lambda: if the model is freed first, Godot drops the call instead of erroring.
+		get_tree().physics_frame.connect(_hand_ik_back, CONNECT_ONE_SHOT)
+
+
+func _hand_ik_back() -> void:
 	if _left_ik != null:
-		# next physics frame: the hand IK on the same frame as the limp pose bends the arm to a zero size
-		get_tree().physics_frame.connect(func(): _left_ik.active = _ragdoll == null, CONNECT_ONE_SHOT)
+		_left_ik.active = _ragdoll == null
 
 
 func _exit_tree() -> void:
