@@ -16,8 +16,8 @@ extends Resource
 @export_range(0.0, 2.0, 0.05) var finisher_slow_time := 0.25
 @export_range(0.05, 1.0, 0.05) var finisher_slow_scale := 0.25
 ## Your dash slows every enemy (user, 2026-11-20): for this long (s) they move and animate at this speed.
-@export_range(0.0, 2.0, 0.05) var dash_enemy_slow_time := 0.33
-@export_range(0.05, 1.0, 0.05) var dash_enemy_slow_scale := 0.4
+@export_range(0.0, 2.0, 0.05) var dash_enemy_slow_time := 0.5  # 0.33 until 2026-11-20 (user)
+@export_range(0.05, 1.0, 0.05) var dash_enemy_slow_scale := 0.5  # 0.4 until 2026-11-20 (user)
 
 @export_group("Camera shake")
 @export_range(0.0, 1.0, 0.01) var shake_light := 0.12

@@ -226,7 +226,8 @@ func test_dodge_iframes() -> void:
 	check(p.take_hit(hit) == 0.0, "no damage during i-frames")
 	await _frames(30)
 	check(p.state == Player.State.FREE, "dodge ended")
-	check(not e._dash_slowed, "a third of a second later they run at full speed again")
+	await _frames(6)
+	check(not e._dash_slowed, "half a second later they run at full speed again")
 
 
 func test_guardian_parry() -> void:
