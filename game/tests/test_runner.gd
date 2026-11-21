@@ -834,6 +834,7 @@ func test_spells() -> void:
 	await _frames(int(t.spell_release_delay * hz) + 6)
 	check(p.velocity.y > 0.0 and p.health.hp == hp_before, "cast under you, Stone Slab throws you up unhurt (%.1f m/s)" % p.velocity.y)
 	await _frames(int(2.5 * hz))  # back down before the next spell
+	await _until_on_floor()  # lighter gravity (2026-11-20): the throw can hang longer than 2.5 s
 
 	# Crushing Pillars: two circles, then the pillars meet on the aimed spot.
 	var crushed := _dummy(Vector3(0, 0, -12))
@@ -843,7 +844,6 @@ func test_spells() -> void:
 	check(get_tree().get_nodes_in_group("magic_circle").filter(func(c): return c.global_position.distance_to(spot) < 2.0 * t.ram_size + 3.0).size() >= 2, "Crushing Pillars opens two circles at the aimed spot")
 	check(crushed.health.hp == crushed.health.max_hp, "and nothing is crushed before the pillars meet")
 	check(get_tree().get_nodes_in_group("stone_ram").size() == 2, "two stone rams come out of the circles")
-	await _until_on_floor()  # lighter gravity (2026-11-20): the throw can hang longer than 2.5 s
 	check((get_tree().get_nodes_in_group("stone_ram")[0].find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).material_override.cull_mode == BaseMaterial3D.CULL_DISABLED, "stone on both sides, so no holes")
 	var ram_start: Vector3 = get_tree().get_nodes_in_group("stone_ram")[0].global_position
 	await _frames(int((t.pillar_delay + t.ram_rear_time * 0.6) * hz))
@@ -2643,6 +2643,7 @@ func test_chain_grab() -> void:
 	s.hold({"light_held": true, "aim_yaw": yaw}, 30)
 	await _frames(30)
 	check(p.chain._spin > t.chain_swing_spin + 2.0 * t.chain_swing_spin_per_turn, "every turn of the swing spins it faster (%.1f rad/s)" % p.chain._spin)
+	check(p.chain.swing_power() > 1.0, "and the faster it spins, the harder it hits and throws (x%.2f)" % p.chain.swing_power())
 	s.hold({"aim_yaw": yaw, "aim_pitch": 1.0}, 2)
 	await _frames(3)
 	check(swung._hurled and swung.held_by == null, "let go mid-swing and it's flung")

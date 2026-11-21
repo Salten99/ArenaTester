@@ -17,7 +17,7 @@ extends RefCounted
 ## it's launched only if the kick kills it, else it slides back on its feet (chain_kick_push).
 ## On a gold ring on a tall wall's lip (a LedgeAnchor, user 2026-11-20) it slings you up and over onto the top.
 enum Mode { OFF, FLYING, HOOKED, REEL, SLAM, SWING, PULL, KICK, YANK, DRAG, ANCHOR, SLING }
-const YANK_TIME := 0.22  ## s for a yanked minion to fly into your blow
+const YANK_TIME := 0.165  ## s for a yanked minion to fly into your blow
 const WALL_SLAM_DAMAGE := 1.4  ## swinging it into a wall: x a heavy hit
 
 var player: Player
@@ -158,7 +158,7 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 				_slam_from = target.global_position
 				_time = 0.0
 				if player.visual != null:  # the overhead chop lands as the minion hits the ground
-					player.visual.play_strike("Melee_2H_Attack_Chop", 0.32, 0.6)
+					player.visual.play_strike("Melee_2H_Attack_Chop", 0.24, 0.45)
 			elif absf(yaw_rate) >= t.chain_swing_rate:
 				mode = Mode.SWING
 				_swing_dir = signf(yaw_rate)
@@ -200,12 +200,12 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 				player._take_into_hand(e)
 				return true
 		Mode.SLAM:
-			var up := 0.18
+			var up := 0.135  # 0.18 until 2026-11-20 (slam 33% faster)
 			if _time < up:  # ripped up fast, slowing at the top as its weight catches up
 				var u := _time / up
 				_hold_at = _slam_from.lerp(_slam_from + Vector3.UP * t.chain_slam_height, 1.0 - (1.0 - u) * (1.0 - u))
 			else:  # then it comes down faster and faster
-				var fall := clampf((_time - up) / 0.14, 0.0, 1.0)
+				var fall := clampf((_time - up) / 0.105, 0.0, 1.0)
 				var top := _slam_from + Vector3.UP * t.chain_slam_height
 				var land := Vector3(_slam_from.x, _ground_y(_slam_from), _slam_from.z)
 				_hold_at = top.lerp(land, fall * fall)
@@ -218,7 +218,7 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 				_release_target(true)
 				# Wherever you look, up and down too (user, 2026-11-19): aim high to launch it, low to spike it.
 				var look := Vector3(-sin(intent.aim_yaw) * cos(intent.aim_pitch), sin(intent.aim_pitch), -cos(intent.aim_yaw) * cos(intent.aim_pitch))
-				e.hurl((look * t.hurl_speed + Vector3.UP * t.hurl_lift) * Grabber.THROW_BOOST, player)
+				e.hurl((look * t.hurl_speed + Vector3.UP * t.hurl_lift) * Grabber.THROW_BOOST * t.chain_swing_throw_scale * swing_power(), player)
 				return _end()
 			var top := minf(t.chain_swing_spin + t.chain_swing_spin_per_turn * floorf(_swing_turned / TAU), t.chain_swing_spin_max)
 			_spin = move_toward(_spin, maxf(absf(yaw_rate), top), t.chain_swing_windup * delta)
@@ -237,7 +237,7 @@ func update(delta: float, intent: PlayerIntent) -> bool:
 			var fresh: Array = Combat.enemies_in_radius(_hold_at, 1.3, _swing_hit)
 			if not fresh.is_empty():
 				_swing_hit.append_array(fresh)
-				player.hit_targets(fresh, player.moveset._base(player) * t.heavy_multiplier, DamageInfo.Kind.HEAVY, t.knockback_heavy,
+				player.hit_targets(fresh, player.moveset._base(player) * t.heavy_multiplier * swing_power(), DamageInfo.Kind.HEAVY, t.knockback_heavy,
 					false, t.hitstop_heavy, t.shake_heavy * 0.5, [], _hold_at, "Physical", false, false)
 		Mode.DRAG:
 			if not intent.light_held:
@@ -302,8 +302,21 @@ func kick(e: Node3D) -> void:
 		e._knock = away * t.chain_kick_push
 
 
-## While pulling you to a big one: your velocity (the Player's _move uses it). ZERO otherwise.
+## How hard the swing hits and throws for how fast it spins: 1 at the starting spin, up to
+## 1 + chain_swing_speed_bonus at the cap.
+func swing_power() -> float:
+	var t: CombatTuning = GameData.tuning
+	var u := clampf((_spin - t.chain_swing_spin) / maxf(t.chain_swing_spin_max - t.chain_swing_spin, 0.01), 0.0, 1.0)
+	return 1.0 + t.chain_swing_speed_bonus * u
+
+
+## While pulling you to a big one, or slinging you up a wall: your velocity (the Player's _move uses it). ZERO otherwise.
 func pull_velocity() -> Vector3:
+	if mode == Mode.SLING and is_instance_valid(target):
+		# Up to just over the lip first (sliding up the wall face if you're against it), then in onto the top.
+		var lip: Vector3 = target.global_position + Vector3.UP * 1.0
+		var goal: Vector3 = lip if player.global_position.y < lip.y - 0.3 else (target as LedgeAnchor).landing()
+		return (goal - player.global_position).normalized() * GameData.tuning.sling_speed
 	if mode != Mode.PULL or not is_instance_valid(target):
 		return Vector3.ZERO
 	var to: Vector3 = target.global_position + Vector3.UP * 0.5 - player.global_position
@@ -312,11 +325,6 @@ func pull_velocity() -> Vector3:
 
 ## Where a hooked minion is now (Enemy._follow_hand), or INF when it isn't on the chain.
 func point_for(e: Node3D) -> Vector3:
-	if mode == Mode.SLING and is_instance_valid(target):
-		# Up to just over the lip first (sliding up the wall face if you're against it), then in onto the top.
-		var lip: Vector3 = target.global_position + Vector3.UP * 1.0
-		var goal: Vector3 = lip if player.global_position.y < lip.y - 0.3 else (target as LedgeAnchor).landing()
-		return (goal - player.global_position).normalized() * GameData.tuning.sling_speed
 	return _hold_at if e == target and mode in [Mode.HOOKED, Mode.REEL, Mode.SLAM, Mode.SWING, Mode.YANK] else Vector3.INF
 
 

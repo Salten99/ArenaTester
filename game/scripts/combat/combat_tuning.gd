@@ -542,26 +542,31 @@ extends Resource
 ## degrees of your crosshair, and flies this fast (m/s). No cooldown.
 @export_range(3.0, 40.0, 0.5) var chain_range := 15.0
 @export_range(1.0, 30.0, 0.5) var chain_cone_deg := 8.0
-@export_range(10.0, 200.0, 1.0) var chain_speed := 70.0
+@export_range(10.0, 200.0, 1.0) var chain_speed := 93.0  # 70 until 2026-11-20 (+33%)
 ## Scrolling the wheel back reels a hooked minion in this fast (m/s).
-@export_range(2.0, 80.0, 1.0) var chain_reel_speed := 22.0
+@export_range(2.0, 80.0, 1.0) var chain_reel_speed := 29.0  # 22 until 2026-11-20 (+33%)
 ## What you pull in (reel or yank) throws enemies in its path aside this fast (m/s; a heavy launch is launch_speed).
 @export_range(0.0, 60.0, 0.5) var chain_plow_knockback := 22.0
 ## A flick of the mouse down this fast (radians/s of camera pitch) yanks it into a slam, this high (m).
 @export_range(0.5, 20.0, 0.1) var chain_flick_rate := 3.0
-@export_range(0.5, 10.0, 0.1) var chain_slam_height := 3.0
+@export_range(0.5, 10.0, 0.1) var chain_slam_height := 4.5  # 3 until 2026-11-20 (+50%)
 ## A sweep of the mouse sideways this fast (radians/s of camera turn) swings it around you, at
 ## this radius (m) and at least this spin (radians/s).
 @export_range(0.5, 20.0, 0.1) var chain_swing_rate := 4.0
 @export_range(1.0, 8.0, 0.1) var chain_swing_radius := 3.5
-@export_range(1.0, 30.0, 0.5) var chain_swing_spin := 9.0
+@export_range(1.0, 30.0, 0.5) var chain_swing_spin := 12.0
 ## Each full turn of the swing (user, 2026-11-19) adds this much spin (radians/s), up to the cap.
-@export_range(0.0, 10.0, 0.25) var chain_swing_spin_per_turn := 2.5
-@export_range(1.0, 60.0, 0.5) var chain_swing_spin_max := 24.0
+@export_range(0.0, 10.0, 0.25) var chain_swing_spin_per_turn := 3.25
+@export_range(1.0, 60.0, 0.5) var chain_swing_spin_max := 32.0
+## Let go mid-swing (user, 2026-11-20): it flies at hurl_speed times this, and the faster it spins
+## the harder it goes: at the spin cap both the throw and the hits it lands are this much stronger
+## (1 = double), scaling up from nothing at the starting spin.
+@export_range(0.5, 4.0, 0.05) var chain_swing_throw_scale := 1.5
+@export_range(0.0, 3.0, 0.05) var chain_swing_speed_bonus := 1.0
 ## The chain's weight (user, 2026-11-19). The swing winds up to speed this fast (radians/s each
 ## second: lower is heavier); the body follows the chain's pull this hard (lower trails farther
 ## behind); and the chain is this much longer than the gap it spans (1 = taut, more = more sag).
-@export_range(5.0, 200.0, 1.0) var chain_swing_windup := 40.0
+@export_range(5.0, 200.0, 1.0) var chain_swing_windup := 53.0
 @export_range(2.0, 60.0, 0.5) var chain_swing_pull := 14.0
 @export_range(1.0, 1.3, 0.01) var chain_slack := 1.04
 ## Walk away from a hooked minion and you drag it limp along the ground: the chain hauls it this hard
