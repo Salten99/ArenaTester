@@ -49,7 +49,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 	var tests := [
 		"test_data_loads", "test_data_is_consistent", "test_rng_is_deterministic", "test_damage_pipeline",
-		"test_fire_ticks", "test_godly_gift_offer_and_duo", "test_unbuilt_content_is_hidden", "test_dodge_iframes", "test_guardian_parry",
+		"test_fire_ticks", "test_godly_gift_offer_and_duo", "test_unbuilt_content_is_hidden", "test_dodge_iframes", "test_guardian_parry", "test_minotaur_charge_throws_you",
 		"test_searing_strikes_ignites_slam", "test_thunderforged_combo", "test_attack_tokens",
 		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_spells", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
@@ -232,6 +232,20 @@ func test_dodge_iframes() -> void:
 	check(p.state == Player.State.FREE, "dodge ended")
 	await _frames(6)
 	check(not e._dash_slowed, "half a second later they run at full speed again")
+
+
+func test_minotaur_charge_throws_you() -> void:
+	var p: Player = _arena.player
+	var start := p.global_position
+	var hit := DamageInfo.make(1.0, "Physical", DamageInfo.Kind.ENEMY, null)
+	hit.knockback = 12.0
+	hit.knockback_dir = Vector3.RIGHT
+	hit.knockdown = true
+	check(p.take_hit(hit) > 0.0, "the charge lands")
+	check(p.velocity.y > 0.0, "a minotaur's charge throws you up")
+	await _frames(20)
+	check(p.global_position.x - start.x > 2.0, "and well along the way it ran")
+	check(absf(p.global_position.z - start.z) < 0.5, "not off to the side")
 
 
 func test_guardian_parry() -> void:

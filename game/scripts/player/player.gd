@@ -1227,6 +1227,9 @@ func take_hit(info: DamageInfo) -> float:
 	if dealt > 0.0:
 		_last_hurt_msec = Combat.now_msec()
 		_knock = info.knockback_dir * info.knockback * 0.5
+		if info.knockdown:  # only a minotaur's charge knocks you down: it throws you the way it ran
+			_knock = Vector3(info.knockback_dir.x, 0.0, info.knockback_dir.z).normalized() * GameData.tuning.charge_throw_speed
+			velocity.y = GameData.tuning.charge_throw_up
 		Combat.shake(GameData.tuning.shake_player_hit)
 		_flash(Color(1, 0.3, 0.3))
 		if visual != null and bleeds():
