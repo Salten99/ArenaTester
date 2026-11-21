@@ -738,14 +738,14 @@ func _crush(a: Dictionary, player: Node, dir: Vector3, spot: Vector3) -> void:
 			var tw := ram.create_tween()
 			tw.tween_property(ram, "scale", size, t.pillar_delay * 0.5).set_delay(t.pillar_delay * 0.5)
 			tw.tween_callback(_play.bind(ram, "Gallop"))
-			# slow start, fast finish; stops nose to nose (the model's nose is 1.27 m ahead of its middle)
-			tw.tween_property(ram, "global_position", spot + right * s * 1.27 * t.ram_size, t.pillar_time).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
+			# slow start, fast finish, leaping a little at the end; stops horns locked (measured in Blender:
+			# in the clash pose the horns reach 0.97 m ahead of the model's middle)
+			var meet: Vector3 = spot + right * s * 0.97 * t.ram_size + Vector3.UP * 0.3 * t.ram_size
+			tw.tween_property(ram, "global_position", meet, t.pillar_time).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
 			tw.parallel().tween_method(_shed.bind(ram), 0, int(t.pillar_time * 20.0), t.pillar_time)
-			tw.tween_callback(_play.bind(ram, "Attack_Headbutt"))
-			tw.tween_callback(_ram_rubble.bind(ram, -right * s))
-			# the whole ram goes on into the middle where they meet, breaking up as it goes
-			tw.tween_property(ram, "global_position", spot, 0.25).set_ease(Tween.EASE_OUT)
-			tw.parallel().tween_property(ram, "scale", size * 0.02, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			tw.tween_callback(_clash_pose.bind(ram))
+			tw.tween_interval(0.35)
+			tw.tween_property(ram, "scale", size * 0.3, 0.3)
 			tw.tween_callback(ram.queue_free)
 	_later(t.pillar_delay + t.pillar_time, _slam.bind(a, player, spot, right, half))
 
@@ -778,15 +778,30 @@ func _shed(_tick: int, ram: Node3D) -> void:
 		Vfx.chunk(ram.global_position + Vector3.UP * k + UltimateFx._in_disc(k * 0.8), Vector3(randf_range(-2, 2), randf_range(1, 4), randf_range(-2, 2)), UltimateFx.STONE, 0.12 * k)
 
 
-## A ram hits: it breaks into rubble that sprays forward and up.
-func _ram_rubble(ram: Node3D, ahead: Vector3) -> void:
-	var k := ram.scale.x
-	for i in GameData.tuning.ram_rubble_chunks:
-		var v := ahead * randf_range(1, 6) + Vector3(randf_range(-4, 4), randf_range(2, 9), randf_range(-4, 4))
-		Vfx.chunk(ram.global_position + Vector3.UP * k + UltimateFx._in_disc(k), v, UltimateFx.STONE, randf_range(0.1, 0.3) * k)
+## The rams' end pose (the user's photos, 2026-11-20): mid-leap from Gallop_Jump, head and neck lowered
+## from Attack_Headbutt, front tipped 15 degrees up. Frames are Blender's, 24 a second.
+func _clash_pose(ram: Node3D) -> void:
+	ram.rotate_object_local(Vector3.RIGHT, deg_to_rad(-15.0))
+	var skels := ram.find_children("*", "Skeleton3D", true, false)
+	for p: AnimationPlayer in ram.find_children("*", "AnimationPlayer", true, false):
+		if skels.is_empty() or not p.has_animation("Gallop_Jump") or not p.has_animation("Attack_Headbutt"):
+			continue
+		p.play("Gallop_Jump")
+		p.seek(10.0 / 24.0, true)
+		p.active = false  # holds the leap; the head and neck are set by hand below
+		var butt := p.get_animation("Attack_Headbutt")
+		var skel := skels[0] as Skeleton3D
+		for i in butt.get_track_count():
+			var bone := skel.find_bone(butt.track_get_path(i).get_concatenated_subnames())
+			if bone < 0 or skel.get_bone_name(bone) not in ["Head", "Neck3", "Neck2", "Neck1"]:
+				continue
+			if butt.track_get_type(i) == Animation.TYPE_ROTATION_3D:
+				skel.set_bone_pose_rotation(bone, butt.rotation_track_interpolate(i, 6.0 / 24.0))
+			elif butt.track_get_type(i) == Animation.TYPE_POSITION_3D:
+				skel.set_bone_pose_position(bone, butt.position_track_interpolate(i, 6.0 / 24.0))
 
 
-## A pillar or slab breaks into rubble.
+## A slab breaks into rubble.
 func _crumble(pillar: Node3D) -> void:
 	for k in 6:
 		Vfx.chunk(pillar.global_position + UltimateFx._in_disc(1.0), Vector3(randf_range(-3, 3), randf_range(2, 6), randf_range(-3, 3)), UltimateFx.STONE, 0.4)

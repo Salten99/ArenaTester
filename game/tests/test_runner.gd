@@ -730,8 +730,14 @@ func test_spells() -> void:
 	check((get_tree().get_nodes_in_group("stone_ram")[0].find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).material_override.cull_mode == BaseMaterial3D.CULL_DISABLED, "stone on both sides, so no holes")
 	await _frames(int((t.pillar_delay + t.pillar_time) * hz) + 6)
 	check(crushed.health.hp < crushed.health.max_hp and away.health.hp == away.health.max_hp, "the pillars crush what's between them")
-	await _frames(int(0.4 * hz))
-	check(get_tree().get_nodes_in_group("stone_ram").is_empty(), "and the rams are gone, broken into rubble in the middle")
+	var ram: Node3D = get_tree().get_nodes_in_group("stone_ram")[0]
+	var anims := ram.find_children("*", "AnimationPlayer", true, false)[0] as AnimationPlayer
+	check(is_equal_approx(anims.get_animation("Gallop_Jump").length, 35.0 / 24.0), "the ram's animations run 24 frames a second, as the clash pose expects")
+	var skel := ram.find_children("*", "Skeleton3D", true, false)[0] as Skeleton3D
+	var head := skel.find_bone("Head")
+	check(head >= 0 and not anims.active and ram.basis.z.normalized().y > 0.2, "the rams end mid-leap, front up, the player stopped (%.2f)" % ram.basis.z.normalized().y)
+	await _frames(int(0.8 * hz))
+	check(get_tree().get_nodes_in_group("stone_ram").is_empty(), "then they shrink away like the pillars did")
 	_free_all([crushed, away])
 
 	t.kaminari_time = saved[0]

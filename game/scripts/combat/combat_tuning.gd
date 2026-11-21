@@ -326,11 +326,10 @@ extends Resource
 @export_range(4.0, 30.0, 0.5) var pillar_gap := 16.0
 @export_range(0.0, 2.0, 0.05) var pillar_delay := 0.5
 @export_range(0.05, 2.0, 0.05) var pillar_time := 0.9
-## Crushing Pillars: how big the two stone rams are (1 = the war ram mount's own size), the stone bits
-## each sheds 20 times a second while charging, and the rubble each breaks into on impact.
+## Crushing Pillars: how big the two stone rams are (1 = the war ram mount's own size), and the stone
+## bits each sheds 20 times a second while charging.
 @export_range(0.5, 4.0, 0.1) var ram_size := 2.6
 @export_range(0, 10) var ram_shed_chunks := 2
-@export_range(0, 150) var ram_rubble_chunks := 50
 
 @export_group("Enemies")
 ## How many enemies may be winding up or striking at once (attack tokens).
