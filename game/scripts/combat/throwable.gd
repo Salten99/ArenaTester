@@ -115,10 +115,10 @@ func _physics_process(delta: float) -> void:
 		_shatter()
 
 
-## Who it hits when an enemy threw it: you and your side.
+## Who it hits when an enemy threw it: you.
 func _foes_near(radius: float) -> Array:
 	var out: Array = []
-	for u in get_tree().get_nodes_in_group("player") + get_tree().get_nodes_in_group("allies"):
+	for u in get_tree().get_nodes_in_group("player"):
 		if u in _hit or not is_instance_valid(u) or u.is_dead():
 			continue
 		if (u.global_position + Vector3.UP - global_position).length() <= radius + 0.5:

@@ -14,7 +14,7 @@ signal stats_changed
 ## LevelSystem.make_offer). Add a stat here when code starts reading it.
 const READ_STATS := ["max_hp_pct", "damage_pct", "melee_pct", "missile_pct", "magic_pct", "attack_speed_pct",
 	"move_speed_pct", "stamina_pct", "stamina_regen_pct", "crit_chance", "crit_damage_pct", "armor_pct",
-	"cdr_pct", "ultimate_cdr_pct", "chain_bonus", "lifesteal_pct", "dodge_distance_pct", "xp_gain_pct", "stealth_pct"]
+	"cdr_pct", "ultimate_cdr_pct", "chain_bonus", "lifesteal_pct", "dodge_distance_pct", "xp_gain_pct"]
 
 var _sources := {}        # source name -> {stat: value}
 var _timed: Array = []    # [{id, stat, value, stacks, max_stacks, expires_msec}]

@@ -158,15 +158,15 @@ func _ready() -> void:
 	_build_choice(root)
 
 
-## The boss fighting near you: a champion, mini boss, giant or boss that's after you or yours.
+## The boss fighting near you: a boss or mini boss (by its sheet role) that's after you.
 func _find_boss() -> Enemy:
 	var best: Enemy = null
 	var best_d := BOSS_RANGE
 	for e in get_tree().get_nodes_in_group("enemies"):
 		var u: Enemy = e as Enemy
-		if u == null or u.is_dead() or u.team != Enemy.Team.HOSTILE:
+		if u == null or u.is_dead():
 			continue
-		var big := u.mini_boss or u.giant or GameData.text(u.unit, "role") in ["Boss", "Miniboss"]
+		var big := GameData.text(u.unit, "role") in ["Boss", "Miniboss"]
 		if not big or u.target == null:
 			continue
 		var d := u.global_position.distance_to(player.global_position)

@@ -80,29 +80,27 @@ func next_wave() -> void:
 
 
 ## `token` is a unit id.
-func spawn(token: String, near: Vector3 = Vector3.INF, team := Enemy.Team.HOSTILE) -> Enemy:
+func spawn(token: String, near: Vector3 = Vector3.INF) -> Enemy:
 	var shield := token.ends_with(SHIELD_TAG)  # "horde_skeleton_warrior#shield": one with a shield (arena tactics)
 	token = token.trim_suffix(SHIELD_TAG)
 	var e := Enemy.new()
-	e.setup(token, player, director, team)
-	if tactics and team == Enemy.Team.HOSTILE:
+	e.setup(token, player, director)
+	if tactics:
 		e.tactics = true
 		e.shielded = shield
 		if GameData.text(e.unit, "role") == "Magic":
 			e.element_status = RunRng.pick(WITCH_ELEMENTS)
-	e.peaceful = false  # called into a fight, it fights
 	arena.add_child(e)
-	if team == Enemy.Team.HOSTILE:
-		members.append(e)
-		if hit_damage > 0.0 and hits_to_kill.has(token):
-			e.health.setup(hit_damage * float(hits_to_kill[token]))
-		if e.shielded and e.model != null:
-			e.model.set_offhand(ModelRegistry.own(Player.SHIELD))
-		if e.element_status != "":  # a caster wears her element
-			var aura := ElementFx.aura(GameData.text(GameData.status(e.element_status), "damage_type", "Physical"), 0.7)
-			if aura != null:
-				e.add_child(aura)
-				aura.emitting = true
+	members.append(e)
+	if hit_damage > 0.0 and hits_to_kill.has(token):
+		e.health.setup(hit_damage * float(hits_to_kill[token]))
+	if e.shielded and e.model != null:
+		e.model.set_offhand(ModelRegistry.own(Player.SHIELD))
+	if e.element_status != "":  # a caster wears her element
+		var aura := ElementFx.aura(GameData.text(GameData.status(e.element_status), "damage_type", "Physical"), 0.7)
+		if aura != null:
+			e.add_child(aura)
+			aura.emitting = true
 	var near_player := near != Vector3.INF
 	var origin := near if near_player else center
 	var angle := RunRng.randf_range(0.0, TAU)
@@ -126,7 +124,7 @@ func ground_y(x: float, z: float) -> float:
 
 func alive() -> int:
 	members = members.filter(func(e): return is_instance_valid(e) and not e.is_dead())
-	return members.filter(func(e): return e.team == Enemy.Team.HOSTILE).size()
+	return members.size()
 
 
 func _physics_process(delta: float) -> void:

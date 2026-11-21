@@ -50,8 +50,7 @@ static func grabbable(e: Node) -> bool:
 	var role := GameData.text(e.unit, "role")
 	if e.is_broken() and role != "Boss":
 		return true  # broken (arena tactics): any size can be finished
-	return not (e.is_large or e.giant or e.mini_boss or e.civilian or role in ["Boss", "Champion", "Large", "Miniboss"]
-		or e.unit_id.begins_with("champ_"))
+	return not (e.is_large or role in ["Boss", "Champion", "Large", "Miniboss"])
 
 
 ## Whether `n` is an item you can pick up (a loose Throwable or a village barrel or crate).

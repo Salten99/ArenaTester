@@ -69,10 +69,6 @@ extends Resource
 @export_range(0.0, 2.0, 0.05) var wall_jump_cooldown := 0.3
 ## Walking speed while crouched (hold Slide while standing still, then move), m/s.
 @export_range(0.5, 6.0, 0.1) var crouch_speed := 2.2
-## Stealth (user, 2026-11-05): crouched, enemies notice you only this fraction as far away...
-@export_range(0.1, 1.0, 0.05) var stealth_notice_scale := 0.45
-## ...and this fraction of that again when you're behind them (out of their sight).
-@export_range(0.1, 1.0, 0.05) var stealth_behind_scale := 0.5
 ## Camera drop while sliding or crouching, in meters.
 @export_range(-2.0, 0.0, 0.05) var slide_camera_offset := -0.6
 ## Movement speed while doing a light attack or casting (fraction of walk speed).
@@ -434,14 +430,6 @@ extends Resource
 ## The third-person camera swings this many degrees round to your right, still looking at you in the
 ## middle of the screen (user, 2026-11-20: 15; 0 = straight behind you).
 @export_range(0.0, 60.0, 1.0) var camera_side_deg := 15.0
-
-@export_group("Allies and mini bosses")
-## Warriors fighting beside you are this much tougher than their sheet health (so they last the fight).
-@export_range(0.5, 10.0, 0.1) var ally_health_mult := 3.0
-## ...and take only this fraction of damage (0.12 = 12%), so they last a whole fight.
-@export_range(0.05, 1.0, 0.05) var ally_damage_taken := 0.12
-## A mini boss has this many times its sheet health (and is drawn 2x size).
-@export_range(1.0, 10.0, 0.1) var mini_boss_hp_mult := 3.0
 
 @export_group("Waves")
 ## Enemies per wave; the arena runs through them in order.

@@ -2,7 +2,7 @@ class_name Projectile
 extends Node3D
 ## A flying shot (arrows, bolts, spells). Hits enemies it passes within
 ## `radius` of, up to `pierce` + 1 of them, then disappears. A `hostile` shot
-## (an enemy's) hits you and your warriors instead. Magic shots get a `homing`
+## (an enemy's) hits you instead. Magic shots get a `homing`
 ## target and bend toward it by up to `pull_deg` degrees per second.
 
 var velocity := Vector3.ZERO
@@ -13,7 +13,7 @@ var template: DamageInfo
 ## Called after each hit with (target, info, dealt).
 var on_hit: Callable
 var hostile := false
-## An enemy's shot also hits this (the player); your warriors are in "allies".
+## An enemy's shot hits this (the player).
 var player: Node3D
 var homing: Node3D
 ## Called with (where, surface normal) the shot ends: the first wall or ground, or the last enemy it goes into (normal UP).
@@ -147,16 +147,7 @@ func _targets() -> Array:
 		if aimed:  # over their heads or under their feet: a miss
 			near = near.filter(func(e): return global_position.y > e.global_position.y - 0.7 and global_position.y < e.global_position.y + 2.6 * e.size_scale)
 		return near
-	var out: Array = []
-	# The crowd grid's nearby warriors, not every warrior of a 500-unit battle each frame for each arrow.
-	var options: Array = Combat.crowd.near(global_position, radius + 0.4, Enemy.Team.FRIENDLY) if is_instance_valid(Combat.crowd) \
-		else get_tree().get_nodes_in_group("allies")
-	if is_instance_valid(player):
-		options.append(player)
-	for o in options:
-		if not is_instance_valid(o) or o in _hit or o.is_dead() or (o != player and not o.is_in_group("allies")):
-			continue
-		var d: Vector3 = o.global_position + Vector3.UP - global_position
-		if Vector2(d.x, d.z).length() <= radius + 0.4 and absf(d.y) < 1.6:
-			out.append(o)
-	return out
+	if not is_instance_valid(player) or player in _hit or player.is_dead():
+		return []
+	var d: Vector3 = player.global_position + Vector3.UP - global_position
+	return [player] if Vector2(d.x, d.z).length() <= radius + 0.4 and absf(d.y) < 1.6 else []

@@ -102,7 +102,6 @@ func _ready() -> void:
 		add_child(input_source)
 	health.died.connect(_on_died)
 	stats.stats_changed.connect(_on_stats_changed)
-	Combat.element_hit.connect(_on_element_hit)
 	setup(race_id, god_id, weapon_id)
 
 
@@ -152,12 +151,6 @@ func _on_stats_changed() -> void:
 		health.max_hp = new_max
 		health.changed.emit(health.hp, health.max_hp)
 	max_stamina = t.base_stamina * stats.mult("stamina_pct")
-
-
-## Light or Stone damage on a corrupted enemy clears the Void mark (Council II 13).
-func _on_element_hit(target: Node, element: String, source: Node) -> void:
-	if source == self and element in ["Light", "Stone"] and target.get("corrupted") == true:
-		statuses.remove("void")
 
 
 ## Takes `id` in hand (a weapon picked up, or your fists once it's thrown). The weapon's row gives
@@ -449,7 +442,7 @@ func _move(delta: float, intent: PlayerIntent, move_dir: Vector3) -> void:
 			velocity.z = _slide_dir.z * slide_speed
 			if _slide_timer <= 0.0 or not on_floor or slide_speed <= 0.5:
 				is_sliding = false
-		elif is_crouching:  # sneaking: slow, and enemies notice you later (Enemy._notice_distance)
+		elif is_crouching:  # sneaking: slow
 			velocity.x = move_dir.x * t.crouch_speed
 			velocity.z = move_dir.z * t.crouch_speed
 		else:

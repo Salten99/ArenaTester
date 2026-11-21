@@ -1,41 +1,22 @@
 class_name Enemy
 extends CharacterBody3D
-## A fighting unit (or villager) built from a unit row: Army Units, Barbarians &
-## Beasts, Champions or Tribe Members. Despite the name it can be on any side:
-##   HOSTILE  fights you and your warriors ("enemies" group)
-##   FRIENDLY fights enemies, follows you when there are none ("allies" group)
-##   NEUTRAL  village guards and villagers going about their day ("villagers" group)
-## Fighters chase a target, wait for an attack token (only against the player),
-## telegraph, strike, recover.
+## An arena foe built from a unit row (Army Units, Barbarians & Beasts), in the "enemies" group.
+## It chases you, waits for an attack token, telegraphs, strikes, recovers.
+## (The valley's allies, villagers, guards and rival factions live on in Pantheon Valley.)
 
 enum State { CHASE, WAIT, WINDUP, STRIKE, RECOVER, STAGGER, DOWN, FROZEN, DEAD, CHARGE_WIND, CHARGE }
-enum Team { HOSTILE, FRIENDLY, NEUTRAL }
 
 const GRAVITY := 20.0
-const GROUPS := {Team.HOSTILE: "enemies", Team.FRIENDLY: "allies", Team.NEUTRAL: "villagers"}
-## Friendly units look for enemies this far away; otherwise they follow you.
-const ALLY_SIGHT := 70.0
 
 var unit: Dictionary
 var unit_id := ""
 var health := HealthComponent.new()
 var statuses := StatusEffects.new()
 var is_large := false
-## A bandit of another race: barbarian stats, that race's look (EncounterSystem bandit parties).
-## A wild animal many times its size: make_giant().
-var giant := false
-## The fight's mini boss: tougher (mini_boss_hp_mult) and bigger.
-var mini_boss := false
-## Part of Count Fuckula's corrupted tribe (Void attacks, cleared by Light/Stone).
-var corrupted := false
 var size_scale := 1.0
 ## Stays up in the air, this far above the ground, until it dives at its target.
 var flying := false
 var fly_height := 12.0
-## Leaves you alone until you hit it (faction "Neutral").
-var peaceful := false
-## x its health on top of everything else (a fight with your allies: WaveDirector.health_mult).
-var health_mult := 1.0
 ## Thrown hard (throw(): a hurl, a bull rush): flying, limp if it can ragdoll, until it gets up.
 var thrown := false
 var _throw_vel := Vector3.ZERO
@@ -45,22 +26,6 @@ var _limp_height := 0.0  ## how far above this unit's feet its limp body was at 
 var _throw_speed := 0.0  ## last frame's horizontal speed, to notice a sudden stop
 var _thrower: Node
 var state: State = State.CHASE
-var team: Team = Team.HOSTILE
-## Villagers never fight: they wander near their post and run from battles.
-## Animals (faction "Animal") neither: hurt, they run from whoever hit them.
-var civilian := false
-var _calm_left := 0.0  ## an animal stops running this long after its last hurt
-## Where a guard or villager stands; they return to it when idle. INF = none.
-var post := Vector3.INF
-## Wild units each belong to a side (user, 2026-11-05): barbarians, or a beast's own kind. Units of
-## different sides that notice each other fight (a manticore and a band of barbarians). "" = none.
-var faction := ""
-## A hostile unit with an aggro radius waits at its post until someone comes this close.
-var aggro_radius := 0.0
-## Wild groups wander this far around their post (0 = stand guard). Villagers wander 10 m.
-var roam_radius := 0.0
-## Villagers run away from this point (a battle in their village). INF = calm.
-var flee_from := Vector3.INF
 var target: Node3D
 var player: Node3D
 var director: CrowdDirector
@@ -73,10 +38,6 @@ var _mat: StandardMaterial3D
 var _base_color := Color(0.55, 0.5, 0.45)
 var _flash_time := 0.0
 var _retarget := 0.0
-var _aggroed := false
-var _boosted := false
-var _wander_to := Vector3.INF
-var _wander_wait := 0.0
 var _visual: Node3D  ## the meshes; animated instead of the physics body
 ## Where a shooter aims, fixed ranged_aim_lock seconds before it shoots (INF = still tracking).
 var _aim_at := Vector3.INF
@@ -139,18 +100,15 @@ const CHARGE_COOLDOWN := 6.0
 
 
 ## Call before adding to the tree.
-func setup(p_unit_id: String, p_player: Node3D, p_director: CrowdDirector, p_team := Team.HOSTILE) -> void:
+func setup(p_unit_id: String, p_player: Node3D, p_director: CrowdDirector) -> void:
 	unit_id = p_unit_id
 	unit = GameData.unit(unit_id)
 	player = p_player
 	director = p_director
-	team = p_team
-	civilian = unit.has("archetype") or GameData.text(unit, "faction") == "Animal"
 	var role := GameData.text(unit, "role", "Melee")
-	is_large = role in ["Large", "Miniboss", "Boss"] or unit_id.begins_with("champ_")
-	size_scale = 2.0 if unit_id.begins_with("champ_") else (1.7 if is_large else 1.0)
+	is_large = role in ["Large", "Miniboss", "Boss"]
+	size_scale = 1.7 if is_large else 1.0
 	flying = GameData.text(unit, "rig_type").begins_with("Flying")
-	peaceful = GameData.text(unit, "faction") == "Neutral"
 	if GameData.text(unit, "rig_type").begins_with("Water") or GameData.text(unit, "rig_type").contains("real size"):
 		size_scale = 1.0  # built at their real size
 	_base_color = Color(0.6, 0.25, 0.25) if is_large else Color(0.55, 0.5, 0.45)
@@ -158,7 +116,8 @@ func setup(p_unit_id: String, p_player: Node3D, p_director: CrowdDirector, p_tea
 
 func _ready() -> void:
 	collision_mask = 0b001   # world only; crowding is handled by separation
-	set_team(team)
+	add_to_group("enemies")
+	collision_layer = 0b100  # layer 3: enemies
 	var shape := CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
 	capsule.radius = 0.4 * size_scale
@@ -168,7 +127,7 @@ func _ready() -> void:
 	add_child(shape)
 	_visual = Node3D.new()
 	add_child(_visual)
-	var living := unit.has("race_id") and not corrupted
+	var living := unit.has("race_id")
 	var look := ModelRegistry.for_tribe(unit_id) if living else ModelRegistry.for_unit(unit_id)
 	var beast: Dictionary = ModelRegistry.for_beast(unit_id) if unit_id.begins_with("beast_") or unit_id.begins_with("animal_") or ModelRegistry.BEASTS.has(unit_id) else {}
 	if not beast.is_empty():
@@ -185,7 +144,7 @@ func _ready() -> void:
 		_visual.add_child(m)
 		if m.setup(look.model, look.get("weapon", ""), size_scale):
 			model = m
-			model.play("Idle_A" if team == Team.NEUTRAL else "Running_A")
+			model.play("Running_A")
 		else:
 			m.queue_free()
 	if model == null:
@@ -194,57 +153,16 @@ func _ready() -> void:
 		model.fall_gravity_mult = GameData.tuning.enemy_fall_gravity_mult
 		if flying:
 			model.flapping = true  # winged flyers (the harpy) beat their wings all the time
-	if model != null and giant:
-		_visual.scale = Vector3.ONE * size_scale
-		var tag := Label3D.new()
-		tag.text = GameData.text(unit, "display_name")
-		tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		tag.font_size = 56
-		tag.outline_size = 14
-		tag.pixel_size = 0.02
-		tag.modulate = Color(1.0, 0.72, 0.3)
-		tag.visibility_range_end = 70.0
-		tag.position.y = 2.6 * size_scale
-		add_child(tag)
-		health.died.connect(tag.queue_free)
 	_update_marker()
 	add_child(health)
 	add_child(statuses)
 	statuses.aura_size = size_scale
-	_boosted = team == Team.FRIENDLY
-	var person := team == Team.HOSTILE and model != null and not (model is BeastModel) 		and not GameData.text(unit, "role", "Melee") in ["Melee", "Ranged", "Magic"]  # minions stay weak (pivot, 2026-11-18)
-	health.setup(GameData.num(unit, "hp", 25.0) * (GameData.tuning.ally_health_mult if _boosted else 1.0)
-		* (_mini_boss_mult(unit_id) if mini_boss else 1.0) * (GameData.tuning.humanoid_health_mult if person else 1.0) * health_mult)
+	var person := model != null and not (model is BeastModel) and not GameData.text(unit, "role", "Melee") in ["Melee", "Ranged", "Magic"]  # minions stay weak (pivot, 2026-11-18)
+	health.setup(GameData.num(unit, "hp", 25.0) * (GameData.tuning.humanoid_health_mult if person else 1.0))
 	health.died.connect(_on_died)
 	_orbit_sign = 1.0 if RunRng.chance(50.0) else -1.0
 	if director != null:
 		director.register(self)
-
-
-## A mini boss's health multiplier: a Miniboss or Boss row already has its own health.
-static func _mini_boss_mult(token: String) -> float:
-	var role := GameData.text(GameData.unit(token), "role")
-	return 1.0 if role in ["Miniboss", "Boss"] or token.begins_with("champ_") else GameData.tuning.mini_boss_hp_mult
-
-
-## Switches side.
-func set_team(t: Team) -> void:
-	for g in GROUPS.values():
-		if is_in_group(g):
-			remove_from_group(g)
-	if t == Team.FRIENDLY and team != Team.FRIENDLY and is_inside_tree() and not _boosted:
-		# A village's guards joining you get the same toughness as your own warriors.
-		_boosted = true
-		health.max_hp *= GameData.tuning.ally_health_mult
-		health.hp *= GameData.tuning.ally_health_mult
-	team = t
-	if state != State.DEAD:
-		add_to_group(GROUPS[t])
-		collision_layer = 0b100 if t == Team.HOSTILE else 0b1000  # layer 3 enemies, layer 4 everyone else
-	target = null
-	_retarget = 0.0
-	if is_inside_tree():
-		_update_marker()
 
 
 ## Fallback look (capsule with a glowing visor) when the unit has no model.
@@ -270,12 +188,9 @@ func _build_capsule(capsule: CapsuleShape3D, center_y: float) -> void:
 	_visual.add_child(eye)
 
 
-## A colored ring at the feet: blue = on your side, red = a tribe's warrior fighting you.
+## A red ring at the feet of a race's warrior (the minotaur).
 func _update_marker() -> void:
-	var show := team == Team.FRIENDLY or (team == Team.HOSTILE and unit.has("race_id") and not corrupted)
-	if not show:
-		if _marker != null:
-			_marker.visible = false
+	if not unit.has("race_id"):
 		return
 	if _marker == null:
 		_marker = MeshInstance3D.new()
@@ -287,7 +202,7 @@ func _update_marker() -> void:
 		_marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(_marker)
 	_marker.visible = true
-	_marker.material_override = Vfx.material(Color(0.3, 0.65, 1.0) if team == Team.FRIENDLY else Color(1.0, 0.25, 0.2))
+	_marker.material_override = Vfx.material(Color(1.0, 0.25, 0.2))
 
 
 func is_dead() -> bool:
@@ -389,8 +304,7 @@ func _think(delta: float) -> void:
 			if is_instance_valid(_item):
 				pass
 			elif target == null:
-				state = State.CHASE
-				desired = _idle_move(speed)
+				state = State.CHASE  # you're down: it stands
 			elif tactics and _kites() and dist < KITE_NEAR:
 				state = State.CHASE
 				desired = -to_target.normalized() * speed  # a shooter backs off to shoot again
@@ -486,7 +400,7 @@ const DEATH_LAUNCH := 1.33
 
 
 func launch_from_hit(info: DamageInfo) -> void:
-	if mini_boss or unit_id.begins_with("champ_") or GameData.text(unit, "role") == "Boss":
+	if GameData.text(unit, "role") == "Boss":
 		return
 	var t: CombatTuning = GameData.tuning
 	var dir := Vector3(info.knockback_dir.x, 0.0, info.knockback_dir.z)
@@ -530,8 +444,8 @@ func bleeds() -> bool:
 ## shortcut: role-based, not read from the model; upgrade to a per-model flag when the user's own art lands.
 func wears_metal() -> bool:
 	if model == null or model is BeastModel or not bleeds() or unit_id.begins_with("barb_"):
-		return unit_id.begins_with("champ_") and model != null and not model is BeastModel
-	return GameData.text(unit, "role") in ["Melee", "Cavalry", "Champion"] or unit_id.begins_with("champ_")
+		return false
+	return GameData.text(unit, "role") in ["Melee", "Cavalry", "Champion"]
 
 
 # ---------------------------------------------------------------- Large units throw items
@@ -613,7 +527,7 @@ func grab_by(by: Node3D) -> void:
 	thrown = false
 	_throw_ragdoll = false
 	held_by = by
-	_held_layer = collision_layer if collision_layer != 0 else (0b100 if team == Team.HOSTILE else 0b1000)
+	_held_layer = collision_layer if collision_layer != 0 else 0b100
 	collision_layer = 0  # it doesn't push you or the crowd while it hangs in your hand
 	velocity = Vector3.ZERO
 	_enter(State.DOWN, 999.0)
@@ -958,7 +872,6 @@ func _thrown_fall(vy: float) -> void:
 
 ## Hit the ground falling at `speed` m/s: past fall_safe_speed it hurts, in proportion.
 func _landed(speed: float) -> void:
-	_rehome()
 	var t: CombatTuning = GameData.tuning
 	if speed <= t.fall_safe_speed or flying or state == State.DEAD:
 		return
@@ -978,21 +891,13 @@ func _impact(speed: float) -> void:
 			_thrower if is_instance_valid(_thrower) else null))
 
 
-## Knocked off a floating island (user, 2026-11-07): far below its post it stays down there, no
-## walking back to a spot it can't reach.
-func _rehome() -> void:
-	if post != Vector3.INF and global_position.y < post.y - 8.0:
-		post = global_position
-
-
 func _get_up(at: Vector3) -> void:
 	thrown = false
 	_hurled = false
 	if _throw_ragdoll:
-		collision_layer = 0b100 if team == Team.HOSTILE else 0b1000
+		collision_layer = 0b100
 		model.unragdoll()
 		global_position = Vector3(at.x, global_position.y + 0.1, at.z)
-		_rehome()
 	_throw_ragdoll = false
 	velocity = Vector3.ZERO
 	_knock = Vector3.ZERO
@@ -1014,7 +919,6 @@ func _check_stuck(before: Vector3, desired: Vector3, delta: float) -> void:
 	var side := Vector3(-desired.z, 0.0, desired.x).normalized() * (1.0 if RunRng.chance(50.0) else -1.0)
 	_detour = (side * 0.85 - desired.normalized() * 0.5).normalized()  # step aside and a little back
 	_detour_time = DETOUR_TIME
-	_wander_to = Vector3.INF  # wanderers pick a new spot afterwards
 
 
 
@@ -1023,26 +927,7 @@ func is_ranged() -> bool:
 
 
 func _may_attack(at_player: bool) -> bool:
-	if director == null or team != Team.HOSTILE:
-		return true
-	return director.request_token(self) if at_player else director.request_ally_token(self, target)
-
-
-## Who to fight: hostile units go for you or your warriors (the nearest, you a
-## little more often); friendly units go for the nearest enemy.
-## How close the player must come before this unit notices them: its aggro radius, or less
-## while the player sneaks (crouched), and less again from behind.
-func _notice_distance() -> float:
-	var hidden: float = player.stats.get_stat("stealth_pct") / 100.0 if player.get("stats") != null else 0.0  # the Rogue
-	var plain := aggro_radius * clampf(1.0 - hidden, 0.2, 1.0)
-	if not player.get("is_crouching"):
-		return plain
-	var t: CombatTuning = GameData.tuning
-	var r := plain * t.stealth_notice_scale
-	var to_player := player.global_position - global_position
-	if Vector2(to_player.x, to_player.z).normalized().dot(Vector2(-global_basis.z.x, -global_basis.z.z).normalized()) < 0.0:
-		r *= t.stealth_behind_scale
-	return r
+	return director == null or not at_player or director.request_token(self)
 
 
 ## Where to aim at it: its chest.
@@ -1050,91 +935,9 @@ func aim_height() -> float:
 	return 1.0 * size_scale
 
 
+## Who to fight: you, while you live.
 func _pick_target() -> Node3D:
-	if civilian or team == Team.NEUTRAL or (peaceful and not _aggroed) or director == null:
-		return null
-	var best: Node3D = null
-	var best_d := INF
-	if team == Team.HOSTILE:
-		var reach := maxf(aggro_radius, 25.0) * 2.0
-		best = director.best_near(self, Team.FRIENDLY, ALLY_SIGHT, func(u: Enemy, d: float) -> float:
-			return INF if u.is_dead() else _target_score(u, d))
-		if faction != "":  # rival wild sides nearby
-			var other := director.best_near(self, Team.HOSTILE, reach, func(u: Enemy, d: float) -> float:
-				var rival := u.faction != "" and u.faction != faction
-				return _target_score(u, d) if not u.is_dead() and rival else INF)
-			if other != null and (best == null or _target_score(other, global_position.distance_to(other.global_position)) < _target_score(best, global_position.distance_to(best.global_position))):
-				best = other
-		var near := INF  # how far the pick is, for noticing it: its real distance, not its score (a foe behind scores up to double)
-		if best != null:
-			near = global_position.distance_to(best.global_position)
-			best_d = _target_score(best, near)
-		if is_instance_valid(player) and not player.is_dead():
-			var d: float = global_position.distance_to(player.global_position) * 0.8
-			if not _aggroed and aggro_radius > 0.0:
-				d *= aggro_radius / _notice_distance()
-			if d < best_d:
-				best_d = d
-				best = player
-				near = d
-		if aggro_radius > 0.0:
-			if not _aggroed:
-				if best == null or near > aggro_radius:
-					return null
-				_aggroed = true
-			elif best == null or near > aggro_radius * 2.5 or (post != Vector3.INF and global_position.distance_to(post) > aggro_radius * 4.0):
-				_aggroed = false  # you got away: give up and head home
-				return null
-		return best
-	return director.best_near(self, Team.HOSTILE, ALLY_SIGHT, func(u: Enemy, d: float) -> float:
-		return INF if u.is_dead() else _target_score(u, d))
-
-
-## How good a target `u` is, `d` metres away: lower is better. Must stay >= d
-## (CrowdDirector.best_near stops searching early on that promise).
-func _target_score(u: Node3D, d: float) -> float:
-	# Foes straight ahead count at their distance, foes behind up to twice it: battle lines clash
-	# instead of crossing.
-	var to := Vector3(u.global_position.x - global_position.x, 0.0, u.global_position.z - global_position.z)
-	if to.length() < 0.01:
-		return d
-	var ahead := Vector3(-sin(rotation.y), 0.0, -cos(rotation.y)).dot(to / to.length())
-	return d * (1.0 + 0.5 * (1.0 - ahead))
-
-
-## Moving with nothing to fight: villagers flee battles or wander, guards keep
-## their post, your warriors stay near you.
-func _idle_move(speed: float) -> Vector3:
-	var here := global_position
-	if _calm_left > 0.0:
-		_calm_left -= get_physics_process_delta_time()
-		if _calm_left <= 0.0:
-			flee_from = Vector3.INF
-	if civilian and flee_from != Vector3.INF:
-		var away := here - flee_from
-		away.y = 0.0
-		return away.normalized() * speed if away.length() < 45.0 else Vector3.ZERO
-	if team == Team.FRIENDLY and post == Vector3.INF and is_instance_valid(player):
-		var to_p: Vector3 = player.global_position - here
-		to_p.y = 0.0
-		return to_p.normalized() * speed if to_p.length() > 7.0 else Vector3.ZERO
-	if post == Vector3.INF:
-		return Vector3.ZERO
-	if civilian or roam_radius > 0.0:
-		var r := roam_radius if roam_radius > 0.0 else 10.0
-		_wander_wait -= get_physics_process_delta_time()
-		if _wander_to == Vector3.INF or Vector2(_wander_to.x - here.x, _wander_to.z - here.z).length() < 0.8:
-			if _wander_wait <= 0.0:
-				_wander_to = post + Vector3(RunRng.randf_range(-r, r), 0.0, RunRng.randf_range(-r, r))
-				_wander_wait = RunRng.randf_range(2.0, 6.0)
-			else:
-				return Vector3.ZERO
-		var to_w := _wander_to - here
-		to_w.y = 0.0
-		return to_w.normalized() * speed * 0.35
-	var to_post := post - here
-	to_post.y = 0.0
-	return to_post.normalized() * speed * 0.6 if to_post.length() > 1.5 else Vector3.ZERO
+	return player if director != null and is_instance_valid(player) and not player.is_dead() else null
 
 
 func _strike(reach: float, to_target: Vector3, dist: float) -> void:
@@ -1155,41 +958,8 @@ func _strike(reach: float, to_target: Vector3, dist: float) -> void:
 		return
 	if is_ranged():
 		_shoot(info, damage_type)
-		for k in range(1, BURSTS.get(unit_id, 1)):  # a minigun: the rest of the burst
-			get_tree().create_timer(k * BURST_GAP, false).timeout.connect(func():
-				if is_instance_valid(target) and not is_dead():
-					var shot := DamageInfo.make(info.amount, damage_type, DamageInfo.Kind.ENEMY, self)
-					shot.knockback = 1.0
-					shot.knockback_dir = info.knockback_dir
-					_shoot(shot, damage_type))
 		return
 	Combat.deal(target, info)
-
-
-## Who shoots guns, and who fires bursts (shots per attack) instead of one shot.
-const GUNS := ["gnome_spore_slinger", "horde_minigun_demon"]
-const BURSTS := {"horde_minigun_demon": 8}
-const BURST_GAP := 0.07  ## seconds between a burst's shots
-const BURST_SPREAD := 0.05  ## how far a burst's shots stray, per meter of range
-var _barrels: Node3D
-
-
-## The minigun's barrels turn with every shot (the user's model has them as their own part).
-func _spin_barrels() -> void:
-	if _barrels == null and model != null:
-		_barrels = model.find_child("barrels", true, false) as Node3D
-		if _barrels == null:
-			_barrels = Node3D.new()  # a model without barrels: look only once
-	if _barrels.is_inside_tree() and _barrels.get_parent() != null:
-		_barrels.rotate_object_local(_barrel_axis(), 0.9)
-
-
-func _barrel_axis() -> Vector3:
-	var mesh := _barrels as MeshInstance3D
-	if mesh == null or mesh.mesh == null:
-		return Vector3.UP
-	var size := mesh.mesh.get_aabb().size
-	return Vector3.RIGHT if size.x >= size.y and size.x >= size.z else (Vector3.UP if size.y >= size.z else Vector3.BACK)
 
 
 ## Bows, slings, crossbows and spells fire a real shot at the locked aim point:
@@ -1200,20 +970,12 @@ func _shoot(info: DamageInfo, damage_type: String) -> void:
 	var at := _aim_at if _aim_at != Vector3.INF else target.global_position + Vector3.UP
 	var magic := GameData.text(unit, "role") == "Magic"
 	var speed := t.enemy_spell_speed if magic else t.enemy_shot_speed
-	var gun := unit_id in GUNS  # gnomes shoot rifles (user, 2026-11-05), the demon its minigun: fast, bright bullets
-	if gun:
-		speed *= 2.2
-	if BURSTS.has(unit_id):
-		at += Vector3(RunRng.randf_range(-1.0, 1.0), RunRng.randf_range(-0.5, 0.8), RunRng.randf_range(-1.0, 1.0)) * BURST_SPREAD * from.distance_to(at)
-		_spin_barrels()
 	var color := Combat._element_color(damage_type) if magic or damage_type != "Physical" else Color(0.85, 0.8, 0.7)
-	var p := Projectile.fire(from, at - from, speed, info, Color(1.0, 0.85, 0.35) if gun else color)
-	if gun and p != null:
-		Vfx.burst(from, 0.4, Color(1.0, 0.8, 0.4, 0.9), 0.08)  # the muzzle flash
+	var p := Projectile.fire(from, at - from, speed, info, color)
 	if p == null:
 		Combat.deal(target, info)  # no effects layer: hit as before
 		return
-	p.hostile = team == Team.HOSTILE
+	p.hostile = true
 	p.player = player
 	p.lifetime = (from.distance_to(at) + 12.0) / speed
 	if magic:
@@ -1224,7 +986,7 @@ func _shoot(info: DamageInfo, damage_type: String) -> void:
 func take_hit(info: DamageInfo) -> float:
 	if tactics and _blocks(info):
 		return 0.0
-	var dealt := health.take(info.amount * (GameData.tuning.ally_damage_taken if team == Team.FRIENDLY else 1.0))
+	var dealt := health.take(info.amount)
 	_flash_time = 0.08
 	if model != null and bleeds() and health.max_hp > 0.0:
 		model.set_blood(1.0 - health.hp / health.max_hp)
@@ -1243,10 +1005,6 @@ func take_hit(info: DamageInfo) -> float:
 			_lean_left = t.enemy_hit_lean_time
 	if state == State.DEAD or thrown or held_by != null:  # on the chain it keeps hanging as it is
 		return dealt
-	if civilian and is_instance_valid(info.source) and info.source is Node3D:
-		flee_from = info.source.global_position
-		_calm_left = 8.0
-	_aggroed = true
 	if tactics:
 		add_poise(POISE_BY_KIND.get(info.kind, 0.0))
 		if is_broken():
@@ -1281,7 +1039,7 @@ func add_poise(amount: float) -> void:
 	if amount <= 0.0 or is_broken() or state == State.DEAD:
 		return
 	_poise_rest = 0.0
-	poise += amount * (0.5 if is_large or mini_boss else 1.0)
+	poise += amount * (0.5 if is_large else 1.0)
 	if poise >= POISE_MAX:
 		_break()
 
@@ -1373,7 +1131,7 @@ func _charge_hits() -> void:
 		return
 	if director == null:
 		return
-	for e in director.near(global_position, 1.6, Team.HOSTILE):
+	for e in director.near(global_position, 1.6):
 		if e in _charge_hit or not is_instance_valid(e) or e.is_dead() or e.global_position.distance_to(global_position) > 1.6:
 			continue
 		_charge_hit.append(e)
@@ -1487,9 +1245,7 @@ func _on_died() -> void:
 		_element_burst.call_deferred(global_position)
 	# Statuses stay until the body is removed, so on-kill godly gifts can still see them
 	# (e.g. Kiln Heart: "killing a burning enemy"). Ticks on a dead enemy deal nothing.
-	for g in GROUPS.values():
-		if is_in_group(g):
-			remove_from_group(g)
+	remove_from_group("enemies")
 	if director != null:
 		director.unregister(self)
 	collision_layer = 0

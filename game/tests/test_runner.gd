@@ -54,7 +54,7 @@ func _ready() -> void:
 		"test_ability_cast", "test_fire_lance", "test_breakable_props", "test_ranged_shots_can_be_dodged", "test_aimed_ultimate", "test_ultimate_circles", "test_fire_ultimate", "test_stone_eruption", "test_spells", "test_ragdoll_death", "test_performance_40_enemies", "test_wave_and_godly_gift_flow", "test_kiln_heart_on_burning_kill",
 		"test_sprint_and_jump", "test_slide_boost_and_crouch", "test_models_and_animations",
 		"test_level_ups", "test_one_god_per_race",
-		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_stealth", "test_practice_picks", "test_target_search", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_bestiary_saved", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head", "test_pixelfx_effects", "test_hit_reactions", "test_aim_every_spell", "test_lance_flight_and_shoulder_camera",
+		"test_void_mark", "test_all_movesets", "test_weapon_choice", "test_element_effects", "test_controls_rebind", "test_stamina", "test_checklist_viewer", "test_shelved_races", "test_weapons_and_classes", "test_bestiary_and_wings", "test_own_effects", "test_stone_status", "test_race_actives", "test_race_active_fixes", "test_launches_and_ragdolls", "test_top_review_fixes", "test_throw_key_and_weapon_aura", "test_myths", "test_pin_to_wall", "test_aiming", "test_fists_pickups_and_throws", "test_weapon_launch_knocks_on", "test_glide", "test_paired_claws", "test_practice_picks", "test_demon_and_wings", "test_art_checklist", "test_combat_feel", "test_blood_and_falls", "test_end_of_run_exit", "test_audit_fixes", "test_audit_fixes_2", "test_hit_effects", "test_rhythm_and_charge", "test_weapon_and_spell_feel", "test_grab_crush_hurl", "test_chain_grab", "test_throwable_items", "test_body_split", "test_crowd_split", "test_strike_frames", "test_anim_library", "test_endless_waves", "test_kill_reported_once", "test_arena_menu", "test_arena_tactics", "test_grab_aim_and_slams", "test_training_ground", "test_arena_textures", "test_arena_look", "test_mythical_roster", "test_tutorial", "test_bestiary_saved", "test_hitstop_in_slow_motion", "test_test_arena_and_start_menu", "test_element_head", "test_pixelfx_effects", "test_hit_reactions", "test_aim_every_spell", "test_lance_flight_and_shoulder_camera",
 	]
 	if OS.get_environment("ONLY") != "":  # ONLY=test_mount,test_stealth runs just those
 		tests = tests.filter(func(name): return name in OS.get_environment("ONLY").split(","))
@@ -1238,16 +1238,6 @@ func test_bestiary_and_wings() -> void:
 	await _frames(2)
 	check(demon.model is BeastModel and demon.flying and demon.is_ranged(), "the minigun demon flies with Count Fuckula's horde")
 	check(demon.model.find_child("barrels", true, false) != null, "its minigun barrels are on its arm")
-	demon.target = p
-	var bullets: Array = []
-	var count := func(n): if n is Projectile: bullets.append(n)
-	get_tree().node_added.connect(count)
-	var to: Vector3 = p.global_position - demon.global_position
-	demon.rotation.y = atan2(-to.x, -to.z)
-	demon._strike(30.0, to, to.length())
-	await _frames(45)
-	get_tree().node_added.disconnect(count)
-	check(bullets.size() == Enemy.BURSTS["horde_minigun_demon"], "one attack is a burst of %d bullets (%d)" % [Enemy.BURSTS["horde_minigun_demon"], bullets.size()])
 	demon.queue_free()
 	input.hold({}, 1)
 
@@ -1923,11 +1913,10 @@ func test_combat_feel() -> void:
 			break
 		jumped = p._jump_now(hold, 0.016, true)
 	check(jumped and is_equal_approx(p._jump_power, t.jump_charge_max), "held for 2 s it jumps 130%% (%.2f)" % p._jump_power)
-	var foe: Enemy = _cluster(1, 20.0)[0]
+	var foe: Enemy = _cluster(1, 20.0, "barb_warlord")[0]
 	foe.global_position = p.global_position + p.facing * 20.0
 	await _frames(2)
-	# Bosses show a health bar when they fight you.
-	foe.mini_boss = true
+	# Bosses (sheet role Boss or Miniboss) show a health bar when they fight you.
 	foe.target = p
 	_arena.hud._boss_look = 0.0
 	await _frames(2)
@@ -2012,30 +2001,6 @@ func test_art_checklist() -> void:
 	app.free()
 
 
-func test_target_search() -> void:
-	var w: WaveDirector = _arena.waves
-	var at: Vector3 = _arena.player.global_position + Vector3(0, 0, 80)
-	var me := w.spawn("barb_raider", at)
-	var foes: Array = []
-	for i in 30:
-		foes.append(w.spawn("barb_raider", at, Enemy.Team.FRIENDLY))
-	var far := w.spawn("barb_raider", at + Vector3(45, 0, 0), Enemy.Team.FRIENDLY)
-	await _frames(2)
-	var nearest: Node3D = null
-	for f in foes:
-		if nearest == null or me.global_position.distance_to(f.global_position) < me.global_position.distance_to(nearest.global_position):
-			nearest = f
-	var any := func(u: Enemy, d: float) -> float: return d
-	check(w.director.best_near(me, Enemy.Team.FRIENDLY, 70.0, any) == nearest, "the target search finds the nearest foe among many")
-	check(w.director.best_near(me, Enemy.Team.HOSTILE, 70.0, any) == null, "and looks only at the side it asks for")
-	for f in foes:
-		f.queue_free()
-	await _frames(2)
-	check(w.director.best_near(me, Enemy.Team.FRIENDLY, 70.0, func(u: Enemy, d: float) -> float: return INF if u.is_dead() else d) == far, "with the near ones gone, it finds the one farther off")
-	for u in [me, far]:
-		u.queue_free()
-
-
 func test_practice_picks() -> void:
 	var gods: Array = ArenaMenu.elements()
 	check(gods.size() >= 4 and not gods.any(func(g): return g in GameData.SHELVED_GODS), "Practice offers every kept god (%s)" % ", ".join(gods))
@@ -2053,24 +2018,6 @@ func test_practice_picks() -> void:
 	Flow.practice_god = ""
 
 
-func test_stealth() -> void:
-	var p: Player = _arena.player
-	var e: Enemy = _arena.waves.spawn("barb_raider", p.global_position + Vector3(0, 0, -15))
-	e.aggro_radius = 22.0
-	e._aggroed = false
-	e.rotation.y = 0.0  # looks toward -Z, away from the player
-	check(e._pick_target() == p, "standing, a guard 15 m away notices you")
-	e._aggroed = false
-	p.is_crouching = true
-	check(e._pick_target() == null, "sneaking (crouched) behind a guard 15 m away, it doesn't notice you")
-	e.rotation.y = PI  # turns to face you
-	check(e._pick_target() == null and e._notice_distance() > 22.0 * 0.4, "sneaking in front of it, it would notice you closer (%.1f m)" % e._notice_distance())
-	p.global_position = e.global_position + Vector3(0, 0, 5)
-	check(e._pick_target() == p, "sneak right up to it and it notices you")
-	p.is_crouching = false
-	await _frames(1)
-
-
 func test_myths() -> void:
 	var myths := ["animal_unicorn", "animal_jackalope", "animal_pegasus", "animal_phoenix", "animal_mermaid", "animal_hippocampus", "beast_chimera", "beast_cerberus", "beast_basilisk",
 		"beast_feathered_serpent", "beast_leviathan", "monster_cyclops", "monster_frost_giant", "monster_gorgon", "monster_mummy", "monster_harpy"]
@@ -2084,10 +2031,9 @@ func test_myths() -> void:
 	# Harpies fly on two legs; a feathered serpent flies with no rig at all.
 	for id in ["monster_harpy", "beast_feathered_serpent", "animal_pegasus"]:
 		var e := Enemy.new()
-		e.setup(id, p, _arena.director, Enemy.Team.NEUTRAL)
-		e.post = p.global_position + Vector3(20, 0, 0)
+		e.setup(id, p, _arena.director)
 		_arena.add_child(e)
-		e.global_position = e.post
+		e.global_position = p.global_position + Vector3(60, 0, 0)  # beyond 25 m it stays up, not diving at you
 		await _frames(90)
 		check(e.flying and e.model != null and e.global_position.y > p.global_position.y + 5.0, "%s takes to the air" % id)
 		e.queue_free()
@@ -2208,11 +2154,11 @@ func test_controls_rebind() -> void:
 func test_audit_fixes() -> void:
 	var p: Player = _arena.player
 	var d: CrowdDirector = _arena.director
-	# Units freed alive (warriors heading home) leave the crowd, or the stride counts them forever.
+	# Units freed alive (debug next-wave) leave the crowd, or the stride counts them forever.
 	var gone: Array = []
 	for i in 150:
 		var e := Enemy.new()
-		e.setup("barb_raider", p, d, Enemy.Team.FRIENDLY)
+		e.setup("barb_raider", p, d)
 		_arena.add_child(e)
 		gone.append(e)
 	await _frames(1)
@@ -2221,23 +2167,6 @@ func test_audit_fixes() -> void:
 	await _frames(2)
 	d.separation(p)
 	check(d.enemies.size() < 100 and Enemy.crowd_stride == 1, "freed warriors leave the crowd (%d left, stride %d)" % [d.enemies.size(), Enemy.crowd_stride])
-	var foe: Enemy = _cluster(1)[0]
-	check(d.request_ally_token(foe, p), "an ally token is handed out")
-	d.release(foe)
-	check(d._ally_holders.is_empty(), "and forgotten once released, so the list doesn't grow all session")
-	# Units prefer foes straight ahead (battle lines clash), and never score under their distance.
-	var me: Enemy = _cluster(1, 20.0)[0]
-	me.rotation.y = 0.0  # facing -Z
-	var front := Node3D.new()
-	var back := Node3D.new()
-	_arena.add_child(front)
-	_arena.add_child(back)
-	front.global_position = me.global_position + Vector3(0, 0, -6)
-	back.global_position = me.global_position + Vector3(0, 0, 5)
-	check(me._target_score(front, 6.0) < me._target_score(back, 5.0) and me._target_score(back, 5.0) >= 5.0,
-		"a foe 6 m ahead beats one 5 m behind")
-	front.queue_free()
-	back.queue_free()
 	# Hit searches use the crowd grid: they find a unit spawned and moved this very frame.
 	var fresh: Enemy = _arena.waves.spawn("barb_raider")
 	fresh.global_position = p.global_position + Vector3(30, 0, 30)
@@ -2266,29 +2195,16 @@ func test_audit_fixes_2() -> void:
 	p._lunge_step(0.5, Vector3.ZERO)
 	check(p.collision_mask == 0b001, "a lunge step keeps the dodge's collision mask")
 	p.collision_mask = 0b101
-	# An enemy's arrow finds your warrior through the crowd grid.
-	var ally: Enemy = _arena.waves.spawn("barb_raider", Vector3.INF, Enemy.Team.FRIENDLY)
-	ally.global_position = p.global_position + Vector3(12, 0, 0)
-	ally.post = ally.global_position  # stands still, not following you
-	await _frames(2)
-	var hp := ally.health.hp
-	var shot := Projectile.fire(ally.global_position + Vector3(0, 1, -3), Vector3(0, 0, 1), 30.0, DamageInfo.make(5.0, "Physical", DamageInfo.Kind.ENEMY, null), Color.WHITE)
+	# An enemy's arrow hits you.
+	var godly: bool = p.god_mode
+	p.god_mode = false
+	var hp := p.health.hp
+	var shot := Projectile.fire(p.global_position + Vector3(0, 1, -3), Vector3(0, 0, 1), 30.0, DamageInfo.make(5.0, "Physical", DamageInfo.Kind.ENEMY, null), Color.WHITE)
 	shot.hostile = true
 	shot.player = p
 	await _frames(30)
-	check(ally.health.hp < hp, "an enemy arrow hits your warrior (%.0f -> %.0f)" % [hp, ally.health.hp])
-	# A wild unit notices a rival by its real distance: one 15 m behind it is inside a 22 m aggro radius.
-	var wolf: Enemy = _arena.waves.spawn("beast_dire_wolf")
-	var raider: Enemy = _arena.waves.spawn("barb_raider")
-	wolf.global_position = Vector3(20, wolf.global_position.y, -20)
-	raider.global_position = Vector3(20, wolf.global_position.y, -5)
-	wolf.rotation.y = 0.0  # facing -Z, away from the raider
-	wolf.faction = "beast_dire_wolf"
-	raider.faction = "barbarians"
-	wolf.aggro_radius = 22.0
-	p.global_position = Vector3(-20, p.global_position.y, 20)  # far off: the rival is the one to notice
-	await _frames(1)
-	check(wolf._pick_target() == raider, "a wild unit notices a rival 15 m behind it (aggro 22 m)")
+	check(p.health.hp < hp, "an enemy arrow hits you (%.0f -> %.0f)" % [hp, p.health.hp])
+	p.god_mode = godly
 	# Rigs that rest their shoulders differently get their own animation library (the cat's and the minotaur's).
 	var rigs: Array = []
 	for race in ["cat", "minotaur"]:

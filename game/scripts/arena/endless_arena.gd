@@ -157,7 +157,7 @@ func give_xp(_xp: float) -> void:
 
 
 func _on_killed(target: Node, info: DamageInfo) -> void:
-	if target.get("team") == Enemy.Team.HOSTILE:
+	if target is Enemy:
 		kills += 1
 	super(target, info)
 

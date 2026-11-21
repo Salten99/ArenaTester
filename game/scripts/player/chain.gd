@@ -74,7 +74,7 @@ func find_target(intent: PlayerIntent) -> Node3D:
 			if (w as Node3D).global_position.distance_to(player.global_position) <= t.chain_range:
 				pool.append(w)
 	for e in pool:
-		if not is_instance_valid(e) or e.is_dead() or (e is Enemy and (e.civilian or e.held_by != null)):
+		if not is_instance_valid(e) or e.is_dead() or (e is Enemy and e.held_by != null):
 			continue
 		# Anywhere on its body counts, feet to head, plus its width: a big one is a big target.
 		var feet: Vector3 = e.global_position

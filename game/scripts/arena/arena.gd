@@ -203,10 +203,8 @@ func _offer_next() -> void:
 
 ## XP for every enemy that falls in your fight, whoever landed the blow.
 func _on_killed(target: Node, info: DamageInfo) -> void:
-	if not Run.active or target.get("team") != Enemy.Team.HOSTILE:
+	if not Run.active or not target is Enemy:
 		return
-	if info != null and info.source is Enemy and (info.source as Enemy).team == Enemy.Team.HOSTILE:
-		return  # one wild side killing another: not your XP
 	Meta.discover(str(target.get("unit_id")))
 	give_xp(GameData.num(target.get("unit") if target.get("unit") != null else {}, "xp_reward", 2.0))
 

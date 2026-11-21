@@ -64,7 +64,7 @@ func death() -> void:
 
 
 func _on_killed(target: Node, _info: DamageInfo) -> void:
-	if target is Enemy and (target as Enemy).team == Enemy.Team.HOSTILE:
+	if target is Enemy:
 		kills += 1
 
 

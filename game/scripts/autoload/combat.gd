@@ -89,7 +89,7 @@ func area(center: Vector3, radius: float, template: DamageInfo, exclude: Array =
 func enemies_in_radius(center: Vector3, radius: float, exclude: Array = []) -> Array:
 	var out: Array = []
 	# The fight's crowd grid finds the nearby ones; without it (no arena), every enemy.
-	var pool: Array = crowd.near(center, radius + 0.4, Enemy.Team.HOSTILE) if is_instance_valid(crowd) else get_tree().get_nodes_in_group("enemies")
+	var pool: Array = crowd.near(center, radius + 0.4) if is_instance_valid(crowd) else get_tree().get_nodes_in_group("enemies")
 	for e in pool:
 		if not is_instance_valid(e) or not e.is_in_group("enemies") or e in exclude or e.is_dead():
 			continue

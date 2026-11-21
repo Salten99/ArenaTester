@@ -5,9 +5,6 @@ extends Node
 
 var enemies: Array = []
 var _holders: Array = []
-## Attackers per friendly warrior (the player's limit is max_attackers in the tuning).
-const ALLY_ATTACKERS := 2
-var _ally_holders := {}  # target instance id -> [attackers]
 ## Enemies that may attack you at once; 0 = the tuning's max_attackers (the endless arena sets it).
 var max_attackers := 0
 
@@ -21,13 +18,13 @@ func register(e: Node) -> void:
 	_grid_frame = -1  # a unit spawned this frame is found by this frame's searches too
 
 
-## Units of `team` whose cell lies within `radius` of `center` (a superset: callers check the
-## real distance). Combat's hit searches use it instead of walking every unit in the valley
+## Units whose cell lies within `radius` of `center` (a superset: callers check the
+## real distance). Combat's hit searches use it instead of walking every unit
 ## (measured 2026-11-16: 0.27 ms per search over 1100 units).
-func near(center: Vector3, radius: float, team: int) -> Array:
+func near(center: Vector3, radius: float) -> Array:
 	if _grid_frame != Engine.get_physics_frames():
 		_build_grid()
-	var cells: Dictionary = _far.get(team, {})
+	var cells: Dictionary = _far
 	var c := Vector2i(floori(center.x / FAR_CELL), floori(center.z / FAR_CELL))
 	var r := ceili((radius + 1.0) / FAR_CELL)  # +1 m: units moved since the grid was built
 	var out: Array = []
@@ -65,25 +62,8 @@ func request_token(e: Node) -> bool:
 	return true
 
 
-## A token to attack a friendly warrior: at most ALLY_ATTACKERS at once each.
-func request_ally_token(e: Node, target: Node) -> bool:
-	var key := target.get_instance_id()
-	var list: Array = _ally_holders.get(key, []).filter(func(h): return is_instance_valid(h) and not h.is_dead() and h.target == target)
-	_ally_holders[key] = list
-	if e in list:
-		return true
-	if list.size() < ALLY_ATTACKERS:
-		list.append(e)
-		return true
-	return false
-
-
 func release(e: Node) -> void:
 	_holders.erase(e)
-	for key in _ally_holders.keys():
-		_ally_holders[key].erase(e)
-		if _ally_holders[key].is_empty():
-			_ally_holders.erase(key)  # a warrior nobody attacks: forget it, or the list grows all session
 
 
 func attackers() -> int:
@@ -107,9 +87,9 @@ const MAX_TOUCHING := 6
 const FULL_RATE_UNITS := 100
 var _grid := {}  ## Vector2i -> [[unit, position, size_scale]]
 var _grid_frame := -1
-## Coarse cells for finding targets far away (best_near).
+## Coarse cells for hit searches (near).
 const FAR_CELL := 16.0
-var _far := {}  ## team -> {Vector2i -> [unit]}
+var _far := {}  ## Vector2i -> [unit]
 
 
 func separation(e: Node3D) -> Vector3:
@@ -135,38 +115,6 @@ func separation(e: Node3D) -> Vector3:
 					if touching >= MAX_TOUCHING:
 						return push  # only the ones pressed right against it (user, 2026-11-12)
 	return push
-
-
-## The unit of `team` within `radius` of `e` with the lowest score(unit, distance); INF skips a unit.
-## Searches outward ring by ring and stops once no nearer ring can win, so in a 500-unit
-## battle a unit looks at its neighbours, not at everyone (that cost 34 ms a re-pick).
-## score must be >= distance, or the early stop could miss the best unit.
-func best_near(e: Node3D, team: int, radius: float, score: Callable) -> Node3D:
-	if _grid_frame != Engine.get_physics_frames():
-		_build_grid()
-	var here: Vector3 = e.global_position
-	var c := Vector2i(floori(here.x / FAR_CELL), floori(here.z / FAR_CELL))
-	var cells: Dictionary = _far.get(team, {})
-	var best: Node3D = null
-	var best_s := INF
-	for ring in ceili(radius / FAR_CELL) + 1:
-		if (ring - 1) * FAR_CELL > minf(best_s, radius):
-			break  # every cell from here on is farther than the best so far
-		for dx in range(-ring, ring + 1):
-			for dz in range(-ring, ring + 1):
-				if maxi(absi(dx), absi(dz)) != ring:
-					continue  # inner rings were searched already
-				for u in cells.get(c + Vector2i(dx, dz), []):
-					if u == e or not is_instance_valid(u):
-						continue
-					var d: float = here.distance_to(u.global_position)
-					if d > radius:
-						continue
-					var s: float = score.call(u, d)
-					if s < best_s:
-						best_s = s
-						best = u
-	return best
 
 
 ## The crowd split (combat feel plan, user 2026-11-18; Council X Phase 2, the cheap half): in a
@@ -213,8 +161,6 @@ func _build_grid() -> void:
 			_grid[key] = []
 		_grid[key].append([u, p, u.size_scale])
 		var far := Vector2i(floori(p.x / FAR_CELL), floori(p.z / FAR_CELL))
-		if not _far.has(u.team):
-			_far[u.team] = {}
-		if not _far[u.team].has(far):
-			_far[u.team][far] = []
-		_far[u.team][far].append(u)
+		if not _far.has(far):
+			_far[far] = []
+		_far[far].append(u)
